@@ -1,0 +1,292 @@
+# 🚀 LUNA PROJECT - CURSOR RULES
+# PowerPoint Processing Platform with AI Capabilities
+
+## 🎯 PROJECT OVERVIEW
+You are working on Luna, a professional PowerPoint processing platform with AI capabilities. This project converts PPTX files to Universal JSON schema and provides advanced analysis through a React frontend and Node.js backend.
+
+## 📁 PROJECT STRUCTURE
+```
+aspose-slides-25.6-nodejs/
+├── client/                 # React Frontend (Vite + TypeScript)
+│   ├── src/
+│   │   ├── components/ui/  # shadcn/ui design system - DO NOT MODIFY
+│   │   ├── components/     # Feature components
+│   │   ├── hooks/          # React Query + API logic
+│   │   ├── pages/          # Route components
+│   │   ├── lib/            # Utilities
+│   │   └── types/          # TypeScript definitions
+├── server/                 # Node.js Backend (Express + TypeScript)
+│   ├── src/
+│   │   ├── adapters/       # External service integrations
+│   │   ├── services/       # Business logic
+│   │   ├── controllers/    # Request/response handling
+│   │   ├── routes/         # API route definitions
+│   │   └── middleware/     # Express middleware
+└── lib/                    # Aspose.Slides library
+```
+
+## 🎨 DESIGN SYSTEM RULES
+
+### VISUAL CONSISTENCY - MANDATORY
+- ALWAYS use shadcn/ui components from `@/components/ui/*`
+- ALWAYS use design system color tokens:
+  - `bg-background`, `text-foreground`, `border-border`
+  - `bg-muted`, `text-muted-foreground` 
+  - `bg-card`, `text-card-foreground`
+- NEVER use hardcoded colors like `text-gray-900`, `bg-blue-50`
+- NEVER use custom gradients like `bg-gradient-to-br from-blue-50`
+
+### LAYOUT HOMOGENEITY - MANDATORY LUNA DESIGN PATTERNS
+- **Page Structure**: ALWAYS use this exact structure for all pages:
+```tsx
+<div className="min-h-screen bg-background">
+  {/* Header - IDENTICAL pattern */}
+  <header className="bg-white border-b border-border sticky top-0 z-50">
+    <div className="px-4 py-4 md:px-6">
+      <div className="flex items-center justify-between">
+        {/* Header content */}
+      </div>
+    </div>
+  </header>
+  
+  {/* Main Content - Consistent spacing */}
+  <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+    {/* Page content */}
+  </main>
+</div>
+```
+
+- **Typography Scale**: ALWAYS use these exact sizes:
+  - Page titles: `text-xl md:text-2xl font-bold text-foreground`
+  - Section headers: `text-lg font-semibold`
+  - Card titles: `text-base font-medium`
+  - Body text: `text-sm text-muted-foreground`
+  - Captions: `text-xs text-muted-foreground`
+
+- **Spacing System**: ALWAYS use these measurements:
+  - Page padding: `px-4 py-4 md:px-6` (header), `px-4 py-8 sm:px-6 lg:px-8` (main)
+  - Component gaps: `space-x-2` (small), `space-x-4` (medium), `space-x-6` (large)
+  - Card padding: `p-4` (small), `p-6` (medium)
+  - Button sizes: `size="sm"` for secondary, `size="default"` for primary
+
+- **Container Width**: ALWAYS use `max-w-7xl mx-auto` for main content areas
+
+- **Color Consistency**: 
+  - Primary actions: `bg-primary hover:bg-primary/90`
+  - Secondary actions: `variant="outline"`
+  - Destructive actions: `variant="destructive"`
+  - Status indicators: Use Badge with design system variants
+
+### RESPONSIVE BEHAVIOR - MANDATORY
+- ALWAYS use these breakpoints: `sm:` (640px), `md:` (768px), `lg:` (1024px), `xl:` (1280px)
+- ALWAYS stack elements on mobile: `flex-col sm:flex-row`
+- ALWAYS use responsive text: `text-sm sm:text-base`
+- ALWAYS implement responsive spacing: `px-4 sm:px-6 lg:px-8`
+
+### LUNA-SPECIFIC UI PATTERNS
+- **Presentation Status**: Use Badge with these colors:
+  ```tsx
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case 'completed': return 'default';
+      case 'processing': return 'secondary';
+      case 'failed': return 'destructive';
+      default: return 'outline';
+    }
+  };
+  ```
+- **Loading States**: ALWAYS use Skeleton components matching content structure
+- **Empty States**: Center content with icon, title, description, and CTA button
+- **Action Buttons**: Primary action (filled), secondary (outline), icon-only (ghost)
+
+## 🏗️ ARCHITECTURE RULES
+
+### SCREAMING ARCHITECTURE - RESPONSIBILITIES
+- **Hooks (`hooks/`)**: ONLY state management and API calls
+- **Components (`components/`)**: ONLY UI rendering and event handling  
+- **Services (`services/`)**: ONLY business logic
+- **Adapters (`adapters/`)**: ONLY external service integration
+- **Pages (`pages/`)**: ONLY route components with minimal logic
+
+### COMPONENT STRUCTURE - MANDATORY
+```tsx
+export interface ComponentProps {
+  // Explicitly typed props
+}
+
+export function Component({ prop1, prop2 }: ComponentProps) {
+  // 1. Hooks (useState, useQuery, etc.)
+  // 2. Event handlers
+  // 3. Computed values
+  // 4. useEffect calls
+  // 5. Early returns (loading, error states)
+  // 6. Main render
+}
+```
+
+## 🔥 DATA RULES
+
+### FIREBASE/FIRESTORE MANDATORY
+- ALWAYS use real data from Firebase/Firestore
+- NEVER use mock data, hardcoded arrays, or static data
+- ALWAYS use React Query for server state management
+- ALWAYS use existing hooks: `use-api.ts`, `use-presentations.ts`
+
+### API LAYER CENTRALIZED
+- ALWAYS use `api.*` functions from `use-api.ts`
+- ALL responses MUST follow `ApiResponse<T>` interface
+- NEVER use direct fetch calls to endpoints
+- ALWAYS handle loading and error states
+
+## 🚀 USABILITY RULES
+
+### UX SIMPLIFIED
+- Maximum 3 clicks for any primary action
+- ALWAYS show loading states with Skeleton components
+- ALWAYS handle errors gracefully with toast notifications
+- ALWAYS provide immediate feedback for user actions
+
+### RESPONSIVE FIRST
+- ALWAYS design mobile-first
+- ALWAYS use `useIsMobile()` hook for conditional logic
+- ALWAYS create same-screen adaptable layouts
+
+## 📋 CODE QUALITY RULES
+
+### TYPESCRIPT STRICT
+- ALWAYS use explicit types for all props and functions
+- ALWAYS use interfaces from Universal JSON schema
+- NEVER use `any` or implicit types
+- ALWAYS define proper TypeScript interfaces
+
+### ERROR HANDLING MANDATORY
+```tsx
+// Frontend
+try {
+  const result = await api.someCall();
+  // Handle success
+} catch (error) {
+  console.error('Operation failed:', error);
+  toast({
+    title: "Error",
+    description: "Operation failed. Please try again.",
+    variant: "destructive",
+  });
+}
+
+// Backend
+app.get('/endpoint', handleAsyncErrors(async (req, res) => {
+  // Your logic here
+}));
+```
+
+### PERFORMANCE OPTIMIZATION
+- ALWAYS use `useMemo`, `useCallback` for expensive operations
+- ALWAYS implement lazy loading for heavy components
+- ALWAYS use pagination for large lists
+- NEVER load everything into memory at once
+
+## 🎯 IMPLEMENTATION GUIDELINES
+
+### WHEN CREATING NEW COMPONENTS
+1. Check if shadcn/ui component exists first
+2. Follow the mandatory component structure
+3. Add proper TypeScript interfaces
+4. Implement loading and error states
+5. Add responsive design
+6. Test with real Firebase data
+
+### WHEN MODIFYING EXISTING CODE
+1. Maintain existing design system patterns
+2. Don't break API response structures
+3. Keep same error handling patterns
+4. Preserve responsive behavior
+5. Update TypeScript types if needed
+
+### WHEN ADDING NEW FEATURES
+1. Follow screaming architecture principles
+2. Add proper validation schemas
+3. Implement comprehensive error handling
+4. Add loading states and user feedback
+5. Write TypeScript interfaces
+6. Use Firebase for data persistence
+
+## 🚦 IMMEDIATE PRIORITIES
+
+### KNOWN ISSUES TO FIX
+1. **`/presentations` page** uses inconsistent design system - needs homogenization
+2. Ensure all pages use real Firebase data (no mock data)
+3. Standardize error handling across all components
+
+### WHEN WORKING ON PRESENTATIONS PAGE
+- Remove all custom gradients and hardcoded colors
+- Use shadcn/ui components consistently
+- Apply same header pattern as home.tsx
+- Ensure all data comes from Firebase via existing hooks
+
+## 🔧 TECHNICAL CONSTRAINTS
+
+### BACKEND REQUIREMENTS
+- ALWAYS use TypeScript
+- ALWAYS use proper middleware for validation
+- ALWAYS log errors with `logger.error()`
+- ALWAYS return structured API responses
+
+### FRONTEND REQUIREMENTS  
+- ALWAYS use Vite + React + TypeScript
+- ALWAYS use Tailwind CSS with design system tokens
+- ALWAYS use React Query for server state
+- ALWAYS use shadcn/ui components
+
+## 📚 KEY FILES TO REFERENCE
+
+### Design System Reference
+- `client/src/pages/home.tsx` - CORRECT design system usage
+- `client/src/components/ui/*` - Available UI components
+
+### API Integration Reference  
+- `client/src/hooks/use-api.ts` - Centralized API layer
+- `client/src/hooks/use-presentations.ts` - Presentation data management
+
+### Backend Architecture Reference
+- `server/src/adapters/firebase.adapter.ts` - Firebase integration
+- `server/src/services/conversion.service.ts` - Business logic example
+
+## 🎨 QUICK REFERENCE
+
+### Correct Color Usage
+```tsx
+// ✅ CORRECT
+<div className="bg-background text-foreground border-border">
+<Card className="bg-card text-card-foreground">
+<p className="text-muted-foreground">
+
+// ❌ WRONG  
+<div className="bg-blue-50 text-gray-900 border-gray-200">
+<div className="bg-gradient-to-br from-blue-50 to-white">
+```
+
+### Correct Component Pattern
+```tsx
+// ✅ CORRECT
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+// ❌ WRONG
+import { SomeCustomButton } from "./custom-button";
+```
+
+### Correct API Usage
+```tsx
+// ✅ CORRECT
+import { api } from "@/hooks/use-api";
+const { data, isLoading, error } = useQuery({
+  queryKey: ['/api/v1/presentations'],
+  queryFn: () => api.presentations.list()
+});
+
+// ❌ WRONG
+const response = await fetch('/api/v1/presentations');
+```
+
+Remember: This is a professional application that should feel cohesive, performant, and user-friendly. Every component should look like it belongs to the same design system, and every interaction should feel smooth and predictable. 

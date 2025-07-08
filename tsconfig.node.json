@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "noEmit": true,
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "types": ["node"]
+  },
+  "include": [
+    "vite.config.*",
+    "vitest.config.*", 
+    "tailwind.config.*",
+    "postcss.config.*"
+  ]
+} 
