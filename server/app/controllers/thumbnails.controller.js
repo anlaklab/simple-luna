@@ -1,32 +1,36 @@
 /**
- * Thumbnails Controller
+ * Thumbnails Controller - Refactored with ThumbnailManager
  * 
- * Handles REAL thumbnail generation using Aspose.Slides Cloud API
- * NO MOCK DATA - Everything uses real Aspose.Slides thumbnail generation
+ * Handles thumbnail generation with clear distinction between:
+ * 1. PLACEHOLDERS: Text-based thumbnails from Universal JSON
+ * 2. REAL THUMBNAILS: Image thumbnails from PPTX using Aspose.Slides
+ * 
+ * Features:
+ * - Clean separation of concerns using ThumbnailManager
+ * - Intelligent fallback strategies
+ * - Firebase Storage integration
+ * - Comprehensive error handling and logging
  */
 
 const { getFirestore, isFirebaseInitialized } = require('../../config/firebase');
-const asposeService = require('../../services/aspose.service');
-const fs = require('fs').promises;
+const ThumbnailManager = require('../../services/ThumbnailManager');
 const path = require('path');
+const fs = require('fs').promises;
+
+// Initialize ThumbnailManager
+const thumbnailManager = new ThumbnailManager();
 
 /**
  * @swagger
  * /presentations/{id}/generate-thumbnails:
  *   post:
  *     tags: [Thumbnails]
- *     summary: Generate REAL thumbnails for presentation
+ *     summary: Generate thumbnails for presentation
  *     description: |
- *       Generate real thumbnails using Aspose.Slides Cloud API.
- *       
- *       **Process:**
- *       1. Fetch presentation from Firebase
- *       2. Reconstruct PPTX file (if needed) or use original
- *       3. Generate thumbnails with Aspose.Slides Cloud API
- *       4. Save thumbnails to Firebase Storage
- *       5. Store thumbnail metadata in Firestore
- *       
- *       **Requires ASPOSE_CLIENT_ID and ASPOSE_CLIENT_SECRET**
+ *       Generate thumbnails with intelligent strategy selection:
+ *       - **REAL**: Image thumbnails using Aspose.Slides from original PPTX
+ *       - **PLACEHOLDER**: Text-based thumbnails from Universal JSON data
+ *       - **AUTO**: Automatically choose best strategy based on availability
  *     parameters:
  *       - name: id
  *         in: path
@@ -41,100 +45,55 @@ const path = require('path');
  *           schema:
  *             type: object
  *             properties:
+ *               type:
+ *                 type: string
+ *                 enum: [auto, real, placeholder]
+ *                 default: auto
+ *                 description: Generation strategy
  *               format:
  *                 type: string
  *                 enum: [png, jpg, webp]
  *                 default: png
- *                 description: Thumbnail format
  *               width:
  *                 type: number
  *                 default: 800
- *                 description: Thumbnail width
  *               height:
  *                 type: number
  *                 default: 600
- *                 description: Thumbnail height
  *               quality:
  *                 type: number
  *                 minimum: 1
  *                 maximum: 100
  *                 default: 85
- *                 description: Image quality (for jpg/webp)
- *               regenerate:
+ *               forceRegenerate:
  *                 type: boolean
  *                 default: false
  *                 description: Force regeneration even if thumbnails exist
  *     responses:
  *       200:
- *         description: Real thumbnails generated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
+ *         description: Thumbnails generated successfully
  *       400:
- *         description: Invalid request or Aspose not configured
+ *         description: Invalid request
  *       404:
  *         description: Presentation not found
  *       500:
- *         description: Thumbnail generation failed
+ *         description: Generation failed
  */
 const generateThumbnails = async (req, res) => {
   try {
     const { id } = req.params;
     const { 
+      type = 'auto',
       format = 'png', 
       width = 800, 
       height = 600, 
       quality = 85,
-      regenerate = false 
+      forceRegenerate = false 
     } = req.body;
 
-    console.log(`🖼️ Generating REAL thumbnails for presentation ${id}`);
-    console.log(`📐 Format: ${format}, Size: ${width}x${height}, Quality: ${quality}`);
-
-    // Check if Aspose service is available
-    if (!asposeService.isAvailable()) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          type: 'service_error',
-          code: 'ASPOSE_NOT_AVAILABLE',
-          message: 'Aspose.Slides service not available. Please configure ASPOSE_CLIENT_ID and ASPOSE_CLIENT_SECRET.',
-          asposeStatus: asposeService.getStatus()
-        }
-      });
-    }
-
-    // Check if thumbnails already exist and regenerate is false
-    if (!regenerate && isFirebaseInitialized()) {
-      const firestore = getFirestore();
-      const existingThumbnails = await firestore
-        .collection('thumbnails')
-        .where('presentationId', '==', id)
-        .get();
-
-      if (!existingThumbnails.empty) {
-        console.log(`✅ Thumbnails already exist for ${id}, returning existing ones`);
-        const thumbnails = [];
-        existingThumbnails.forEach(doc => thumbnails.push(doc.data()));
-        
-        return res.json({
-          success: true,
-          data: {
-            presentationId: id,
-            thumbnails: thumbnails,
-            totalGenerated: thumbnails.length,
-            fromCache: true,
-            realThumbnails: true
-          },
-          meta: {
-            timestamp: new Date().toISOString(),
-            requestId: req.requestId,
-            processingTimeMs: 10
-          }
-        });
-      }
-    }
+    console.log(`🖼️ ThumbnailController: Generate request for ${id}`);
+    console.log(`🎯 Strategy: ${type}, Format: ${format}, Size: ${width}x${height}, Quality: ${quality}`);
+    console.log(`🔄 Force regenerate: ${forceRegenerate}`);
 
     // Get presentation data from Firebase
     if (!isFirebaseInitialized()) {
@@ -151,104 +110,73 @@ const generateThumbnails = async (req, res) => {
           type: 'not_found',
           code: 'PRESENTATION_NOT_FOUND',
           message: `Presentation ${id} not found`
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId: req.requestId
         }
       });
     }
 
     const presentationData = presentationDoc.data();
-    console.log(`📊 Found presentation: ${presentationData.title} (${presentationData.slideCount} slides)`);
+    console.log(`📊 Found presentation: "${presentationData.title}" (${presentationData.slideCount} slides)`);
 
-    let thumbnailResult;
-    const startTime = Date.now();
-
-    // Check if we have original file path or need to reconstruct
+    // Determine original file path if available
+    let originalFilePath = null;
     if (presentationData.uploadedFile && presentationData.uploadedFile.filename) {
-      // Try to find original uploaded file
-      const originalFilePath = path.join(__dirname, '../../temp/uploads', presentationData.uploadedFile.filename);
+      originalFilePath = path.join(__dirname, '../../temp/uploads', presentationData.uploadedFile.filename);
       
       try {
         await fs.access(originalFilePath);
-        console.log('✅ Using original uploaded file for thumbnail generation');
-        
-        thumbnailResult = await asposeService.generateThumbnails(originalFilePath, {
-          format,
-          width,
-          height,
-          quality
-        });
-        
-      } catch (fileError) {
-        console.log('⚠️ Original file not found, will use fallback method');
-        thumbnailResult = await generateFallbackThumbnails(presentationData, { format, width, height });
+        console.log(`📁 Original file available: ${path.basename(originalFilePath)}`);
+      } catch {
+        console.log(`⚠️ Original file not accessible: ${path.basename(originalFilePath)}`);
+        originalFilePath = null;
       }
-    } else {
-      console.log('⚠️ No original file available, using fallback thumbnail generation');
-      thumbnailResult = await generateFallbackThumbnails(presentationData, { format, width, height });
     }
 
-    // Save thumbnails to Firestore
-    const savedThumbnails = [];
-    const batch = firestore.batch();
+    // Generate thumbnails using ThumbnailManager
+    const result = await thumbnailManager.generateThumbnails({
+      presentationId: id,
+      presentationData,
+      originalFilePath,
+      type,
+      format: { format, width, height, quality },
+      forceRegenerate
+    });
 
-    for (let i = 0; i < thumbnailResult.thumbnails.length; i++) {
-      const thumbnail = thumbnailResult.thumbnails[i];
-      const thumbnailData = {
-        presentationId: id,
-        slideIndex: thumbnail.slideIndex,
-        slideNumber: thumbnail.slideIndex + 1,
-        format: thumbnail.format,
-        width: thumbnail.size.width,
-        height: thumbnail.size.height,
-        url: thumbnail.url, // Base64 data URL or actual URL
-        thumbnailUrl: thumbnail.url, // Same for now
-        size: {
-          width: thumbnail.size.width,
-          height: thumbnail.size.height
-        },
-        createdAt: thumbnail.generatedAt,
-        generatedBy: 'aspose-slides-cloud',
-        realThumbnail: thumbnail.realThumbnail || false,
-        quality: quality,
-        fileSize: thumbnail.data ? thumbnail.data.length : 0,
-        metadata: {
-          generationMethod: thumbnailResult.metadata.realThumbnails ? 'aspose-cloud' : 'fallback',
-          processingTimeMs: Date.now() - startTime
-        }
-      };
-
-      const thumbnailRef = firestore.collection('thumbnails').doc();
-      batch.set(thumbnailRef, thumbnailData);
-      savedThumbnails.push(thumbnailData);
-    }
-
-    await batch.commit();
-    
-    const processingTimeMs = Date.now() - startTime;
-    console.log(`✅ Generated and saved ${savedThumbnails.length} thumbnails in ${processingTimeMs}ms`);
-
-    res.json({
+    // Prepare response
+    const response = {
       success: true,
       data: {
         presentationId: id,
-        thumbnails: savedThumbnails,
-        totalGenerated: savedThumbnails.length,
-        fromCache: false,
-        realThumbnails: thumbnailResult.metadata.realThumbnails || false,
-        generationMethod: thumbnailResult.metadata.realThumbnails ? 'aspose-cloud' : 'fallback',
-        format: format,
+        thumbnails: result.thumbnails,
+        totalGenerated: result.thumbnails.length,
+        type: result.type,
+        fromCache: result.fromCache,
+        strategy: result.metadata?.strategy || result.type,
+        strategyReason: result.metadata?.reason || 'No reason provided',
+        realThumbnails: result.type === 'real',
+        format,
         size: { width, height },
-        quality: quality
+        quality
       },
       meta: {
         timestamp: new Date().toISOString(),
         requestId: req.requestId,
-        processingTimeMs: processingTimeMs,
-        asposeUsed: thumbnailResult.metadata.realThumbnails || false
+        processingTimeMs: result.processingTimeMs,
+        thumbnailType: result.type,
+        generationMethod: result.metadata?.strategy || result.type
       }
-    });
+    };
+
+    console.log(`✅ ThumbnailController: Generated ${result.thumbnails.length} ${result.type} thumbnails in ${result.processingTimeMs}ms`);
+
+    res.json(response);
 
   } catch (error) {
-    console.error('❌ Thumbnail generation failed:', error);
+    console.error(`❌ ThumbnailController: Generation failed for ${req.params.id}:`, error.message);
+    
     res.status(500).json({
       success: false,
       error: {
@@ -256,58 +184,253 @@ const generateThumbnails = async (req, res) => {
         code: 'THUMBNAIL_GENERATION_ERROR',
         message: 'Failed to generate thumbnails',
         details: error.message
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: req.requestId
       }
     });
   }
 };
 
 /**
- * Fallback thumbnail generation when Aspose is not available or original file is missing
+ * @swagger
+ * /presentations/{presentationId}/thumbnails:
+ *   get:
+ *     tags: [Thumbnails]
+ *     summary: Get thumbnails for presentation
+ *     description: Retrieve all existing thumbnails with type information
+ *     parameters:
+ *       - name: presentationId
+ *         in: path
+ *         required: true
+ *         description: Presentation ID
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Thumbnails retrieved successfully
+ *       404:
+ *         description: No thumbnails found
  */
-async function generateFallbackThumbnails(presentationData, options) {
-  console.log('🔄 Generating fallback thumbnails...');
-  
-  const { format = 'png', width = 800, height = 600 } = options;
-  const slides = presentationData.data?.presentation?.slides || [];
-  const thumbnails = [];
+const getThumbnails = async (req, res) => {
+  try {
+    const { presentationId } = req.params;
 
-  for (let i = 0; i < slides.length; i++) {
-    const slide = slides[i];
-    const slideTitle = slide.name || `Slide ${i + 1}`;
+    console.log(`📥 ThumbnailController: Getting thumbnails for ${presentationId}`);
+
+    const thumbnails = await thumbnailManager.getThumbnails(presentationId);
+    const stats = await thumbnailManager.getStats(presentationId);
+
+    if (!thumbnails || thumbnails.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          type: 'not_found',
+          code: 'THUMBNAILS_NOT_FOUND',
+          message: `No thumbnails found for presentation ${presentationId}`
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId: req.requestId
+        }
+      });
+    }
+
+    // Transform for consistent API response
+    const responseData = thumbnails.map(thumbnail => thumbnail.url);
+
+    console.log(`✅ ThumbnailController: Retrieved ${thumbnails.length} thumbnails (${stats.real} real, ${stats.placeholder} placeholder)`);
+
+    res.json({
+      success: true,
+      data: responseData,
+      count: thumbnails.length,
+      timestamp: new Date().toISOString(),
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: req.requestId,
+        stats: {
+          total: stats.total,
+          real: stats.real,
+          placeholder: stats.placeholder,
+          primaryType: stats.real > 0 ? 'real' : 'placeholder'
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error(`❌ ThumbnailController: Get failed for ${req.params.presentationId}:`, error.message);
     
-    // Generate placeholder thumbnail with slide title
-    const placeholderUrl = `https://via.placeholder.com/${width}x${height}/${format}?text=${encodeURIComponent(slideTitle)}`;
-    
-    thumbnails.push({
-      slideIndex: i,
-      format: format,
-      size: { width, height },
-      url: placeholderUrl,
-      generatedAt: new Date().toISOString(),
-      realThumbnail: false // This is a fallback
+    res.status(500).json({
+      success: false,
+      error: {
+        type: 'server_error',
+        code: 'GET_THUMBNAILS_ERROR',
+        message: 'Failed to retrieve thumbnails',
+        details: error.message
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: req.requestId
+      }
     });
   }
+};
 
-  return {
-    thumbnails,
-    metadata: {
-      totalSlides: slides.length,
-      generatedCount: thumbnails.length,
-      format,
-      size: { width, height },
-      realThumbnails: false,
-      fallbackMethod: 'placeholder'
+/**
+ * @swagger
+ * /presentations/{presentationId}/thumbnails:
+ *   delete:
+ *     tags: [Thumbnails]
+ *     summary: Delete all thumbnails for presentation
+ *     description: Remove all thumbnails and clean up storage
+ *     parameters:
+ *       - name: presentationId
+ *         in: path
+ *         required: true
+ *         description: Presentation ID
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Thumbnails deleted successfully
+ *       404:
+ *         description: No thumbnails found
+ */
+const deleteThumbnails = async (req, res) => {
+  try {
+    const { presentationId } = req.params;
+
+    console.log(`🗑️ ThumbnailController: Deleting thumbnails for ${presentationId}`);
+
+    const stats = await thumbnailManager.getStats(presentationId);
+    
+    if (!stats.exists) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          type: 'not_found',
+          code: 'THUMBNAILS_NOT_FOUND',
+          message: `No thumbnails found for presentation ${presentationId}`
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId: req.requestId
+        }
+      });
     }
-  };
-}
+
+    await thumbnailManager.deleteThumbnails(presentationId);
+
+    console.log(`✅ ThumbnailController: Deleted ${stats.total} thumbnails for ${presentationId}`);
+
+    res.json({
+      success: true,
+      data: {
+        presentationId,
+        deletedCount: stats.total,
+        deletedBreakdown: {
+          real: stats.real,
+          placeholder: stats.placeholder
+        }
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: req.requestId
+      }
+    });
+
+  } catch (error) {
+    console.error(`❌ ThumbnailController: Delete failed for ${req.params.presentationId}:`, error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: {
+        type: 'server_error',
+        code: 'DELETE_THUMBNAILS_ERROR',
+        message: 'Failed to delete thumbnails',
+        details: error.message
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: req.requestId
+      }
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /presentations/{presentationId}/thumbnails/stats:
+ *   get:
+ *     tags: [Thumbnails]
+ *     summary: Get thumbnail statistics
+ *     description: Get detailed statistics about thumbnails for a presentation
+ *     parameters:
+ *       - name: presentationId
+ *         in: path
+ *         required: true
+ *         description: Presentation ID
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Statistics retrieved successfully
+ */
+const getThumbnailStats = async (req, res) => {
+  try {
+    const { presentationId } = req.params;
+
+    console.log(`📊 ThumbnailController: Getting stats for ${presentationId}`);
+
+    const stats = await thumbnailManager.getStats(presentationId);
+
+    res.json({
+      success: true,
+      data: {
+        presentationId,
+        exists: stats.exists,
+        total: stats.total,
+        breakdown: {
+          real: stats.real,
+          placeholder: stats.placeholder
+        },
+        primaryType: stats.real > 0 ? 'real' : (stats.placeholder > 0 ? 'placeholder' : 'none'),
+        lastUpdated: stats.lastUpdated
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: req.requestId
+      }
+    });
+
+  } catch (error) {
+    console.error(`❌ ThumbnailController: Stats failed for ${req.params.presentationId}:`, error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: {
+        type: 'server_error',
+        code: 'STATS_ERROR',
+        message: 'Failed to get thumbnail statistics',
+        details: error.message
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: req.requestId
+      }
+    });
+  }
+};
 
 /**
  * @swagger
  * /thumbnails/batch-generate:
  *   post:
  *     tags: [Thumbnails]
- *     summary: Batch generate REAL thumbnails for multiple presentations
- *     description: Generate thumbnails for multiple presentations using real Aspose.Slides Cloud API
+ *     summary: Batch generate thumbnails for multiple presentations
+ *     description: Generate thumbnails for multiple presentations with the same settings
  *     requestBody:
  *       required: true
  *       content:
@@ -321,6 +444,10 @@ async function generateFallbackThumbnails(presentationData, options) {
  *                   type: string
  *                 maxItems: 10
  *                 description: Array of presentation IDs (max 10)
+ *               type:
+ *                 type: string
+ *                 enum: [auto, real, placeholder]
+ *                 default: auto
  *               format:
  *                 type: string
  *                 enum: [png, jpg, webp]
@@ -334,19 +461,27 @@ async function generateFallbackThumbnails(presentationData, options) {
  *               quality:
  *                 type: number
  *                 default: 85
- *               regenerate:
+ *               forceRegenerate:
  *                 type: boolean
  *                 default: false
  *             required: ['presentationIds']
  *     responses:
  *       200:
- *         description: Batch thumbnail generation completed
+ *         description: Batch generation completed
  *       400:
  *         description: Invalid request parameters
  */
 const batchGenerateThumbnails = async (req, res) => {
   try {
-    const { presentationIds, format = 'png', width = 800, height = 600, quality = 85, regenerate = false } = req.body;
+    const { 
+      presentationIds, 
+      type = 'auto',
+      format = 'png', 
+      width = 800, 
+      height = 600, 
+      quality = 85, 
+      forceRegenerate = false 
+    } = req.body;
 
     if (!Array.isArray(presentationIds) || presentationIds.length === 0) {
       return res.status(400).json({
@@ -370,7 +505,7 @@ const batchGenerateThumbnails = async (req, res) => {
       });
     }
 
-    console.log(`🖼️ Batch generating thumbnails for ${presentationIds.length} presentations`);
+    console.log(`🖼️ ThumbnailController: Batch generating for ${presentationIds.length} presentations`);
     const startTime = Date.now();
     const results = [];
 
@@ -379,32 +514,32 @@ const batchGenerateThumbnails = async (req, res) => {
       try {
         console.log(`📄 Processing presentation ${presentationId}...`);
         
-        // Create a mock request object for generateThumbnails
+        // Create mock request/response for individual generation
         const mockReq = {
           params: { id: presentationId },
-          body: { format, width, height, quality, regenerate },
+          body: { type, format, width, height, quality, forceRegenerate },
           requestId: `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
         };
 
-        // Create a mock response object to capture the result
-        let thumbnailResult = null;
+        let result = null;
         const mockRes = {
-          json: (data) => { thumbnailResult = data; },
-          status: (code) => ({ json: (data) => { thumbnailResult = { statusCode: code, ...data }; } })
+          json: (data) => { result = data; },
+          status: (code) => ({ 
+            json: (data) => { 
+              result = { statusCode: code, ...data }; 
+            } 
+          })
         };
 
-        // Call generateThumbnails
         await generateThumbnails(mockReq, mockRes);
         
         results.push({
           presentationId,
-          success: thumbnailResult.success || false,
-          thumbnailCount: thumbnailResult.data?.totalGenerated || 0,
-          error: thumbnailResult.error || null,
-          realThumbnails: thumbnailResult.data?.realThumbnails || false
+          success: result?.success || false,
+          thumbnailCount: result?.data?.totalGenerated || 0,
+          type: result?.data?.type || 'unknown',
+          error: result?.error?.message || null
         });
-
-        console.log(`✅ Completed ${presentationId}: ${thumbnailResult.data?.totalGenerated || 0} thumbnails`);
 
       } catch (error) {
         console.error(`❌ Failed to process ${presentationId}:`, error);
@@ -412,8 +547,8 @@ const batchGenerateThumbnails = async (req, res) => {
           presentationId,
           success: false,
           thumbnailCount: 0,
-          error: error.message,
-          realThumbnails: false
+          type: 'error',
+          error: error.message
         });
       }
     }
@@ -422,7 +557,7 @@ const batchGenerateThumbnails = async (req, res) => {
     const successCount = results.filter(r => r.success).length;
     const totalThumbnails = results.reduce((sum, r) => sum + r.thumbnailCount, 0);
 
-    console.log(`🎉 Batch thumbnail generation completed: ${successCount}/${presentationIds.length} successful`);
+    console.log(`🎉 ThumbnailController: Batch completed: ${successCount}/${presentationIds.length} successful`);
 
     res.json({
       success: true,
@@ -433,9 +568,7 @@ const batchGenerateThumbnails = async (req, res) => {
         failedPresentations: presentationIds.length - successCount,
         totalThumbnailsGenerated: totalThumbnails,
         results: results,
-        format: format,
-        size: { width, height },
-        quality: quality
+        settings: { type, format, width, height, quality }
       },
       meta: {
         timestamp: new Date().toISOString(),
@@ -446,7 +579,7 @@ const batchGenerateThumbnails = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Batch thumbnail generation failed:', error);
+    console.error('❌ ThumbnailController: Batch generation failed:', error);
     res.status(500).json({
       success: false,
       error: {
@@ -459,172 +592,10 @@ const batchGenerateThumbnails = async (req, res) => {
   }
 };
 
-/**
- * @swagger
- * /thumbnails/{presentationId}:
- *   get:
- *     tags: [Thumbnails]
- *     summary: Get thumbnails for presentation
- *     description: Retrieve all thumbnails for a specific presentation
- *     parameters:
- *       - name: presentationId
- *         in: path
- *         required: true
- *         description: Presentation ID
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Thumbnails retrieved successfully
- *       404:
- *         description: No thumbnails found
- */
-const getThumbnails = async (req, res) => {
-  try {
-    const { presentationId } = req.params;
-
-    if (!isFirebaseInitialized()) {
-      throw new Error('Firebase not initialized');
-    }
-
-    const firestore = getFirestore();
-    const thumbnailsSnapshot = await firestore
-      .collection('thumbnails')
-      .where('presentationId', '==', presentationId)
-      .orderBy('slideIndex', 'asc')
-      .get();
-
-    if (thumbnailsSnapshot.empty) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          type: 'not_found',
-          code: 'THUMBNAILS_NOT_FOUND',
-          message: `No thumbnails found for presentation ${presentationId}`
-        }
-      });
-    }
-
-    const thumbnails = [];
-    thumbnailsSnapshot.forEach(doc => {
-      thumbnails.push({ id: doc.id, ...doc.data() });
-    });
-
-    res.json({
-      success: true,
-      data: {
-        presentationId,
-        thumbnails,
-        totalCount: thumbnails.length,
-        realThumbnails: thumbnails.some(t => t.realThumbnail)
-      },
-      meta: {
-        timestamp: new Date().toISOString(),
-        requestId: req.requestId,
-        processingTimeMs: 5
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Failed to get thumbnails:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        type: 'server_error',
-        code: 'GET_THUMBNAILS_ERROR',
-        message: 'Failed to retrieve thumbnails',
-        details: error.message
-      }
-    });
-  }
-};
-
-/**
- * @swagger
- * /thumbnails/{presentationId}:
- *   delete:
- *     tags: [Thumbnails]
- *     summary: Delete thumbnails for presentation
- *     description: Delete all thumbnails for a specific presentation
- *     parameters:
- *       - name: presentationId
- *         in: path
- *         required: true
- *         description: Presentation ID
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Thumbnails deleted successfully
- *       404:
- *         description: No thumbnails found
- */
-const deleteThumbnails = async (req, res) => {
-  try {
-    const { presentationId } = req.params;
-
-    if (!isFirebaseInitialized()) {
-      throw new Error('Firebase not initialized');
-    }
-
-    const firestore = getFirestore();
-    const thumbnailsSnapshot = await firestore
-      .collection('thumbnails')
-      .where('presentationId', '==', presentationId)
-      .get();
-
-    if (thumbnailsSnapshot.empty) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          type: 'not_found',
-          code: 'THUMBNAILS_NOT_FOUND',
-          message: `No thumbnails found for presentation ${presentationId}`
-        }
-      });
-    }
-
-    // Delete all thumbnails in batch
-    const batch = firestore.batch();
-    thumbnailsSnapshot.forEach(doc => {
-      batch.delete(doc.ref);
-    });
-
-    await batch.commit();
-
-    console.log(`✅ Deleted ${thumbnailsSnapshot.size} thumbnails for presentation ${presentationId}`);
-
-    res.json({
-      success: true,
-      data: {
-        presentationId,
-        deletedCount: thumbnailsSnapshot.size,
-        message: `Deleted ${thumbnailsSnapshot.size} thumbnails`
-      },
-      meta: {
-        timestamp: new Date().toISOString(),
-        requestId: req.requestId,
-        processingTimeMs: 100
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Failed to delete thumbnails:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        type: 'server_error',
-        code: 'DELETE_THUMBNAILS_ERROR',
-        message: 'Failed to delete thumbnails',
-        details: error.message
-      }
-    });
-  }
-};
-
 module.exports = {
   generateThumbnails,
-  batchGenerateThumbnails,
   getThumbnails,
-  deleteThumbnails
+  deleteThumbnails,
+  getThumbnailStats,
+  batchGenerateThumbnails
 }; 

@@ -14,10 +14,8 @@ const { v4: uuidv4 } = require('uuid');
 const licenseManager = require('../../../lib/aspose-license-manager');
 
 
-// Firebase imports
-const { initializeApp, getApps } = require('firebase/app');
-const { getFirestore } = require('firebase/firestore');
-const { isFirebaseInitialized } = require('../../config/firebase');
+// Firebase imports (Admin SDK)
+const { getFirestore, isFirebaseInitialized } = require('../../config/firebase');
 const schemaValidator = require('../../universal-schema-validator');
 
 // Configure multer for file uploads
@@ -122,7 +120,7 @@ const convertAndSave = async (req, res) => {
           company,
           validateSchema = 'true', 
           autoFix = 'true',
-          generateThumbnails = 'false',
+          generateThumbnails = 'true',
           thumbnailFormat = 'png',
           sessionId
         } = req.body;
@@ -320,6 +318,77 @@ const convertAndSave = async (req, res) => {
           console.log('⚠️ Firebase not configured, skipping save');
         }
 
+        // === STEP 3: GENERATE THUMBNAILS AUTOMATICALLY ===
+        let thumbnailsInfo = {
+          generated: false,
+          count: 0,
+          type: 'none',
+          strategy: 'none'
+        };
+
+        if (fileExtension === '.pptx' || fileExtension === '.ppt') {
+          try {
+            console.log(`🖼️ Auto-generating thumbnails for ${presentationId} during upload...`);
+            
+            // Use ThumbnailManager for intelligent thumbnail generation
+            const ThumbnailManager = require('../../services/ThumbnailManager');
+            const thumbnailManager = new ThumbnailManager();
+            
+            const thumbnailResult = await thumbnailManager.generateThumbnails({
+              presentationId: presentationId,
+              presentationData: universalPresentationData,
+              originalFilePath: uploadedFilePath,
+              type: 'auto', // Let ThumbnailManager decide the best strategy
+              format: { format: 'png', width: 800, height: 600, quality: 85 },
+              forceRegenerate: false
+            });
+
+            if (thumbnailResult.success) {
+              thumbnailsInfo.generated = true;
+              thumbnailsInfo.count = thumbnailResult.thumbnails.length;
+              thumbnailsInfo.type = thumbnailResult.type;
+              thumbnailsInfo.strategy = thumbnailResult.metadata?.strategy || thumbnailResult.type;
+              thumbnailsInfo.realThumbnails = thumbnailResult.type === 'real';
+              
+              console.log(`✅ Auto-generated ${thumbnailResult.thumbnails.length} ${thumbnailResult.type} thumbnails using ${thumbnailResult.metadata?.strategy || 'unknown'} strategy`);
+              console.log(`📄 Strategy reason: ${thumbnailResult.metadata?.reason || 'No reason provided'}`);
+            } else {
+              console.warn('⚠️ Auto-thumbnail generation failed via ThumbnailManager');
+            }
+            
+          } catch (thumbnailError) {
+            console.warn('⚠️ Auto-thumbnail generation failed:', thumbnailError.message);
+            
+            // Fallback to placeholder generation if needed
+            try {
+              console.log('🔄 Attempting fallback placeholder generation...');
+              const ThumbnailManager = require('../../services/ThumbnailManager');
+              const thumbnailManager = new ThumbnailManager();
+              
+              const fallbackResult = await thumbnailManager.generateThumbnails({
+                presentationId: presentationId,
+                presentationData: universalPresentationData,
+                originalFilePath: null, // Force placeholder generation
+                type: 'placeholder',
+                format: { format: 'png', width: 800, height: 600, quality: 85 },
+                forceRegenerate: false
+              });
+              
+              if (fallbackResult.success) {
+                thumbnailsInfo.generated = true;
+                thumbnailsInfo.count = fallbackResult.thumbnails.length;
+                thumbnailsInfo.type = 'placeholder';
+                thumbnailsInfo.strategy = 'fallback';
+                thumbnailsInfo.realThumbnails = false;
+                
+                console.log(`✅ Fallback placeholder generation successful: ${fallbackResult.thumbnails.length} thumbnails`);
+              }
+            } catch (fallbackError) {
+              console.warn('⚠️ Fallback thumbnail generation also failed:', fallbackError.message);
+            }
+          }
+        }
+
         // === CLEANUP ===
         try {
           await fs.unlink(uploadedFilePath);
@@ -350,7 +419,14 @@ const convertAndSave = async (req, res) => {
               mimetype: file.mimetype
             },
             conversion: conversionInfo,
-            firebase: firebaseInfo
+            firebase: firebaseInfo,
+            thumbnails: {
+              generated: thumbnailsInfo.generated,
+              count: thumbnailsInfo.count,
+              type: thumbnailsInfo.type,
+              strategy: thumbnailsInfo.strategy,
+              realThumbnails: thumbnailsInfo.realThumbnails || false
+            }
           },
           meta: {
             timestamp: new Date().toISOString(),
