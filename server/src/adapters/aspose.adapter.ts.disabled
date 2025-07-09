@@ -10,8 +10,8 @@ import * as fs from 'fs/promises';
 import { logger } from '../utils/logger';
 import { UniversalPresentation } from '../schemas/universal-presentation.schema';
 
-// Import Aspose.Slides library
-const aspose = require('../../../lib/aspose.slides.js');
+// GLOBAL LICENSE MANAGER - Use this everywhere for consistent licensing
+const licenseManager = require('../../../lib/aspose-license-manager');
 
 export interface AsposeConfig {
   licenseFilePath?: string;
@@ -221,7 +221,7 @@ export class AsposeAdapter {
       logger.info('Loading presentation with Aspose.Slides', { filePath });
 
       // Load presentation using Aspose.Slides
-      const Presentation = aspose.Presentation;
+      const Presentation = require('../../../lib/aspose.slides.js');
       const presentation = new Presentation(filePath);
 
       try {
@@ -619,7 +619,7 @@ export class AsposeAdapter {
   async healthCheck(): Promise<boolean> {
     try {
       // Check if Aspose library is available
-      const isAvailable = !!aspose;
+      const isAvailable = !!require('../../../lib/aspose.slides.js');
       
       // Check license status
       const hasLicense = this.licenseSet;
@@ -753,7 +753,7 @@ export class AsposeAdapter {
    */
   private async processShape(shape: any, options: ConversionOptions): Promise<any | null> {
     try {
-      const ShapeType = aspose.ShapeType;
+      const ShapeType = require('../../../lib/aspose.slides.js').ShapeType;
       const shapeType = shape.getShapeType();
       
       const baseShape: any = {
