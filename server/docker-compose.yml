@@ -29,7 +29,7 @@ services:
       - BODY_PARSER_LIMIT=${BODY_PARSER_LIMIT:-50mb}
       - ASPOSE_TEMP_DIR=/app/temp/aspose
       - UPLOAD_TEMP_DIR=/app/temp/uploads
-      - ASPOSE_LICENSE_PATH=${ASPOSE_LICENSE_PATH}
+      - ASPOSE_LICENSE_PATH=${ASPOSE_LICENSE_PATH:-./Aspose.Slides.Product.Family.lic}
       
       # External Services
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}

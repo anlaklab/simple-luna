@@ -1,0 +1,110 @@
+# 🐳 Luna Project - Docker Compose Configuration
+version: '3.8'
+
+services:
+  # =============================================================================
+  # Luna Server - Main Application
+  # =============================================================================
+  luna-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: luna-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Node.js Configuration
+      - NODE_ENV=production
+      - PORT=3000
+      
+      # File Processing Configuration
+      - MAX_FILE_SIZE=500MB
+      - UPLOAD_TEMP_DIR=/app/temp/uploads
+      - ASPOSE_TEMP_DIR=/app/temp/aspose
+      
+      # Java Configuration for Aspose.Slides
+      - JAVA_HOME=/usr/lib/jvm/java-11-openjdk
+      - JAVA_OPTS=-Xmx2g -Xms512m -Djava.awt.headless=true
+      
+      # Aspose.Slides Configuration (LOCAL LIBRARY)
+      - ASPOSE_LICENSE_PATH=${ASPOSE_LICENSE_PATH:-./Aspose.Slides.Product.Family.lic}
+      
+      # Firebase Configuration (from .env file)
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
+      - FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}
+      - FIRESTORE_DATABASE_URL=${FIRESTORE_DATABASE_URL}
+      
+      # OpenAI Configuration (from .env file)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=gpt-4-turbo-preview
+      
+      # Security Configuration
+      - CORS_ORIGIN=http://localhost:5173,http://localhost:3000
+      
+    volumes:
+      # Persistent storage for uploads and processing
+      - luna-uploads:/app/temp/uploads
+      - luna-aspose:/app/temp/aspose
+      - luna-conversions:/app/temp/conversions
+      - luna-logs:/app/logs
+      
+      # Development: Mount source code for hot reload (comment out for production)
+      # - ./server:/app/server
+      # - ./lib:/app/lib
+      
+    networks:
+      - luna-network
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # =============================================================================
+  # Luna Client - React Frontend (Development)
+  # =============================================================================
+  luna-client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.dev
+    container_name: luna-client
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:3000
+    volumes:
+      # Development: Mount source code for hot reload
+      - ./client:/app
+      - /app/node_modules
+    networks:
+      - luna-network
+    depends_on:
+      - luna-server
+
+# =============================================================================
+# Named Volumes
+# =============================================================================
+volumes:
+  luna-uploads:
+    driver: local
+  luna-aspose:
+    driver: local
+  luna-conversions:
+    driver: local
+  luna-logs:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  luna-network:
+    driver: bridge 

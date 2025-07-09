@@ -52,7 +52,9 @@ OPENAI_TEMPERATURE=0.7
 # ASPOSE.SLIDES CONFIGURATION
 # =============================================================================
 # License configuration (if you have a paid license)
-ASPOSE_LICENSE_PATH=./licenses/Aspose.Total.lic
+# Aspose.Slides License Configuration
+# Path to the Aspose.Slides license file
+ASPOSE_LICENSE_PATH=./Aspose.Slides.Product.Family.lic
 ASPOSE_TEMP_DIR=./temp/aspose
 ASPOSE_MAX_FILE_SIZE=50MB
 
