@@ -287,35 +287,99 @@ class AsposeService {
             let realThumbnail = false;
             
             try {
-              // Create thumbnail size
-              const thumbnailSize = new this.localLibrary.Dimension(width, height);
+              // Try different ways to create thumbnail size and generate thumbnail
+              let thumbnail = null;
               
-              // Generate thumbnail image
-              const thumbnail = slide.getThumbnail(thumbnailSize);
+              // Method 1: Try with Dimension class (different possible locations)
+              try {
+                let Dimension = null;
+                if (this.localLibrary.Dimension) {
+                  Dimension = this.localLibrary.Dimension;
+                } else if (this.localLibrary.java && this.localLibrary.java.awt && this.localLibrary.java.awt.Dimension) {
+                  Dimension = this.localLibrary.java.awt.Dimension;
+                } else if (this.localLibrary.awt && this.localLibrary.awt.Dimension) {
+                  Dimension = this.localLibrary.awt.Dimension;
+                }
+                
+                if (Dimension) {
+                  const thumbnailSize = new Dimension(width, height);
+                  thumbnail = slide.getThumbnail(thumbnailSize);
+                  console.log(`✅ Generated thumbnail using Dimension class for slide ${i + 1}`);
+                }
+              } catch (dimensionError) {
+                console.log(`⚠️ Dimension method failed for slide ${i + 1}:`, dimensionError.message);
+              }
               
+              // Method 2: Try with scale factor if Dimension method failed
+              if (!thumbnail) {
+                try {
+                  // Use scale factor method (common alternative)
+                  const scaleX = width / 1920; // Assuming standard slide width
+                  const scaleY = height / 1080; // Assuming standard slide height
+                  thumbnail = slide.getThumbnail(scaleX, scaleY);
+                  console.log(`✅ Generated thumbnail using scale method for slide ${i + 1}`);
+                } catch (scaleError) {
+                  console.log(`⚠️ Scale method failed for slide ${i + 1}:`, scaleError.message);
+                }
+              }
+              
+              // Method 3: Try default getThumbnail without parameters
+              if (!thumbnail) {
+                try {
+                  thumbnail = slide.getThumbnail();
+                  console.log(`✅ Generated thumbnail using default method for slide ${i + 1}`);
+                } catch (defaultError) {
+                  console.log(`⚠️ Default method failed for slide ${i + 1}:`, defaultError.message);
+                }
+              }
+              
+              // Process the thumbnail if we got one
               if (thumbnail) {
-                // Create a temporary file to save the thumbnail
-                const tempDir = path.join(__dirname, '../temp/thumbnails');
-                await this.ensureDirectoryExists(tempDir);
-                
-                const thumbnailFileName = `thumb_${i}_${Date.now()}.${format}`;
-                const thumbnailPath = path.join(tempDir, thumbnailFileName);
-                
-                // Save thumbnail to file
-                const imageFormat = format === 'png' ? this.localLibrary.ImageFormat.Png : this.localLibrary.ImageFormat.Jpeg;
-                thumbnail.save(thumbnailPath, imageFormat);
-                
-                // Read the thumbnail file and convert to base64
-                const thumbnailBuffer = await fs.readFile(thumbnailPath);
-                const base64Data = thumbnailBuffer.toString('base64');
-                thumbnailData = `data:image/${format};base64,${base64Data}`;
-                
-                // Clean up temp file
-                await fs.unlink(thumbnailPath).catch(() => {});
-                
-                realThumbnail = true;
-                console.log(`✅ Generated real thumbnail for slide ${i + 1} (${thumbnailBuffer.length} bytes)`);
-                
+                try {
+                  // Create a temporary file to save the thumbnail
+                  const tempDir = path.join(__dirname, '../temp/thumbnails');
+                  await this.ensureDirectoryExists(tempDir);
+                  
+                  const thumbnailFileName = `thumb_${i}_${Date.now()}.${format}`;
+                  const thumbnailPath = path.join(tempDir, thumbnailFileName);
+                  
+                  // Try different ways to save the thumbnail
+                  let thumbnailBuffer = null;
+                  
+                  try {
+                    // Method 1: Try with ImageFormat enum
+                    const imageFormat = format === 'png' ? this.localLibrary.ImageFormat.Png : this.localLibrary.ImageFormat.Jpeg;
+                    thumbnail.save(thumbnailPath, imageFormat);
+                    thumbnailBuffer = await fs.readFile(thumbnailPath);
+                  } catch (saveError1) {
+                    try {
+                      // Method 2: Try with string format
+                      thumbnail.save(thumbnailPath, format.toUpperCase());
+                      thumbnailBuffer = await fs.readFile(thumbnailPath);
+                    } catch (saveError2) {
+                      try {
+                        // Method 3: Try without format parameter
+                        thumbnail.save(thumbnailPath);
+                        thumbnailBuffer = await fs.readFile(thumbnailPath);
+                      } catch (saveError3) {
+                        console.warn(`⚠️ All save methods failed for slide ${i + 1}`);
+                      }
+                    }
+                  }
+                  
+                  if (thumbnailBuffer) {
+                    const base64Data = thumbnailBuffer.toString('base64');
+                    thumbnailData = `data:image/${format};base64,${base64Data}`;
+                    realThumbnail = true;
+                    console.log(`✅ Generated real thumbnail for slide ${i + 1} (${thumbnailBuffer.length} bytes)`);
+                  }
+                  
+                  // Clean up temp file
+                  await fs.unlink(thumbnailPath).catch(() => {});
+                  
+                } catch (processError) {
+                  console.warn(`⚠️ Thumbnail processing failed for slide ${i + 1}:`, processError.message);
+                }
               }
             } catch (thumbnailError) {
               console.warn(`⚠️ Real thumbnail generation failed for slide ${i + 1}:`, thumbnailError.message);
@@ -343,10 +407,32 @@ class AsposeService {
                 }
               }
               
-                             // Create a fallback thumbnail URL with actual slide content
-               const slideTitle = slideText.trim() || `Slide ${i + 1}`;
-               const encodedTitle = encodeURIComponent(slideTitle.substring(0, 50));
-               thumbnailData = `https://via.placeholder.com/${width}x${height}.${format}?text=${encodedTitle}`;
+                             // Create a local fallback thumbnail with actual slide content
+              const slideTitle = slideText.trim() || `Slide ${i + 1}`;
+              
+              // Use local placeholder generator for fallback
+              try {
+                const PlaceholderGenerator = require('./PlaceholderGenerator');
+                const placeholderGen = new PlaceholderGenerator();
+                const placeholder = await placeholderGen.generatePlaceholder({
+                  slideNumber: i + 1,
+                  slideTitle: slideTitle,
+                  width: width,
+                  height: height,
+                  format: format
+                });
+                thumbnailData = placeholder.dataUrl;
+                console.log(`✅ Generated local fallback thumbnail for slide ${i + 1}`);
+              } catch (placeholderError) {
+                // Final fallback - simple SVG data URL
+                const svgContent = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="100%" height="100%" fill="#f5f5f5" stroke="#ddd" stroke-width="1"/>
+                  <text x="50%" y="40%" font-family="Arial" font-size="24" fill="#333" text-anchor="middle" dominant-baseline="middle">${slideTitle.substring(0, 30)}</text>
+                  <text x="50%" y="60%" font-family="Arial" font-size="16" fill="#666" text-anchor="middle" dominant-baseline="middle">Slide ${i + 1}</text>
+                </svg>`;
+                thumbnailData = `data:image/svg+xml;base64,${Buffer.from(svgContent).toString('base64')}`;
+                console.log(`✅ Generated simple SVG fallback for slide ${i + 1}`);
+              }
               realThumbnail = false;
             }
             
@@ -366,13 +452,36 @@ class AsposeService {
           } catch (slideError) {
             console.warn(`⚠️ Failed to process slide ${i + 1} for thumbnail:`, slideError.message);
             
-                         // Add error thumbnail
-             thumbnails.push({
-               slideIndex: i,
-               slideNumber: i + 1,
-               format: format,
-               size: { width, height },
-               url: `https://via.placeholder.com/${width}x${height}.${format}?text=Error+Slide+${i + 1}`,
+            // Add local error thumbnail
+            let errorThumbnailUrl;
+            try {
+              const PlaceholderGenerator = require('./PlaceholderGenerator');
+              const placeholderGen = new PlaceholderGenerator();
+              const errorPlaceholder = await placeholderGen.generatePlaceholder({
+                slideNumber: i + 1,
+                slideTitle: `Error Slide ${i + 1}`,
+                width: width,
+                height: height,
+                format: format,
+                backgroundColor: '#ffeeee',
+                textColor: '#cc0000'
+              });
+              errorThumbnailUrl = errorPlaceholder.dataUrl;
+            } catch (errorGenError) {
+              // Final fallback for error
+              const errorSvg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100%" height="100%" fill="#ffeeee" stroke="#cc0000" stroke-width="2"/>
+                <text x="50%" y="50%" font-family="Arial" font-size="24" fill="#cc0000" text-anchor="middle" dominant-baseline="middle">Error Slide ${i + 1}</text>
+              </svg>`;
+              errorThumbnailUrl = `data:image/svg+xml;base64,${Buffer.from(errorSvg).toString('base64')}`;
+            }
+            
+            thumbnails.push({
+              slideIndex: i,
+              slideNumber: i + 1,
+              format: format,
+              size: { width, height },
+              url: errorThumbnailUrl,
               generatedAt: new Date().toISOString(),
               realThumbnail: false,
               localLibraryGenerated: false,

@@ -15,11 +15,13 @@
 const fs = require('fs').promises;
 const path = require('path');
 const ThumbnailStorage = require('./storage/ThumbnailStorage');
+const PlaceholderGenerator = require('./PlaceholderGenerator');
 const asposeService = require('./aspose.service');
 
 class ThumbnailManager {
   constructor() {
     this.storage = new ThumbnailStorage();
+    this.placeholderGenerator = new PlaceholderGenerator();
     this.tempDir = path.join(__dirname, '../temp/thumbnails');
     
     // Ensure temp directory exists
@@ -256,44 +258,47 @@ class ThumbnailManager {
   }
 
   /**
-   * Generate placeholder thumbnails from Universal JSON data
+   * Generate placeholder thumbnails from Universal JSON data using local generator
    */
   async generatePlaceholders(presentationId, presentationData, format) {
-    console.log(`📝 Generating PLACEHOLDER THUMBNAILS from Universal JSON`);
+    console.log(`📝 Generating LOCAL PLACEHOLDER THUMBNAILS from Universal JSON`);
     
     try {
       const slides = presentationData?.data?.presentation?.slides || [];
-      console.log(`📊 Processing ${slides.length} slides for placeholders`);
+      console.log(`📊 Processing ${slides.length} slides for local placeholders`);
 
-      const thumbnails = slides.map((slide, index) => {
-        // Extract meaningful content from slide
-        const slideTitle = this.extractSlideTitle(slide, index);
-        const slideContent = this.extractSlideContent(slide);
-        const displayText = slideTitle || `Slide ${index + 1}`;
-
-        // Generate placeholder URL
-        const placeholderUrl = `https://via.placeholder.com/${format.width}x${format.height}.${format.format}?text=${encodeURIComponent(displayText)}`;
-
-        return {
-          slideIndex: index,
-          slideNumber: index + 1,
-          type: 'placeholder',
-          format: format.format,
-          width: format.width,
-          height: format.height,
-          url: placeholderUrl,
-          data: null, // Placeholders don't have binary data
-          generatedAt: new Date().toISOString(),
-          metadata: {
-            source: 'universal-json',
-            slideTitle: slideTitle,
-            slideContent: slideContent ? slideContent.substring(0, 100) : null,
-            realThumbnail: false
-          }
-        };
+      // Use local PlaceholderGenerator
+      const placeholderResult = await this.placeholderGenerator.generateMultiplePlaceholders(slides, {
+        width: format.width,
+        height: format.height,
+        format: format.format
       });
 
-      console.log(`✅ Generated ${thumbnails.length} placeholder thumbnails`);
+      if (!placeholderResult.success) {
+        throw new Error('Local placeholder generation failed');
+      }
+
+      // Transform to expected format
+      const thumbnails = placeholderResult.placeholders.map(placeholder => ({
+        slideIndex: placeholder.slideIndex,
+        slideNumber: placeholder.slideNumber,
+        type: 'placeholder',
+        format: placeholder.format,
+        width: placeholder.width,
+        height: placeholder.height,
+        url: placeholder.url,
+        data: placeholder.data, // May contain binary data for real images
+        generatedAt: placeholder.generatedAt,
+        metadata: {
+          source: 'local-generator',
+          method: placeholder.method,
+          slideTitle: placeholder.title,
+          realThumbnail: false,
+          generator: placeholderResult.method
+        }
+      }));
+
+      console.log(`✅ Generated ${thumbnails.length} local placeholder thumbnails using ${placeholderResult.method}`);
 
       return {
         type: 'placeholder',
@@ -301,13 +306,60 @@ class ThumbnailManager {
         metadata: {
           totalSlides: slides.length,
           generatedCount: thumbnails.length,
-          source: 'universal-json'
+          source: 'local-generator',
+          method: placeholderResult.method,
+          capabilities: this.placeholderGenerator.getCapabilities()
         }
       };
 
     } catch (error) {
-      console.error(`❌ Placeholder generation failed:`, error.message);
-      throw error;
+      console.error(`❌ Local placeholder generation failed:`, error.message);
+      
+      // Fallback to simple text-based placeholders
+      try {
+        console.log(`🔄 Attempting simple fallback placeholders...`);
+        const slides = presentationData?.data?.presentation?.slides || [];
+        
+        const thumbnails = slides.map((slide, index) => {
+          const slideTitle = this.extractSlideTitle(slide, index);
+          const simpleUrl = this.placeholderGenerator.generateSimpleTextUrl(slideTitle, format.width, format.height);
+          
+          return {
+            slideIndex: index,
+            slideNumber: index + 1,
+            type: 'placeholder',
+            format: 'svg',
+            width: format.width,
+            height: format.height,
+            url: simpleUrl,
+            data: null,
+            generatedAt: new Date().toISOString(),
+            metadata: {
+              source: 'fallback-generator',
+              method: 'simple-svg',
+              slideTitle: slideTitle,
+              realThumbnail: false
+            }
+          };
+        });
+
+        console.log(`✅ Generated ${thumbnails.length} fallback placeholder thumbnails`);
+        
+        return {
+          type: 'placeholder',
+          thumbnails,
+          metadata: {
+            totalSlides: slides.length,
+            generatedCount: thumbnails.length,
+            source: 'fallback-generator',
+            method: 'simple-svg'
+          }
+        };
+        
+      } catch (fallbackError) {
+        console.error(`❌ Fallback placeholder generation also failed:`, fallbackError.message);
+        throw error; // Throw original error
+      }
     }
   }
 
