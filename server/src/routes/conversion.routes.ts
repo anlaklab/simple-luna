@@ -52,15 +52,14 @@ const upload = multer({
 // =============================================================================
 
 // Initialize services with configuration
-const asposeConfig: any = {
-  tempDirectory: process.env.ASPOSE_TEMP_DIR || './temp/aspose',
-  maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'),
-  licenseFilePath: process.env.ASPOSE_LICENSE_PATH || './lib/Aspose.Slides.lic',
-};
-
-if (process.env.ASPOSE_LICENSE_PATH) {
-  asposeConfig.licenseFilePath = process.env.ASPOSE_LICENSE_PATH;
-}
+    // Aspose.Slides configuration
+    const asposeConfig = {
+      licenseFilePath: process.env.ASPOSE_LICENSE_PATH || './Aspose.Slides.Product.Family.lic',
+      tempDirectory: process.env.ASPOSE_TEMP_DIR || './temp'
+    };
+    if (process.env.ASPOSE_LICENSE_PATH) {
+      asposeConfig.licenseFilePath = process.env.ASPOSE_LICENSE_PATH;
+    }
 
 const conversionServiceConfig: any = {
   asposeConfig,

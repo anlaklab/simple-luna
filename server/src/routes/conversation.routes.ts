@@ -41,11 +41,10 @@ const openaiConfig = process.env.OPENAI_API_KEY ? {
 
 const openaiAdapter = openaiConfig ? new OpenAIAdapter(openaiConfig) : undefined;
 
-const asposeConfig = {
-  tempDirectory: process.env.ASPOSE_TEMP_DIR || './temp/aspose',
-  maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'),
-  licenseFilePath: process.env.ASPOSE_LICENSE_PATH,
-};
+    // Configure adapters for presentation processing
+    const asposeConfig = {
+      licenseFilePath: process.env.ASPOSE_LICENSE_PATH || './Aspose.Slides.Product.Family.lic',
+    };
 
 const asposeAdapter = new AsposeAdapter(asposeConfig);
 

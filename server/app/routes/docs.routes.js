@@ -9,15 +9,18 @@ const router = express.Router();
 const swaggerUi = require('swagger-ui-express');
 const { generateSwaggerSpec, getSwaggerUiOptions } = require('../docs/swagger');
 
-// Generate swagger spec
-const swaggerSpec = generateSwaggerSpec();
+// Get swagger UI options (static)
 const swaggerUiOptions = getSwaggerUiOptions();
 
-// Swagger UI
-router.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
+// Swagger UI - generate spec dynamically
+router.use('/docs', swaggerUi.serve, (req, res, next) => {
+  const swaggerSpec = generateSwaggerSpec();
+  swaggerUi.setup(swaggerSpec, swaggerUiOptions)(req, res, next);
+});
 
-// Swagger JSON endpoint
+// Swagger JSON endpoint - generate spec dynamically
 router.get('/swagger.json', (req, res) => {
+  const swaggerSpec = generateSwaggerSpec();
   res.setHeader('Content-Type', 'application/json');
   res.json(swaggerSpec);
 });

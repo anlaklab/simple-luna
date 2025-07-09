@@ -4,7 +4,42 @@
 ## 🎯 PROJECT OVERVIEW
 You are working on Luna, a professional PowerPoint processing platform with AI capabilities. This project converts PPTX files to Universal JSON schema and provides advanced analysis through a React frontend and Node.js backend.
 
-## 📁 PROJECT STRUCTURE
+## 🚨 CRITICAL SURGICAL RULES - NEVER VIOLATE
+
+### ❌ ULTRA CRITICAL - ENVIRONMENT & DEVELOPMENT:
+1. **NEVER TOUCH .env FILE**: NEVER modify, overwrite, or recreate the .env file - it is sacred
+2. **DOCKER ONLY DEVELOPMENT**: NEVER attempt to run anything locally, ONLY use Docker
+3. **NO LOCAL NODE.JS**: NEVER install Node.js modules locally, ONLY in Docker containers
+4. **NO LOCAL JAVA MODULE**: NEVER attempt to install java module on macOS - it will fail
+5. **SURGICAL PRECISION**: Every change must be deliberate, tested, and step-by-step
+6. **VERIFY BEFORE ACTION**: Always check current state before making any changes
+
+### 🐳 DOCKER MANDATORY RULES:
+1. **DOCKER IS THE ONLY ENVIRONMENT**: All development, testing, and debugging ONLY in Docker
+2. **NODE.JS 18 REQUIRED**: Docker must use Node.js 18 for java module compatibility
+3. **CLEAN REBUILDS**: Always rebuild Docker images when making system changes
+4. **CONTAINER LOGS**: Always check Docker logs for debugging, not local execution
+
+## 🚫 CRITICAL PROHIBITIONS - NEVER VIOLATE THESE RULES
+
+### ❌ ABSOLUTELY FORBIDDEN - NO EXCEPTIONS:
+1. **NO MOCK DATA EVER**: NEVER create mock data, test data, placeholder data, or demo data
+2. **NO TESTS OR DEMOS**: NEVER create test files, demo files, or example files
+3. **NO PLACEHOLDER CONTENT**: NEVER use placeholder text, dummy content, or fake data
+4. **NO SIMULATED RESPONSES**: NEVER simulate API responses or fake service calls
+5. **NO MOCKUPS**: NEVER create mockup presentations or sample presentations
+6. **ALWAYS USE REAL DATA**: Every file, every response, every conversion must use real data
+7. **ALWAYS USE REAL SERVICES**: Every API call must be to real services, never mocked
+
+### 🔧 ASPOSE.SLIDES MANDATORY REQUIREMENTS:
+1. **USE LOCAL LIBRARY ONLY**: ALWAYS use the local Aspose.Slides library at `lib/aspose.slides.js`
+2. **NEVER USE CLOUD API**: NEVER use Aspose.Slides Cloud API or any cloud service
+3. **REAL CONVERSION ONLY**: Every PPTX conversion must use the actual local library
+4. **PROCESS ALL SLIDES**: If a file has 230 slides, process ALL 230 slides, not 10 or any subset
+5. **EXTRACT REAL CONTENT**: Extract actual text, shapes, images, and formatting from files
+6. **NO SLIDE LIMITS**: Process files of any size with any number of slides
+
+### 📋 PROJECT STRUCTURE
 ```
 aspose-slides-25.6-nodejs/
 ├── client/                 # React Frontend (Vite + TypeScript)
@@ -22,7 +57,9 @@ aspose-slides-25.6-nodejs/
 │   │   ├── controllers/    # Request/response handling
 │   │   ├── routes/         # API route definitions
 │   │   └── middleware/     # Express middleware
-└── lib/                    # Aspose.Slides library
+└── lib/                    # Aspose.Slides library (LOCAL ONLY)
+    ├── aspose.slides.js    # Main library file
+    └── aspose.slides.d.ts  # TypeScript definitions
 ```
 
 ## 🎨 DESIGN SYSTEM RULES
@@ -63,42 +100,6 @@ aspose-slides-25.6-nodejs/
   - Body text: `text-sm text-muted-foreground`
   - Captions: `text-xs text-muted-foreground`
 
-- **Spacing System**: ALWAYS use these measurements:
-  - Page padding: `px-4 py-4 md:px-6` (header), `px-4 py-8 sm:px-6 lg:px-8` (main)
-  - Component gaps: `space-x-2` (small), `space-x-4` (medium), `space-x-6` (large)
-  - Card padding: `p-4` (small), `p-6` (medium)
-  - Button sizes: `size="sm"` for secondary, `size="default"` for primary
-
-- **Container Width**: ALWAYS use `max-w-7xl mx-auto` for main content areas
-
-- **Color Consistency**: 
-  - Primary actions: `bg-primary hover:bg-primary/90`
-  - Secondary actions: `variant="outline"`
-  - Destructive actions: `variant="destructive"`
-  - Status indicators: Use Badge with design system variants
-
-### RESPONSIVE BEHAVIOR - MANDATORY
-- ALWAYS use these breakpoints: `sm:` (640px), `md:` (768px), `lg:` (1024px), `xl:` (1280px)
-- ALWAYS stack elements on mobile: `flex-col sm:flex-row`
-- ALWAYS use responsive text: `text-sm sm:text-base`
-- ALWAYS implement responsive spacing: `px-4 sm:px-6 lg:px-8`
-
-### LUNA-SPECIFIC UI PATTERNS
-- **Presentation Status**: Use Badge with these colors:
-  ```tsx
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'completed': return 'default';
-      case 'processing': return 'secondary';
-      case 'failed': return 'destructive';
-      default: return 'outline';
-    }
-  };
-  ```
-- **Loading States**: ALWAYS use Skeleton components matching content structure
-- **Empty States**: Center content with icon, title, description, and CTA button
-- **Action Buttons**: Primary action (filled), secondary (outline), icon-only (ghost)
-
 ## 🏗️ ARCHITECTURE RULES
 
 ### SCREAMING ARCHITECTURE - RESPONSIBILITIES
@@ -137,6 +138,48 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 - ALL responses MUST follow `ApiResponse<T>` interface
 - NEVER use direct fetch calls to endpoints
 - ALWAYS handle loading and error states
+
+## 🔧 ASPOSE.SLIDES IMPLEMENTATION RULES
+
+### LOCAL LIBRARY USAGE - MANDATORY
+```javascript
+// ✅ CORRECT - Use local library
+const aspose = require('../../../lib/aspose.slides.js');
+const Presentation = aspose.Presentation;
+
+// ❌ WRONG - Never use cloud API
+const response = await fetch('https://api.aspose.cloud/...');
+```
+
+### REAL CONVERSION REQUIREMENTS
+- ALWAYS process the actual uploaded file
+- ALWAYS extract all slides (even if 230+ slides)
+- ALWAYS extract real text content from shapes
+- ALWAYS extract real formatting and styles
+- ALWAYS extract real images and media
+- NEVER limit the number of slides processed
+- NEVER use random slide counts
+- NEVER generate fake content
+
+### CONVERSION WORKFLOW
+```javascript
+// ✅ CORRECT - Real conversion
+const presentation = new Presentation(filePath);
+const slideCount = presentation.getSlides().getCount();
+const slides = [];
+
+for (let i = 0; i < slideCount; i++) {
+  const slide = presentation.getSlides().get_Item(i);
+  // Extract real content from each slide
+  slides.push(extractRealSlideContent(slide));
+}
+
+// ❌ WRONG - Never use mock data
+const slideCount = Math.floor(Math.random() * 8) + 3;
+const slides = Array.from({ length: slideCount }, (_, i) => ({
+  // mock data
+}));
+```
 
 ## 🚀 USABILITY RULES
 
@@ -180,49 +223,31 @@ app.get('/endpoint', handleAsyncErrors(async (req, res) => {
 }));
 ```
 
-### PERFORMANCE OPTIMIZATION
-- ALWAYS use `useMemo`, `useCallback` for expensive operations
-- ALWAYS implement lazy loading for heavy components
-- ALWAYS use pagination for large lists
-- NEVER load everything into memory at once
-
 ## 🎯 IMPLEMENTATION GUIDELINES
 
-### WHEN CREATING NEW COMPONENTS
-1. Check if shadcn/ui component exists first
-2. Follow the mandatory component structure
-3. Add proper TypeScript interfaces
-4. Implement loading and error states
-5. Add responsive design
-6. Test with real Firebase data
+### WHEN PROCESSING PPTX FILES
+1. ALWAYS use the local Aspose.Slides library
+2. ALWAYS process ALL slides in the file
+3. ALWAYS extract real content from each slide
+4. NEVER use mock data or placeholder content
+5. NEVER limit the number of slides processed
+6. ALWAYS handle large files (200+ slides) properly
 
-### WHEN MODIFYING EXISTING CODE
-1. Maintain existing design system patterns
-2. Don't break API response structures
-3. Keep same error handling patterns
-4. Preserve responsive behavior
-5. Update TypeScript types if needed
-
-### WHEN ADDING NEW FEATURES
+### WHEN CREATING NEW FEATURES
 1. Follow screaming architecture principles
 2. Add proper validation schemas
 3. Implement comprehensive error handling
 4. Add loading states and user feedback
 5. Write TypeScript interfaces
 6. Use Firebase for data persistence
+7. NEVER create test data or mock responses
 
-## 🚦 IMMEDIATE PRIORITIES
-
-### KNOWN ISSUES TO FIX
-1. **`/presentations` page** uses inconsistent design system - needs homogenization
-2. Ensure all pages use real Firebase data (no mock data)
-3. Standardize error handling across all components
-
-### WHEN WORKING ON PRESENTATIONS PAGE
-- Remove all custom gradients and hardcoded colors
-- Use shadcn/ui components consistently
-- Apply same header pattern as home.tsx
-- Ensure all data comes from Firebase via existing hooks
+### WHEN DEBUGGING ISSUES
+1. ALWAYS check if real data is being used
+2. ALWAYS verify all slides are being processed
+3. ALWAYS ensure local Aspose library is being used
+4. NEVER create demo files or test cases
+5. ALWAYS use real user files for testing
 
 ## 🔧 TECHNICAL CONSTRAINTS
 
@@ -231,6 +256,7 @@ app.get('/endpoint', handleAsyncErrors(async (req, res) => {
 - ALWAYS use proper middleware for validation
 - ALWAYS log errors with `logger.error()`
 - ALWAYS return structured API responses
+- ALWAYS use local Aspose.Slides library at `lib/aspose.slides.js`
 
 ### FRONTEND REQUIREMENTS  
 - ALWAYS use Vite + React + TypeScript
@@ -240,6 +266,11 @@ app.get('/endpoint', handleAsyncErrors(async (req, res) => {
 
 ## 📚 KEY FILES TO REFERENCE
 
+### Aspose.Slides Integration
+- `lib/aspose.slides.js` - LOCAL library (ALWAYS use this)
+- `lib/aspose.slides.d.ts` - TypeScript definitions
+- NEVER use any cloud API or external Aspose services
+
 ### Design System Reference
 - `client/src/pages/home.tsx` - CORRECT design system usage
 - `client/src/components/ui/*` - Available UI components
@@ -248,45 +279,81 @@ app.get('/endpoint', handleAsyncErrors(async (req, res) => {
 - `client/src/hooks/use-api.ts` - Centralized API layer
 - `client/src/hooks/use-presentations.ts` - Presentation data management
 
-### Backend Architecture Reference
-- `server/src/adapters/firebase.adapter.ts` - Firebase integration
-- `server/src/services/conversion.service.ts` - Business logic example
+## 🚫 FORBIDDEN PATTERNS
+
+### ❌ NEVER DO THIS:
+```javascript
+// Mock data generation
+const slideCount = Math.floor(Math.random() * 8) + 3;
+const mockSlides = Array.from({ length: slideCount }, ...);
+
+// Cloud API usage
+const response = await fetch('https://api.aspose.cloud/...');
+
+// Test data creation
+const testPresentation = { title: "Test", slides: [...] };
+
+// Placeholder content
+const placeholderText = "Lorem ipsum dolor sit amet...";
+```
+
+### ✅ ALWAYS DO THIS:
+```javascript
+// Real file processing
+const presentation = new Presentation(filePath);
+const actualSlideCount = presentation.getSlides().getCount();
+
+// Real content extraction
+const realText = shape.getTextFrame().getText();
+const realFormatting = shape.getTextFrame().getParagraphs().get_Item(0).getPortions().get_Item(0).getPortionFormat();
+
+// Real data storage
+await firestore.collection('presentations').doc(id).set(realPresentationData);
+```
 
 ## 🎨 QUICK REFERENCE
 
-### Correct Color Usage
-```tsx
+### Correct Library Usage
+```javascript
 // ✅ CORRECT
-<div className="bg-background text-foreground border-border">
-<Card className="bg-card text-card-foreground">
-<p className="text-muted-foreground">
+const aspose = require('../../../lib/aspose.slides.js');
+const presentation = new aspose.Presentation(filePath);
 
 // ❌ WRONG  
-<div className="bg-blue-50 text-gray-900 border-gray-200">
-<div className="bg-gradient-to-br from-blue-50 to-white">
+const asposeCloud = require('aspose-slides-cloud');
+const api = new asposeCloud.SlidesApi();
 ```
 
-### Correct Component Pattern
-```tsx
+### Correct Data Processing
+```javascript
 // ✅ CORRECT
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+const slideCount = presentation.getSlides().getCount();
+for (let i = 0; i < slideCount; i++) {
+  const slide = presentation.getSlides().get_Item(i);
+  // Process real slide content
+}
 
 // ❌ WRONG
-import { SomeCustomButton } from "./custom-button";
+const slideCount = Math.random() * 10;
+const mockSlides = generateMockSlides(slideCount);
 ```
 
-### Correct API Usage
-```tsx
-// ✅ CORRECT
-import { api } from "@/hooks/use-api";
-const { data, isLoading, error } = useQuery({
-  queryKey: ['/api/v1/presentations'],
-  queryFn: () => api.presentations.list()
-});
+Remember: This is a professional application that processes REAL PowerPoint files with REAL content. Every slide, every shape, every piece of text must be extracted from the actual file using the local Aspose.Slides library. NO EXCEPTIONS.
 
-// ❌ WRONG
-const response = await fetch('/api/v1/presentations');
-```
+## 🔥 FINAL REMINDER
 
-Remember: This is a professional application that should feel cohesive, performant, and user-friendly. Every component should look like it belongs to the same design system, and every interaction should feel smooth and predictable. 
+**NEVER, EVER, UNDER ANY CIRCUMSTANCES:**
+- Create mock data
+- Use test files
+- Generate placeholder content
+- Use cloud APIs instead of local library
+- Limit slide processing
+- Create demo presentations
+
+**ALWAYS, WITHOUT EXCEPTION:**
+- Use real files
+- Process all slides
+- Extract real content
+- Use local Aspose.Slides library
+- Handle large presentations properly
+- Store real data in Firebase 

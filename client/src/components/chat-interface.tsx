@@ -92,6 +92,11 @@ export function ChatInterface({ presentationId, onPresentationCreate }: ChatInte
       const result = await response.json();
       
       if (result.success && result.data.presentationId) {
+        // Check if conversion was actually successful
+        if (result.data.status === 'conversion_failed' || result.data.slideCount === 0) {
+          throw new Error(`Conversion failed: The PowerPoint file could not be processed. This may be due to file corruption, unsupported format, or internal processing errors.`);
+        }
+        
         onPresentationCreate(result.data.presentationId);
         toast({
           title: "Success",

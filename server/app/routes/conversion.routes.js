@@ -12,4 +12,11 @@ const conversionController = require('../controllers/conversion.controller');
 router.post('/convert/upload', conversionController.convertAndSave);
 router.post('/convert/batch', conversionController.batchConvertAndSave);
 
+// Direct conversion endpoints
+router.post('/pptx2json', conversionController.convertPPTXToJSON);
+router.post('/json2pptx', conversionController.convertJSONToPPTX);
+
+// JSON file upload to PPTX conversion with consistent naming
+router.post('/jsonfile2pptx', conversionController.convertJSONFileToPPTX);
+
 module.exports = router; 

@@ -210,8 +210,8 @@ All conversions use a standardized JSON schema that preserves:
     },
   },
   apis: [
-    './app/routes/*.js',
-    './app/controllers/*.js',
+    '/app/server/app/routes/*.js',
+    '/app/server/app/controllers/*.js',
   ],
 };
 
