@@ -28,7 +28,7 @@ services:
       - JAVA_OPTS=-Xmx2g -Xms512m -Djava.awt.headless=true
       
       # Aspose.Slides Configuration (LOCAL LIBRARY)
-      - ASPOSE_LICENSE_PATH=${ASPOSE_LICENSE_PATH:-./Aspose.Slides.Product.Family.lic}
+      - ASPOSE_LICENSE_PATH=${ASPOSE_LICENSE_PATH:-/app/Aspose.Slides.Product.Family.lic}
       
       # Firebase Configuration (from .env file)
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}

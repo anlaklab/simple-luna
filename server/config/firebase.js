@@ -37,11 +37,17 @@ const initializeFirebase = async () => {
           client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(process.env.FIREBASE_CLIENT_EMAIL)}`
         };
 
-        admin.initializeApp({
+        const firebaseConfig = {
           credential: admin.credential.cert(serviceAccount),
-          databaseURL: process.env.FIRESTORE_DATABASE_URL,
           storageBucket: process.env.FIREBASE_STORAGE_BUCKET
-        });
+        };
+        
+        // Only add databaseURL if using Realtime Database
+        if (process.env.FIRESTORE_DATABASE_URL) {
+          firebaseConfig.databaseURL = process.env.FIRESTORE_DATABASE_URL;
+        }
+        
+        admin.initializeApp(firebaseConfig);
 
         firestore = admin.firestore();
         firebaseInitialized = true;

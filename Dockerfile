@@ -32,7 +32,7 @@ ENV AWT_TOOLKIT=java.awt.headless.HeadlessToolkit
 ENV DISPLAY=""
 
 # Create necessary directories
-RUN mkdir -p /app/temp/uploads /app/temp/aspose /app/temp/conversions /app/logs
+RUN mkdir -p /app/temp/uploads /app/temp/aspose /app/temp/conversions /app/temp/thumbnails /app/logs
 
 # Copy package files first for better Docker layer caching
 COPY package*.json ./
@@ -51,6 +51,9 @@ RUN npm ci --only=production --ignore-scripts || npm install --only=production -
 
 # Copy Aspose.Slides library (most important part)
 COPY lib/ ./lib/
+
+# Copy Aspose license file
+COPY Aspose.Slides.Product.Family.lic ./
 
 # Copy server source code
 COPY server/ ./server/

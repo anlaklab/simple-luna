@@ -274,37 +274,131 @@ class AsposeService {
       try {
         const slideCount = presentation.getSlides().size();
         const thumbnails = [];
+        const { width = 800, height = 600, format = 'png', quality = 85 } = options;
 
         for (let i = 0; i < slideCount; i++) {
           try {
             const slide = presentation.getSlides().get_Item(i);
             
-            // Create thumbnail dimensions
-            const scale = options.scale || 0.5;
-            const format = options.format || 'png';
+            console.log(`📸 Generating thumbnail for slide ${i + 1}/${slideCount}...`);
             
-            // Generate thumbnail (Note: This is a simplified approach)
-            // In a full implementation, you would use Aspose's getThumbnail method
+            // Try to generate real thumbnail using Aspose's getThumbnail method
+            let thumbnailData = null;
+            let realThumbnail = false;
+            
+            try {
+              // Create thumbnail size
+              const thumbnailSize = new this.localLibrary.Dimension(width, height);
+              
+              // Generate thumbnail image
+              const thumbnail = slide.getThumbnail(thumbnailSize);
+              
+              if (thumbnail) {
+                // Create a temporary file to save the thumbnail
+                const tempDir = path.join(__dirname, '../temp/thumbnails');
+                await this.ensureDirectoryExists(tempDir);
+                
+                const thumbnailFileName = `thumb_${i}_${Date.now()}.${format}`;
+                const thumbnailPath = path.join(tempDir, thumbnailFileName);
+                
+                // Save thumbnail to file
+                const imageFormat = format === 'png' ? this.localLibrary.ImageFormat.Png : this.localLibrary.ImageFormat.Jpeg;
+                thumbnail.save(thumbnailPath, imageFormat);
+                
+                // Read the thumbnail file and convert to base64
+                const thumbnailBuffer = await fs.readFile(thumbnailPath);
+                const base64Data = thumbnailBuffer.toString('base64');
+                thumbnailData = `data:image/${format};base64,${base64Data}`;
+                
+                // Clean up temp file
+                await fs.unlink(thumbnailPath).catch(() => {});
+                
+                realThumbnail = true;
+                console.log(`✅ Generated real thumbnail for slide ${i + 1} (${thumbnailBuffer.length} bytes)`);
+                
+              }
+            } catch (thumbnailError) {
+              console.warn(`⚠️ Real thumbnail generation failed for slide ${i + 1}:`, thumbnailError.message);
+              
+              // Generate fallback thumbnail with slide content preview
+              const slideShapes = slide.getShapes();
+              const shapeCount = slideShapes.size();
+              let slideText = '';
+              
+              // Extract text from shapes for preview
+              for (let j = 0; j < Math.min(shapeCount, 3); j++) {
+                try {
+                  const shape = slideShapes.get_Item(j);
+                  if (shape.getTextFrame) {
+                    const textFrame = shape.getTextFrame();
+                    if (textFrame) {
+                      const text = textFrame.getText();
+                      if (text && text.trim()) {
+                        slideText += text.trim() + ' ';
+                      }
+                    }
+                  }
+                } catch (shapeError) {
+                  // Ignore individual shape errors
+                }
+              }
+              
+                             // Create a fallback thumbnail URL with actual slide content
+               const slideTitle = slideText.trim() || `Slide ${i + 1}`;
+               const encodedTitle = encodeURIComponent(slideTitle.substring(0, 50));
+               thumbnailData = `https://via.placeholder.com/${width}x${height}.${format}?text=${encodedTitle}`;
+              realThumbnail = false;
+            }
+            
             thumbnails.push({
               slideIndex: i,
+              slideNumber: i + 1,
               format: format,
-              size: { 
-                width: Math.round(1920 * scale), 
-                height: Math.round(1080 * scale) 
-              },
+              size: { width, height },
+              url: thumbnailData,
               generatedAt: new Date().toISOString(),
-              realThumbnail: true,
-              localLibraryGenerated: true
+              realThumbnail: realThumbnail,
+              localLibraryGenerated: true,
+              quality: quality,
+              data: realThumbnail ? thumbnailData : null
             });
-
-            console.log(`✅ Generated thumbnail metadata for slide ${i + 1}`);
             
-          } catch (thumbError) {
-            console.warn(`⚠️ Failed to generate thumbnail for slide ${i + 1}:`, thumbError.message);
+          } catch (slideError) {
+            console.warn(`⚠️ Failed to process slide ${i + 1} for thumbnail:`, slideError.message);
+            
+                         // Add error thumbnail
+             thumbnails.push({
+               slideIndex: i,
+               slideNumber: i + 1,
+               format: format,
+               size: { width, height },
+               url: `https://via.placeholder.com/${width}x${height}.${format}?text=Error+Slide+${i + 1}`,
+              generatedAt: new Date().toISOString(),
+              realThumbnail: false,
+              localLibraryGenerated: false,
+              error: true,
+              quality: quality
+            });
           }
         }
 
-        return thumbnails;
+        const realThumbnailCount = thumbnails.filter(t => t.realThumbnail).length;
+        console.log(`✅ Generated ${thumbnails.length} thumbnails (${realThumbnailCount} real, ${thumbnails.length - realThumbnailCount} fallback)`);
+
+        return {
+          thumbnails,
+          metadata: {
+            totalSlides: slideCount,
+            generatedCount: thumbnails.length,
+            realThumbnails: realThumbnailCount > 0,
+            realThumbnailCount: realThumbnailCount,
+            fallbackCount: thumbnails.length - realThumbnailCount,
+            format,
+            size: { width, height },
+            quality,
+            libraryUsed: 'aspose-slides-local'
+          }
+        };
 
       } finally {
         presentation.dispose();
@@ -313,6 +407,17 @@ class AsposeService {
     } catch (error) {
       console.error('❌ Thumbnail generation failed:', error);
       throw new Error(`LOCAL thumbnail generation failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Ensure directory exists
+   */
+  async ensureDirectoryExists(dirPath) {
+    try {
+      await fs.access(dirPath);
+    } catch (error) {
+      await fs.mkdir(dirPath, { recursive: true });
     }
   }
 

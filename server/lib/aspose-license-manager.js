@@ -59,7 +59,7 @@ class AsposeLicenseManager {
       console.log('✅ [GLOBAL] Java environment configured');
 
       // STEP 2: Load Aspose.Slides library
-      const asposeLibPath = path.join(__dirname, '../lib/aspose.slides.js');
+      const asposeLibPath = path.join(__dirname, '../../lib/aspose.slides.js');
       this.aspose = require(asposeLibPath);
 
       if (!this.aspose || !this.aspose.Presentation) {
