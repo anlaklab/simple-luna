@@ -49,7 +49,7 @@ export class ThumbnailService implements IThumbnailService {
 
       const presentation = new this.aspose.Presentation(input);
       const slides = presentation.getSlides();
-      const slideCount = slides.getCount();
+      const slideCount = slides.size(); // ✅ Usar size() en lugar de getCount()
       const thumbnails: ThumbnailResult[] = [];
 
       logger.info('ThumbnailService: Generating thumbnails', { 
@@ -69,7 +69,7 @@ export class ThumbnailService implements IThumbnailService {
       // Generate thumbnail for each slide
       for (let i = 0; i < slideCount; i++) {
         try {
-          const slide = slides.get_Item(i);
+          const slide = slides.get_Item(i); // ✅ Usar get_Item() para acceder al slide
           const thumbnail = await this.generateSingleThumbnailInternal(slide, i, outputDir, { size, format });
           thumbnails.push(thumbnail);
         } catch (slideError) {
@@ -132,7 +132,7 @@ export class ThumbnailService implements IThumbnailService {
 
       const presentation = new this.aspose.Presentation(input);
       const slides = presentation.getSlides();
-      const slideCount = slides.getCount();
+      const slideCount = slides.size(); // ✅ Usar size() en lugar de getCount()
 
       if (slideIndex >= slideCount || slideIndex < 0) {
         throw new Error(`Invalid slide index: ${slideIndex}. Presentation has ${slideCount} slides.`);
