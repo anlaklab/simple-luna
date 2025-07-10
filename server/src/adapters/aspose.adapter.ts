@@ -682,135 +682,188 @@ export class AsposeAdapter {
    * Process individual slide to Universal Schema format
    */
   private async processSlide(slide: any, index: number, options: ConversionOptions): Promise<any> {
+    const slideData: any = {
+      slideId: index + 1,
+      name: slide.getName() || `Slide ${index + 1}`,
+      slideType: 'Slide',
+      shapes: [],
+      comments: [],
+      animations: [],
+      placeholders: [],
+      hidden: false,
+      notes: null,
+      background: null,
+      transition: null,
+      timing: null,
+    };
+
     try {
-      const slideData: any = {
-        slideId: index + 1,
-        name: slide.getName() || `Slide ${index + 1}`,
-        slideType: 'Slide',
-        shapes: [],
-        comments: [],
-        animations: [],
-        placeholders: [],
-        hidden: slide.getHidden(),
-        notes: null,
-        background: null,
-        transition: null,
-        timing: null,
-      };
+      // Safely get slide properties
+      try {
+        slideData.hidden = slide.getHidden ? slide.getHidden() : false;
+      } catch (e) {
+        slideData.hidden = false;
+      }
 
-      // Extract slide background
-      if (slide.getBackground) {
-        const background = slide.getBackground();
-        if (background && background.getFillFormat) {
-          const fillFormat = this.extractFillFormat(background.getFillFormat());
-          if (fillFormat) {
-            slideData.background = {
-              type: fillFormat.type,
-              fillFormat: fillFormat,
-            };
+      // Extract slide background safely
+      try {
+        if (slide.getBackground) {
+          const background = slide.getBackground();
+          if (background && background.getFillFormat) {
+            const fillFormat = this.extractFillFormat(background.getFillFormat());
+            if (fillFormat) {
+              slideData.background = {
+                type: fillFormat.type,
+                fillFormat: fillFormat,
+              };
+            }
+          }
+        }
+      } catch (e) {
+        // Skip background if it fails
+      }
 
-            // Extract background effect format
-            if (background.getEffectFormat) {
-              const effectFormat = this.extractEffectFormat(background.getEffectFormat());
-              if (effectFormat) {
-                slideData.background.effectFormat = effectFormat;
+      // Extract slide transition safely
+      try {
+        if (slide.getSlideShowTransition) {
+          const transition = slide.getSlideShowTransition();
+          slideData.transition = {
+            type: transition.getType ? transition.getType() : undefined,
+            speed: transition.getSpeed ? transition.getSpeed() : undefined,
+            advanceOnClick: transition.getAdvanceOnClick ? transition.getAdvanceOnClick() : true,
+            advanceAfterTime: transition.getAdvanceAfterTime ? transition.getAdvanceAfterTime() : undefined,
+            advanceAfterTimeEnabled: transition.getAdvanceAfter ? transition.getAdvanceAfter() : false,
+          };
+        }
+      } catch (e) {
+        // Skip transition if it fails
+      }
+
+      // Extract slide timing safely
+      try {
+        if (slide.getTimeline) {
+          const timeline = slide.getTimeline();
+          slideData.timing = {
+            mainSequenceCount: timeline.getMainSequence ? timeline.getMainSequence().size() : 0,
+            hasTimeline: true,
+          };
+        }
+      } catch (e) {
+        // Skip timing if it fails
+      }
+
+      // Extract notes safely
+      try {
+        if (slide.getNotesSlideManager && slide.getNotesSlideManager().getNotesSlide()) {
+          const notesSlide = slide.getNotesSlideManager().getNotesSlide();
+          if (notesSlide.getNotesTextFrame) {
+            slideData.notes = notesSlide.getNotesTextFrame().getText();
+          }
+        }
+      } catch (e) {
+        // Skip notes if it fails
+      }
+
+      // **CRITICAL FIX: Process shapes with robust error handling**
+      try {
+        if (slide.getShapes) {
+          const shapes = slide.getShapes();
+          if (shapes && shapes.size) {
+            const shapeCount = shapes.size();
+            logger.info(`Processing ${shapeCount} shapes on slide ${index + 1}`);
+            
+            for (let i = 0; i < shapeCount; i++) {
+              try {
+                const shape = shapes.get_Item(i);
+                if (shape) {
+                  const shapeData = await this.processShape(shape, options);
+                  if (shapeData) {
+                    slideData.shapes.push(shapeData);
+                  }
+                }
+              } catch (shapeError) {
+                logger.warn(`Failed to process shape ${i} on slide ${index + 1}`, { error: shapeError });
+                // Continue with next shape
               }
             }
           }
         }
+      } catch (shapesError) {
+        logger.warn(`Failed to get shapes for slide ${index + 1}`, { error: shapesError });
       }
 
-      // Extract slide transition
-      if (slide.getSlideShowTransition) {
-        const transition = slide.getSlideShowTransition();
-        slideData.transition = {
-          type: transition.getType ? transition.getType() : undefined,
-          speed: transition.getSpeed ? transition.getSpeed() : undefined,
-          advanceOnClick: transition.getAdvanceOnClick ? transition.getAdvanceOnClick() : true,
-          advanceAfterTime: transition.getAdvanceAfterTime ? transition.getAdvanceAfterTime() : undefined,
-          advanceAfterTimeEnabled: transition.getAdvanceAfter ? transition.getAdvanceAfter() : false,
-        };
-
-        // Extract transition sound
-        if (transition.getSound && transition.getSound()) {
-          slideData.transition.sound = {
-            loop: transition.getSound().getLoop ? transition.getSound().getLoop() : false,
-          };
-        }
-      }
-
-      // Extract slide timing
-      if (slide.getTimeline) {
-        const timeline = slide.getTimeline();
-        slideData.timing = {
-          mainSequenceCount: timeline.getMainSequence ? timeline.getMainSequence().size() : 0,
-          hasTimeline: true,
-        };
-      }
-
-      // Extract notes
-      if (slide.getNotesSlideManager && slide.getNotesSlideManager().getNotesSlide()) {
-        const notesSlide = slide.getNotesSlideManager().getNotesSlide();
-        if (notesSlide.getNotesTextFrame) {
-          slideData.notes = notesSlide.getNotesTextFrame().getText();
-        }
-      }
-
-      // Process shapes if requested
-      if (options.includeAssets !== false) {
-        const shapes = slide.getShapes();
-        for (let i = 0; i < shapes.size(); i++) {
-          const shape = shapes.get_Item(i);
-          const shapeData = await this.processShape(shape, options);
-          if (shapeData) {
-            slideData.shapes.push(shapeData);
-          }
-        }
-      }
-
-      // Process placeholders
-      const placeholders = slide.getPlaceholders ? slide.getPlaceholders() : null;
-      if (placeholders) {
-        for (let i = 0; i < placeholders.size(); i++) {
-          const placeholder = placeholders.get_Item(i);
-          slideData.placeholders.push({
-            type: placeholder.getType ? placeholder.getType() : undefined,
-            index: placeholder.getIndex ? placeholder.getIndex() : i,
-            size: placeholder.getSize ? placeholder.getSize() : undefined,
-            orientation: placeholder.getOrientation ? placeholder.getOrientation() : undefined,
-          });
-        }
-      }
-
-      // Process animations if requested
-      if (options.includeAnimations) {
-        const mainSequence = slide.getTimeline().getMainSequence();
-        for (let i = 0; i < mainSequence.size(); i++) {
-          const effect = mainSequence.get_Item(i);
-          const animationData = this.processAnimation(effect);
-          if (animationData) {
-            slideData.animations.push(animationData);
-          }
-        }
-      }
-
-      // Process comments if requested
-      if (options.includeComments) {
-        const comments = slide.getComments ? slide.getComments() : null;
-        if (comments) {
-          for (let i = 0; i < comments.size(); i++) {
-            const comment = comments.get_Item(i);
-            const commentData = this.processComment(comment);
-            if (commentData) {
-              slideData.comments.push(commentData);
+      // Process placeholders safely
+      try {
+        const placeholders = slide.getPlaceholders ? slide.getPlaceholders() : null;
+        if (placeholders && placeholders.size) {
+          for (let i = 0; i < placeholders.size(); i++) {
+            try {
+              const placeholder = placeholders.get_Item(i);
+              slideData.placeholders.push({
+                type: placeholder.getType ? placeholder.getType() : undefined,
+                index: placeholder.getIndex ? placeholder.getIndex() : i,
+                size: placeholder.getSize ? placeholder.getSize() : undefined,
+                orientation: placeholder.getOrientation ? placeholder.getOrientation() : undefined,
+              });
+            } catch (e) {
+              // Skip this placeholder
             }
           }
         }
+      } catch (e) {
+        // Skip placeholders if it fails
       }
 
+      // Process animations safely
+      try {
+        if (options.includeAnimations && slide.getTimeline) {
+          const mainSequence = slide.getTimeline().getMainSequence();
+          if (mainSequence && mainSequence.size) {
+            for (let i = 0; i < mainSequence.size(); i++) {
+              try {
+                const effect = mainSequence.get_Item(i);
+                const animationData = this.processAnimation(effect);
+                if (animationData) {
+                  slideData.animations.push(animationData);
+                }
+              } catch (e) {
+                // Skip this animation
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Skip animations if it fails
+      }
+
+      // Process comments safely
+      try {
+        if (options.includeComments && slide.getComments) {
+          const comments = slide.getComments();
+          if (comments && comments.size) {
+            for (let i = 0; i < comments.size(); i++) {
+              try {
+                const comment = comments.get_Item(i);
+                const commentData = this.processComment(comment);
+                if (commentData) {
+                  slideData.comments.push(commentData);
+                }
+              } catch (e) {
+                // Skip this comment
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Skip comments if it fails
+      }
+
+      logger.info(`Slide ${index + 1} processed successfully: ${slideData.shapes.length} shapes, ${slideData.animations.length} animations`);
       return slideData;
+
     } catch (error) {
       logger.error('Error processing slide', { error, slideIndex: index });
+      // Return minimal slide data instead of empty
       return {
         slideId: index + 1,
         name: `Slide ${index + 1}`,
@@ -824,138 +877,216 @@ export class AsposeAdapter {
     }
   }
 
-  /**
-   * Process individual shape to Universal Schema format
-   */
   private async processShape(shape: any, options: ConversionOptions): Promise<any | null> {
     try {
-      const AsposeSlides = require('../../../lib/aspose.slides.js');
-      const ShapeType = AsposeSlides.ShapeType;
-      const shapeType = shape.getShapeType();
+      // Get basic shape properties safely
+      const shapeId = shape.getUniqueId ? shape.getUniqueId().toString() : Math.random().toString(36);
+      const shapeName = shape.getName ? shape.getName() : `Shape_${shapeId}`;
       
-      // Extract comprehensive geometry information
-      const frame = shape.getFrame();
-      const baseShape: any = {
-        shapeType: this.mapShapeType(shapeType),
-        name: shape.getName() || '',
-        alternativeText: shape.getAlternativeText ? shape.getAlternativeText() : undefined,
-        hidden: shape.getHidden(),
-        locked: shape.isLocked ? shape.isLocked() : false,
-        geometry: {
-          x: frame.getX(),
-          y: frame.getY(),
-          width: frame.getWidth(),
-          height: frame.getHeight(),
-          rotation: shape.getRotation() || 0,
-        },
+      // Get shape type safely
+      let shapeType = 'Unknown';
+      try {
+        if (shape.getShapeType) {
+          shapeType = shape.getShapeType().toString();
+        }
+      } catch (e) {
+        // Use default
+      }
+
+      // Get shape geometry safely
+      const geometry = this.extractGeometry(shape);
+      
+      const shapeData: any = {
+        shapeId: shapeId,
+        name: shapeName,
+        type: shapeType,
+        geometry: geometry,
+        text: null,
+        fillFormat: null,
+        lineFormat: null,
+        effectFormat: null,
+        threeDFormat: null,
+        hyperlinks: [],
+        placeholderType: null,
+        isLocked: false,
+        isVisible: true,
+        rotation: 0,
+        zOrder: 0,
       };
 
-      // Extract fill format properties
-      const fillFormat = this.extractFillFormat(shape.getFillFormat());
-      if (fillFormat) {
-        baseShape.fillFormat = fillFormat;
+      // Extract shape positioning and visibility safely
+      try {
+        shapeData.isVisible = shape.isVisible ? shape.isVisible() : true;
+        shapeData.rotation = shape.getRotation ? shape.getRotation() : 0;
+        shapeData.zOrder = shape.getZOrderPosition ? shape.getZOrderPosition() : 0;
+      } catch (e) {
+        // Use defaults
       }
 
-      // Extract line format properties
-      const lineFormat = this.extractLineFormat(shape.getLineFormat());
-      if (lineFormat) {
-        baseShape.lineFormat = lineFormat;
-      }
+      // **CRITICAL: Extract text content safely**
+      try {
+        if (shape.getTextFrame) {
+          const textFrame = shape.getTextFrame();
+          if (textFrame) {
+            let fullText = '';
+            const textFormats = [];
+            
+            try {
+              // Get plain text first
+              if (textFrame.getText) {
+                fullText = textFrame.getText() || '';
+              }
+              
+              // Get formatted text if available
+              if (textFrame.getParagraphs && textFrame.getParagraphs().size) {
+                const paragraphs = textFrame.getParagraphs();
+                const paragraphCount = paragraphs.size();
+                
+                for (let p = 0; p < paragraphCount; p++) {
+                  try {
+                    const paragraph = paragraphs.get_Item(p);
+                    if (paragraph && paragraph.getPortions) {
+                      const portions = paragraph.getPortions();
+                      const portionCount = portions.size();
+                      
+                      for (let pt = 0; pt < portionCount; pt++) {
+                        try {
+                          const portion = portions.get_Item(pt);
+                          if (portion) {
+                            const portionText = portion.getText ? portion.getText() : '';
+                            if (portionText) {
+                              // Extract formatting safely
+                              const portionFormat = this.extractPortionFormat(portion);
+                              textFormats.push({
+                                text: portionText,
+                                format: portionFormat,
+                                paragraphIndex: p,
+                                portionIndex: pt,
+                              });
+                            }
+                          }
+                        } catch (e) {
+                          // Skip this portion
+                        }
+                      }
+                    }
+                  } catch (e) {
+                    // Skip this paragraph
+                  }
+                }
+              }
+            } catch (e) {
+              // Fallback to basic text extraction
+            }
 
-      // Extract effect format (shadow, glow, etc.)
-      const effectFormat = this.extractEffectFormat(shape.getEffectFormat());
-      if (effectFormat) {
-        baseShape.effectFormat = effectFormat;
-      }
-
-      // Extract 3D format if available
-      const threeDFormat = this.extractThreeDFormat(shape.getThreeDFormat());
-      if (threeDFormat) {
-        baseShape.threeDFormat = threeDFormat;
-      }
-
-      // Process text frame if available
-      if (shape.getTextFrame && shape.getTextFrame()) {
-        const textFrame = this.extractTextFrame(shape.getTextFrame());
-        if (textFrame) {
-          baseShape.textFrame = textFrame;
+            if (fullText || textFormats.length > 0) {
+              shapeData.text = {
+                plainText: fullText,
+                formattedText: textFormats,
+                hasText: true,
+              };
+            }
+          }
         }
+      } catch (textError) {
+        logger.warn(`Failed to extract text from shape ${shapeName}`, { error: textError });
       }
 
-      // Extract hyperlink if available
-      if (shape.getHyperlinkClick && shape.getHyperlinkClick()) {
-        const hyperlink = this.extractHyperlink(shape.getHyperlinkClick());
-        if (hyperlink) {
-          baseShape.hyperlink = hyperlink;
+      // Extract fill format safely
+      try {
+        if (shape.getFillFormat) {
+          const fillFormat = this.extractFillFormat(shape.getFillFormat());
+          if (fillFormat) {
+            shapeData.fillFormat = fillFormat;
+          }
         }
+      } catch (e) {
+        // Skip fill format
       }
 
-      // Process type-specific properties
-      switch (shapeType) {
-        case ShapeType.Picture:
-          if (shape.getPictureFormat && shape.getPictureFormat().getPicture()) {
-            baseShape.pictureProperties = this.extractPictureProperties(shape.getPictureFormat(), options);
+      // Extract line format safely
+      try {
+        if (shape.getLineFormat) {
+          const lineFormat = this.extractLineFormat(shape.getLineFormat());
+          if (lineFormat) {
+            shapeData.lineFormat = lineFormat;
           }
-          break;
-        
-        case ShapeType.Chart:
-          if (shape.getChartData) {
-            baseShape.chartProperties = this.extractChartData(shape);
+        }
+      } catch (e) {
+        // Skip line format
+      }
+
+      // Extract effect format safely
+      try {
+        if (shape.getEffectFormat) {
+          const effectFormat = this.extractEffectFormat(shape.getEffectFormat());
+          if (effectFormat) {
+            shapeData.effectFormat = effectFormat;
           }
-          break;
-        
-        case ShapeType.Table:
-          if (shape.getTable) {
-            baseShape.tableProperties = this.extractTableData(shape.getTable());
+        }
+      } catch (e) {
+        // Skip effect format
+      }
+
+      // Extract 3D format safely
+      try {
+        if (shape.getThreeDFormat) {
+          const threeDFormat = this.extractThreeDFormat(shape.getThreeDFormat());
+          if (threeDFormat) {
+            shapeData.threeDFormat = threeDFormat;
           }
-          break;
-        
-        case ShapeType.GroupShape:
-          if (shape.getShapes) {
-            const groupShapes = [];
-            const shapes = shape.getShapes();
-            for (let i = 0; i < shapes.size(); i++) {
-              const childShape = await this.processShape(shapes.get_Item(i), options);
-              if (childShape) {
-                groupShapes.push(childShape);
+        }
+      } catch (e) {
+        // Skip 3D format
+      }
+
+      // Extract hyperlinks safely
+      try {
+        if (shape.getHyperlinkManager && shape.getHyperlinkManager().getHyperlinks) {
+          const hyperlinks = shape.getHyperlinkManager().getHyperlinks();
+          if (hyperlinks && hyperlinks.size) {
+            for (let h = 0; h < hyperlinks.size(); h++) {
+              try {
+                const hyperlink = hyperlinks.get_Item(h);
+                if (hyperlink) {
+                  shapeData.hyperlinks.push({
+                    targetSlide: hyperlink.getTargetSlide ? hyperlink.getTargetSlide() : null,
+                    actionType: hyperlink.getActionType ? hyperlink.getActionType().toString() : null,
+                    externalUrl: hyperlink.getExternalUrl ? hyperlink.getExternalUrl() : null,
+                  });
+                }
+              } catch (e) {
+                // Skip this hyperlink
               }
             }
-            baseShape.groupProperties = { shapes: groupShapes };
           }
-          break;
-        
-        case ShapeType.VideoFrame:
-          if (shape.getVideoData) {
-            baseShape.videoProperties = this.extractVideoProperties(shape);
-          }
-          break;
-        
-        case ShapeType.AudioFrame:
-          if (shape.getAudioData) {
-            baseShape.audioProperties = this.extractAudioProperties(shape);
-          }
-          break;
-        
-        case ShapeType.SmartArt:
-          if (shape.getSmartArtData) {
-            baseShape.smartArtProperties = this.extractSmartArtProperties(shape);
-          }
-          break;
-        
-        case ShapeType.OleObjectFrame:
-          if (shape.getObjectData) {
-            baseShape.oleObjectProperties = this.extractOleObjectProperties(shape);
-          }
-          break;
-        
-        case ShapeType.Connector:
-          baseShape.connectorProperties = this.extractConnectorProperties(shape);
-          break;
+        }
+      } catch (e) {
+        // Skip hyperlinks
       }
 
-      return baseShape;
+      // Check if shape is a placeholder safely
+      try {
+        if (shape.getPlaceholder) {
+          const placeholder = shape.getPlaceholder();
+          if (placeholder) {
+            shapeData.placeholderType = placeholder.getType ? placeholder.getType().toString() : 'Unknown';
+          }
+        }
+      } catch (e) {
+        // Not a placeholder or error getting placeholder info
+      }
+
+      // Log successful extraction
+      const hasContent = shapeData.text?.plainText || shapeData.fillFormat || shapeData.lineFormat;
+      if (hasContent) {
+        logger.info(`Shape extracted: ${shapeName} (${shapeType}) - Text: ${shapeData.text?.plainText?.length || 0} chars`);
+      }
+
+      return shapeData;
+
     } catch (error) {
-      logger.error('Error processing shape', { error });
+      logger.error('Error processing shape', { error, shapeName: shape.getName ? shape.getName() : 'Unknown' });
       return null;
     }
   }
@@ -1365,7 +1496,7 @@ export class AsposeAdapter {
               fontBold: portionFormat.getFontBold() === 1,
               fontItalic: portionFormat.getFontItalic() === 1,
               fontUnderline: portionFormat.getFontUnderline() !== 0,
-              fontColor: this.extractPortionColor(portionFormat),
+              fontColor: this.extractPortionColor(portion),
             },
           };
           
@@ -1382,19 +1513,36 @@ export class AsposeAdapter {
   }
 
   /**
-   * Extract portion text color
+   * Extract portion color
    */
-  private extractPortionColor(portionFormat: any): string {
+  private extractPortionColor(portion: any): string {
     try {
-      const fillFormat = portionFormat.getFillFormat();
-      if (fillFormat && fillFormat.getFillType() === 1) { // Solid fill
-        const solidFillColor = fillFormat.getSolidFillColor();
-        if (solidFillColor && solidFillColor.getColor) {
-          return this.colorToHex(solidFillColor.getColor());
+      if (portion.getFillFormat) {
+        const fillFormat = portion.getFillFormat();
+        if (fillFormat && fillFormat.getFillType) {
+          const fillType = fillFormat.getFillType();
+          
+          // Handle solid color fill
+          if (fillFormat.getSolidFillColor && fillFormat.getSolidFillColor()) {
+            const color = fillFormat.getSolidFillColor().getColor();
+            if (color) {
+              return this.colorToHex(color);
+            }
+          }
         }
       }
-      return '#000000';
+      
+      // Fallback: try to get color directly
+      if (portion.getFontColor) {
+        const color = portion.getFontColor();
+        if (color) {
+          return this.colorToHex(color);
+        }
+      }
+      
+      return '#000000'; // Default black
     } catch (error) {
+      logger.error('Error extracting portion color', { error });
       return '#000000';
     }
   }
@@ -1654,6 +1802,61 @@ export class AsposeAdapter {
     } catch (error) {
       logger.error('Error extracting connector properties', { error });
       return null;
+    }
+  }
+
+  /**
+   * Extract geometry (position, size) from shape
+   */
+  private extractGeometry(shape: any): any {
+    try {
+      const frame = shape.getFrame();
+      return {
+        x: frame.getX(),
+        y: frame.getY(),
+        width: frame.getWidth(),
+        height: frame.getHeight(),
+      };
+    } catch (error) {
+      logger.error('Error extracting geometry', { error });
+      return { x: 0, y: 0, width: 0, height: 0 };
+    }
+  }
+
+  /**
+   * Extract portion format (font, color, etc.)
+   */
+  private extractPortionFormat(portion: any): any {
+    try {
+      const result: any = {
+        fontName: portion.getLatinFont()?.getFontName() || 'Arial',
+        fontSize: portion.getFontHeight() || 12,
+        fontBold: portion.getFontBold() === 1,
+        fontItalic: portion.getFontItalic() === 1,
+        fontUnderline: portion.getFontUnderline() !== 0,
+        fontColor: this.extractPortionColor(portion),
+      };
+
+      // Extract fill format
+      if (portion.getFillFormat) {
+        const fillFormat = this.extractFillFormat(portion.getFillFormat());
+        if (fillFormat) {
+          result.fillFormat = fillFormat;
+        }
+      }
+
+      // Extract line format
+      if (portion.getLineFormat) {
+        const lineFormat = this.extractLineFormat(portion.getLineFormat());
+        if (lineFormat) {
+          result.lineFormat = lineFormat;
+        }
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error extracting portion format', { error });
+      return {};
     }
   }
 } 
