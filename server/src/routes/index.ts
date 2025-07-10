@@ -309,28 +309,13 @@ router.get('/docs', (req: Request, res: Response) => {
               }),
             },
           },
-          'POST /extract-assets': {
-            description: 'Extract embedded assets from presentation',
-            contentType: 'multipart/form-data',
+          'POST /chat': {
+            description: 'AI-powered chat with Luna assistant',
+            contentType: 'application/json',
             parameters: {
-              file: 'PPTX file (required)',
-              options: 'JSON string with extraction options (optional)',
-            },
-            example: {
-              file: 'presentation.pptx',
-              options: JSON.stringify({
-                assetTypes: ['images', 'videos'],
-                returnFormat: 'urls',
-                generateThumbnails: true,
-              }),
-            },
-          },
-          'POST /extract-metadata': {
-            description: 'Extract comprehensive document metadata',
-            contentType: 'multipart/form-data',
-            parameters: {
-              file: 'PPTX file (required)',
-              options: 'JSON string with extraction options (optional)',
+              message: 'Your message or question for Luna (required)',
+              sessionId: 'Optional session ID to maintain conversation context',
+              context: 'Additional context for the conversation',
             },
           },
           'POST /extract-assets-async': {
@@ -361,6 +346,52 @@ router.get('/docs', (req: Request, res: Response) => {
               timeoutMs: 'Custom timeout in milliseconds (optional, max 5 minutes)',
               userId: 'User identifier for tracking (optional)',
             },
+          },
+        },
+      },
+      
+      extraction: {
+        description: 'Asset and metadata extraction endpoints',
+        routes: {
+          'POST /extract-assets': {
+            description: 'Extract embedded assets from presentation',
+            contentType: 'multipart/form-data',
+            parameters: {
+              file: 'PPTX file (required)',
+              options: 'JSON string with extraction options (optional)',
+            },
+            example: {
+              file: 'presentation.pptx',
+              options: JSON.stringify({
+                assetTypes: ['images', 'videos'],
+                returnFormat: 'urls',
+                generateThumbnails: true,
+              }),
+            },
+          },
+          'POST /extract-metadata': {
+            description: 'Extract comprehensive document metadata',
+            contentType: 'multipart/form-data',
+            parameters: {
+              file: 'PPTX file (required)',
+              options: 'JSON string with extraction options (optional)',
+            },
+            example: {
+              file: 'presentation.pptx',
+              options: JSON.stringify({
+                includeSystemMetadata: true,
+                includeCustomProperties: true,
+                includeStatistics: true,
+              }),
+            },
+          },
+          'POST /extract-asset-metadata': {
+            description: 'Extract metadata from embedded assets (Phase 2 implementation)',
+            contentType: 'multipart/form-data',
+            parameters: {
+              file: 'PPTX file (required)',
+            },
+            note: 'Scheduled for implementation in Phase 2 of refactoring',
           },
         },
       },
