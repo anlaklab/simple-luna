@@ -5,6 +5,7 @@
  */
 
 import { logger } from '../../../utils/logger';
+import { randomUUID } from 'crypto';
 import { 
   IConversionService, 
   AsposeConfig, 
@@ -315,8 +316,8 @@ export class ConversionService implements IConversionService {
 
   private async processShape(shape: any, options: ConversionOptions): Promise<any | null> {
     try {
-      // Get basic shape properties safely
-      const shapeId = shape.getUniqueId ? shape.getUniqueId().toString() : Math.random().toString(36);
+      // Get basic shape properties safely (using crypto.randomUUID for security)
+      const shapeId = shape.getUniqueId ? shape.getUniqueId().toString() : randomUUID();
       const shapeName = shape.getName ? shape.getName() : `Shape_${shapeId}`;
       
       // Get shape type safely

@@ -33,7 +33,7 @@
       "@/utils/*": ["src/utils/*"],
       "@/routes/*": ["src/routes/*"]
     },
-    "types": ["node", "jest"],
+    "types": ["node"],
     "typeRoots": ["./node_modules/@types", "./src/types"]
   },
   "include": [
