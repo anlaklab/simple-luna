@@ -9,19 +9,19 @@ const results = [];
 
 const rootDir = process.argv[2] || '.';
 
-// Carga líneas del .gitignore
-let ignoredPaths = [];
-const gitignorePath = path.join(rootDir, '.gitignore');
-if (fs.existsSync(gitignorePath)) {
-  const lines = fs.readFileSync(gitignorePath, 'utf8').split('\n');
-  ignoredPaths = lines
-    .map(line => line.trim())
-    .filter(line => line && !line.startsWith('#'))
-    .map(pattern => pattern.replace(/\/$/, '')); // quita '/' final
-}
+// ❌ Rutas o carpetas a excluir manualmente (relativas o absolutas)
+const ignoredDirs = ['.git', 'node_modules', 'dist', 'out', 'build', '.next'];
+const ignoredExtensions = ['.jar', '.png', '.jpg', '.jpeg', '.gif', '.pdf', '.ico', '.svg', '.lock', '.zip', '.bin'];
+const ignoredFilenames = ['Thumbs.db', 'desktop.ini'];
 
-function isIgnored(filePath) {
-  return ignoredPaths.some(pattern => filePath.includes(pattern));
+function isIgnored(filePath, entryName) {
+  const relative = path.relative(rootDir, filePath);
+
+  return (
+    ignoredDirs.some(dir => relative.split(path.sep).includes(dir)) ||
+    ignoredExtensions.some(ext => filePath.toLowerCase().endsWith(ext)) ||
+    ignoredFilenames.includes(entryName)
+  );
 }
 
 function countFileLines(filePath) {
@@ -32,7 +32,7 @@ function countFileLines(filePath) {
     totalLines += lines;
     totalFiles++;
   } catch (_) {
-    // Ignorar binarios o ilegibles
+    // ignorar archivos binarios o ilegibles
   }
 }
 
@@ -41,9 +41,7 @@ function walkDirectory(dirPath) {
 
   for (const entry of entries) {
     const fullPath = path.join(dirPath, entry.name);
-    const relativePath = path.relative(rootDir, fullPath);
-
-    if (isIgnored(relativePath)) continue;
+    if (isIgnored(fullPath, entry.name)) continue;
 
     if (entry.isDirectory()) {
       walkDirectory(fullPath);

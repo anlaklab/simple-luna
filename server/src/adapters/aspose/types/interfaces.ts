@@ -112,6 +112,8 @@ export interface ThumbnailResult {
   id?: string; // For backward compatibility
   metadata?: Record<string, any>; // For backward compatibility
   createdAt?: Date; // For backward compatibility
+  error?: string; // Added for error handling
+  filePath?: string; // Added for file reference
 }
 
 export interface IThumbnailService {
