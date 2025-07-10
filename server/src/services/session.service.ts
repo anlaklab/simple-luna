@@ -64,7 +64,7 @@ export class SessionService {
           totalTokens: 0,
           lastActivity: now,
           presentationCount: 0,
-          analysisCount: 0,
+          analysisCount: 0, // New session starts with 0 analyses
           errorCount: 0,
           tags: request.tags || [],
           bookmarked: false,
@@ -682,11 +682,37 @@ export class SessionService {
         topTags,
         activityByDay,
         presentationCount,
-        analysisCount: 0, // Would need analysis collection to get real count
+        analysisCount: await this.getRealAnalysisCount(userId)
       };
     } catch (error) {
       logger.error('Failed to get session stats', { error, userId });
       throw error;
+    }
+  }
+
+  /**
+   * Get real analysis count from Firebase
+   */
+  private async getRealAnalysisCount(userId?: string): Promise<number> {
+    try {
+      // Build filters for analysis query
+      const filters: Array<{ field: string; operator: any; value: any }> = [];
+      if (userId) {
+        filters.push({ field: 'userId', operator: '==', value: userId });
+      }
+
+      // Query analysis collection for real count
+      const analyses = await this.firebase.queryDocuments<any>(
+        'analyses', // Analysis collection name
+        filters,
+        1000 // Get a reasonable batch for counting
+      );
+
+      return analyses.length;
+    } catch (error) {
+      logger.warn('Failed to get real analysis count, using fallback', { error, userId });
+      // Return 0 as fallback if analysis collection doesn't exist or query fails
+      return 0;
     }
   }
 

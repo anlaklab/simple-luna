@@ -395,11 +395,15 @@ export async function limitConcurrency<T>(
  * Generate cryptographically secure random string
  */
 export function generateSecureToken(length: number = 32): string {
+  const crypto = require('crypto');
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
   
+  // Use crypto.randomBytes for cryptographically secure random numbers
+  const randomBytes = crypto.randomBytes(length);
+  
   for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+    result += chars.charAt(randomBytes[i] % chars.length);
   }
   
   return result;

@@ -168,21 +168,21 @@ const translateController = async (req: Request, res: Response): Promise<void> =
       success: true,
       data: {
         translatedPresentation,
-        translationStats: {
+      translationStats: {
           sourceLanguage: sourceLanguage || 'auto-detected',
           targetLanguage,
           translatedSlides: presentationData.slides?.length || 0,
           translatedShapes: presentationData.slides?.reduce((sum: number, slide: any) => 
             sum + (slide.shapes?.length || 0), 0) || 0,
           translationMethod,
-          processingTimeMs: Date.now() - startTime,
-        },
-      },
-      meta: {
-        timestamp: new Date().toISOString(),
-        requestId,
         processingTimeMs: Date.now() - startTime,
-        version: '1.0',
+      },
+    },
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId,
+      processingTimeMs: Date.now() - startTime,
+      version: '1.0',
       },
     });
 
@@ -284,10 +284,10 @@ const analyzeController = async (req: Request, res: Response): Promise<void> => 
       }
 
       res.status(200).json({
-        success: true,
-        data: {
-          analysis: {
-            overview: {
+    success: true,
+    data: {
+      analysis: {
+        overview: {
               slideCount,
               wordCount,
               characterCount: charCount,
@@ -295,11 +295,11 @@ const analyzeController = async (req: Request, res: Response): Promise<void> => 
               estimatedDuration: `${Math.max(1, Math.ceil(slideCount * 0.5))} minutes`,
             },
             sentiment: aiAnalysis?.sentiment || {
-              overall: 'neutral' as const,
+          overall: 'neutral' as const,
               confidence: 0.5,
-              details: [],
-            },
-            accessibility: {
+          details: [],
+        },
+        accessibility: {
               score: slideCount > 0 ? 75 : 0, // Basic score based on content presence
               issues: slideCount === 0 ? [{ 
                 type: 'no_content', 
@@ -318,14 +318,14 @@ const analyzeController = async (req: Request, res: Response): Promise<void> => 
               hasTables: presentation.slides?.some((slide: any) => 
                 slide.shapes?.some((shape: any) => shape.type === 'Table')
               ) || false,
-            },
-          },
         },
-        meta: {
-          timestamp: new Date().toISOString(),
-          requestId,
-          processingTimeMs: Date.now() - startTime,
-          version: '1.0',
+      },
+    },
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId,
+      processingTimeMs: Date.now() - startTime,
+      version: '1.0',
         },
       });
 
@@ -411,16 +411,16 @@ const extractAssetsController = async (req: Request, res: Response): Promise<voi
       };
 
       res.status(200).json({
-        success: true,
-        data: {
+    success: true,
+    data: {
           assets,
           summary,
-        },
-        meta: {
-          timestamp: new Date().toISOString(),
-          requestId,
-          processingTimeMs: Date.now() - startTime,
-          version: '1.0',
+    },
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId,
+      processingTimeMs: Date.now() - startTime,
+      version: '1.0',
         },
       });
 
@@ -605,25 +605,25 @@ const extractMetadataController = async (req: Request, res: Response): Promise<v
       const statistics = await asposeAdapter.getDocumentStatistics(tempFilePath);
 
       res.status(200).json({
-        success: true,
-        data: {
-          metadata: {
-            basic: {
+    success: true,
+    data: {
+      metadata: {
+        basic: {
               title: metadata.title,
               author: metadata.author,
               subject: metadata.subject,
               category: metadata.category,
               keywords: metadata.keywords,
               comments: metadata.comments,
-            },
-            system: {
+        },
+        system: {
               created: metadata.creationTime?.toISOString(),
               modified: metadata.lastModifiedTime?.toISOString(),
               createdBy: metadata.createdBy,
               lastModifiedBy: metadata.lastModifiedBy,
               applicationName: metadata.applicationName,
-            },
-            statistics: {
+        },
+        statistics: {
               slideCount: statistics.slideCount,
               shapeCount: statistics.shapeCount,
               wordCount: statistics.textLength,
@@ -633,13 +633,13 @@ const extractMetadataController = async (req: Request, res: Response): Promise<v
               tableCount: statistics.tableCount,
             },
             customProperties: metadata.customProperties,
-          },
-        },
-        meta: {
-          timestamp: new Date().toISOString(),
-          requestId,
-          processingTimeMs: Date.now() - startTime,
-          version: '1.0',
+      },
+    },
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId,
+      processingTimeMs: Date.now() - startTime,
+      version: '1.0',
         },
       });
 
