@@ -193,7 +193,7 @@ const server = app.listen(PORT, () => {
       aspose: true,
     },
     notes: {
-      ai_features: 'AI translation and analysis endpoints are available with placeholder implementations',
+      ai_features: 'AI translation, analysis, and conversational chat endpoints are available with real OpenAI integrations',
       routes: 'All routes are organized with proper validation and error handling',
       middleware: 'Request validation, error handling, and logging middleware are active',
     },

@@ -451,6 +451,114 @@ const extractAssetsController = async (req: Request, res: Response): Promise<voi
 };
 
 /**
+ * Chat Controller - Real implementation using OpenAI for conversational AI
+ */
+const chatController = async (req: Request, res: Response): Promise<void> => {
+  const requestId = req.requestId || `req_${Date.now()}`;
+  const startTime = Date.now();
+
+  try {
+    if (!openaiAdapter) {
+      res.status(503).json({
+        success: false,
+        error: {
+          type: 'service_unavailable',
+          code: 'OPENAI_NOT_CONFIGURED',
+          message: 'OpenAI service is not configured. Please configure OPENAI_API_KEY.',
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId,
+          processingTimeMs: Date.now() - startTime,
+        },
+      });
+      return;
+    }
+
+    const { message, sessionId, context = {} } = req.body;
+
+    if (!message || typeof message !== 'string') {
+      res.status(400).json({
+        success: false,
+        error: {
+          type: 'validation_error',
+          code: 'MISSING_MESSAGE',
+          message: 'Message content is required',
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId,
+          processingTimeMs: Date.now() - startTime,
+        },
+      });
+      return;
+    }
+
+    // Real AI conversation using OpenAI
+    logger.info('Starting AI chat conversation', { requestId, sessionId, messageLength: message.length });
+
+    const systemPrompt = `You are Luna, an AI presentation assistant. You help users create, analyze, and improve professional presentations. You have expertise in:
+- Creating compelling presentation content
+- Analyzing presentation effectiveness
+- Suggesting design improvements
+- Providing content optimization advice
+- Helping with presentation structure and flow
+
+Keep responses helpful, professional, and focused on presentation-related tasks. If asked about unrelated topics, gently redirect to how you can help with presentations.`;
+
+    const response = await openaiAdapter.createChatCompletion({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: message },
+      ],
+      model: 'gpt-4-turbo-preview',
+      temperature: 0.7,
+      max_tokens: 1000,
+    });
+
+    const assistantMessage = response.choices[0]?.message?.content;
+    if (!assistantMessage) {
+      throw new Error('No response generated from AI model');
+    }
+
+    const usageMetrics = openaiAdapter.getUsageMetrics(response);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        response: assistantMessage,
+        model: response.model,
+        sessionId,
+        context,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId,
+        processingTimeMs: Date.now() - startTime,
+        tokensUsed: usageMetrics?.totalTokens || 0,
+        version: '1.0',
+      },
+    });
+
+  } catch (error) {
+    logger.error('AI chat failed', { error, requestId });
+    res.status(500).json({
+      success: false,
+      error: {
+        type: 'chat_error',
+        code: 'AI_CHAT_FAILED',
+        message: error instanceof Error ? error.message : 'Chat conversation failed',
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId,
+        processingTimeMs: Date.now() - startTime,
+      },
+    });
+  }
+};
+
+/**
  * Metadata Extraction Controller - Real implementation using refactored MetadataService
  */
 const extractMetadataController = async (req: Request, res: Response): Promise<void> => {
@@ -587,6 +695,7 @@ const extractAssetMetadataController = async (req: Request, res: Response): Prom
 // ROUTE DEFINITIONS - Using real implementations
 // =============================================================================
 
+router.post('/chat', handleAsyncErrors(chatController));
 router.post('/aitranslate', validateRequest(AiTranslateRequestSchema, 'body'), handleAsyncErrors(translateController));
 router.post('/analyze', upload.single('file'), validateFileUpload({ required: true, maxSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'), fieldName: 'file' }), validateFormOptions(AnalyzeRequestSchema), handleAsyncErrors(analyzeController));
 router.post('/extract-assets', upload.single('file'), validateFileUpload({ required: true, maxSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'), fieldName: 'file' }), validateFormOptions(ExtractAssetsRequestSchema), handleAsyncErrors(extractAssetsController));

@@ -211,20 +211,49 @@ export function useChatSession({
           };
         }
       } else {
-        // Regular AI conversation (would need OpenAI integration)
-        const aiMessageResponse = await apiRequest("POST", `/api/v1/sessions/${useSessionId}/messages`, {
-          role: "assistant",
-          content: `I understand you're asking about: "${content}". I'm Luna, your AI presentation assistant. I can help you create professional presentations. Would you like me to generate a presentation on this topic?`,
-          metadata: {
-            model: "gpt-4-mock",
-            processingTimeMs: 100
+        // Regular AI conversation using real OpenAI integration
+        const conversationResponse = await apiRequest("POST", "/api/v1/ai/chat", {
+          message: content,
+          sessionId: useSessionId,
+          context: {
+            role: "presentation_assistant",
+            capabilities: ["presentation_generation", "content_analysis", "design_suggestions"]
           }
         });
 
-        return {
-          userMessage: userMessageData,
-          aiMessage: await aiMessageResponse.json()
-        };
+        const conversationData = await conversationResponse.json();
+        
+        if (conversationData.success) {
+          const aiMessageResponse = await apiRequest("POST", `/api/v1/sessions/${useSessionId}/messages`, {
+            role: "assistant",
+            content: conversationData.data.response,
+            metadata: {
+              model: conversationData.data.model || "gpt-4",
+              processingTimeMs: conversationData.meta?.processingTimeMs || 0,
+              tokensUsed: conversationData.meta?.tokensUsed || 0
+            }
+          });
+
+          return {
+            userMessage: userMessageData,
+            aiMessage: await aiMessageResponse.json()
+          };
+        } else {
+          // Fallback if AI service fails
+          const fallbackResponse = await apiRequest("POST", `/api/v1/sessions/${useSessionId}/messages`, {
+            role: "assistant",
+            content: "I apologize, but I'm experiencing technical difficulties. Please try again or ask me to generate a presentation instead.",
+            metadata: {
+              model: "fallback",
+              processingTimeMs: 0
+            }
+          });
+
+          return {
+            userMessage: userMessageData,
+            aiMessage: await fallbackResponse.json()
+          };
+        }
       }
     },
     onSuccess: () => {

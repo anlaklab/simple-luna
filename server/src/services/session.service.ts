@@ -584,21 +584,105 @@ export class SessionService {
    */
   async getSessionStats(userId?: string): Promise<SessionStats> {
     try {
-      // This would typically involve complex aggregation queries
-      // For now, return mock data with proper structure
+      // Build base query filters
+      const filters: Array<{ field: string; operator: any; value: any }> = [];
+      if (userId) {
+        filters.push({ field: 'userId', operator: '==', value: userId });
+      }
+
+      // Get all sessions for aggregation
+      const allSessions = await this.firebase.queryDocuments<ChatSession>(
+        this.collectionName,
+        filters,
+        1000 // Get a reasonable batch for stats
+      );
+
+      // Calculate real statistics
+      const totalSessions = allSessions.length;
+      const activeSessions = allSessions.filter(s => s.status === 'active').length;
+      const archivedSessions = allSessions.filter(s => s.status === 'archived').length;
+      
+      const totalMessages = allSessions.reduce((sum, session) => 
+        sum + (session.metadata?.totalMessages || session.messages?.length || 0), 0
+      );
+      
+      const totalTokens = allSessions.reduce((sum, session) => 
+        sum + (session.metadata?.totalTokens || 0), 0
+      );
+
+      const presentationCount = allSessions.reduce((sum, session) => 
+        sum + (session.metadata?.presentationCount || session.presentations?.length || 0), 0
+      );
+
+      const avgMessagesPerSession = totalSessions > 0 ? totalMessages / totalSessions : 0;
+      const avgTokensPerSession = totalSessions > 0 ? totalTokens / totalSessions : 0;
+
+      // Calculate average session duration
+      const sessionDurations = allSessions
+        .filter(s => s.createdAt && s.lastMessageAt)
+        .map(s => {
+          const start = new Date(s.createdAt).getTime();
+          const end = new Date(s.lastMessageAt || s.updatedAt).getTime();
+          return end - start;
+        });
+      
+      const avgSessionDuration = sessionDurations.length > 0 
+        ? sessionDurations.reduce((sum, duration) => sum + duration, 0) / sessionDurations.length / 1000 / 60 // Convert to minutes
+        : 0;
+
+      // Extract top tags
+      const tagCounts = new Map<string, number>();
+      allSessions.forEach(session => {
+        (session.metadata?.tags || []).forEach(tag => {
+          tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+        });
+      });
+      
+      const topTags = Array.from(tagCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([tag, count]) => ({ tag, count }));
+
+      // Generate activity by day (last 30 days)
+      const activityByDay: Array<{ date: string; count: number }> = [];
+      const now = new Date();
+      
+      for (let i = 29; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        
+        const daySessions = allSessions.filter(session => {
+          const sessionDate = new Date(session.createdAt).toISOString().split('T')[0];
+          return sessionDate === dateStr;
+        });
+        
+        const dayMessages = daySessions.reduce((sum, session) => 
+          sum + (session.messages?.filter(msg => 
+            new Date(msg.timestamp).toISOString().split('T')[0] === dateStr
+          ).length || 0), 0
+        );
+
+        // Use total activity (sessions + messages) as count
+        activityByDay.push({
+          date: dateStr,
+          count: daySessions.length + dayMessages
+        });
+      }
+
       return {
-        totalSessions: 0,
-        activeSessions: 0,
-        archivedSessions: 0,
-        totalMessages: 0,
-        totalTokens: 0,
-        avgMessagesPerSession: 0,
-        avgTokensPerSession: 0,
-        avgSessionDuration: 0,
-        topTags: [],
-        activityByDay: [],
-        presentationCount: 0,
-        analysisCount: 0,
+        totalSessions,
+        activeSessions,
+        archivedSessions,
+        totalMessages,
+        totalTokens,
+        avgMessagesPerSession: Math.round(avgMessagesPerSession * 100) / 100,
+        avgTokensPerSession: Math.round(avgTokensPerSession * 100) / 100,
+        avgSessionDuration: Math.round(avgSessionDuration * 100) / 100,
+        topTags,
+        activityByDay,
+        presentationCount,
+        analysisCount: 0, // Would need analysis collection to get real count
       };
     } catch (error) {
       logger.error('Failed to get session stats', { error, userId });

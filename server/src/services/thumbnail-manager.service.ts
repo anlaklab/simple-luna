@@ -129,23 +129,14 @@ export class ThumbnailManagerService {
       let thumbnails: ThumbnailResult[] = [];
       let errors: string[] = [];
 
-      if (finalStrategy === 'real') {
-        const result = await this.generateRealThumbnails(
-          presentationId,
-          inputPath,
-          { width, height, format, quality, slideIndices }
-        );
-        thumbnails = result.thumbnails;
-        errors = result.errors;
-      } else {
-        const result = await this.generatePlaceholderThumbnails(
-          presentationId,
-          inputPath,
-          { width, height, format, slideIndices }
-        );
-        thumbnails = result.thumbnails;
-        errors = result.errors;
-      }
+      // ALWAYS use real thumbnails - no placeholders allowed per project rules
+      const result = await this.generateRealThumbnails(
+        presentationId,
+        inputPath,
+        { width, height, format, quality, slideIndices }
+      );
+      thumbnails = result.thumbnails;
+      errors = result.errors;
 
       // Save thumbnail metadata to Firebase
       await this.saveThumbnailMetadata(presentationId, thumbnails);
@@ -348,108 +339,8 @@ export class ThumbnailManagerService {
     }
   }
 
-  /**
-   * Generate placeholder thumbnails from presentation data
-   */
-  private async generatePlaceholderThumbnails(
-    presentationId: string,
-    inputPath: string,
-    options: { width: number; height: number; format: string; slideIndices?: number[] }
-  ): Promise<{ thumbnails: ThumbnailResult[]; errors: string[] }> {
-    try {
-      // First convert PPTX to Universal Schema to get slide data
-      const conversionResult = await this.asposeAdapter.convertPptxToJson(inputPath);
-      
-      if (!conversionResult.success || !conversionResult.data) {
-        throw new Error('Failed to convert presentation for placeholder generation');
-      }
-
-      const slides = conversionResult.data.slides ?? [];
-      const targetSlides = options.slideIndices 
-        ? slides.filter((_, index) => options.slideIndices!.includes(index))
-        : slides;
-
-      const thumbnails: ThumbnailResult[] = [];
-      const errors: string[] = [];
-
-      for (let i = 0; i < targetSlides.length; i++) {
-        const slide = targetSlides[i];
-        const slideIndex = options.slideIndices ? options.slideIndices[i] : i;
-
-        try {
-          // Generate placeholder image
-          const placeholderBuffer = await this.generatePlaceholderImage(slide, {
-            width: options.width,
-            height: options.height,
-            format: options.format,
-          });
-
-          // Upload to Firebase Storage
-          const fileName = `${presentationId}/placeholder-slide-${slideIndex}.${options.format}`;
-          const uploadResult = await this.firebase.uploadFile(
-            placeholderBuffer,
-            fileName,
-            `image/${options.format}`,
-            { 
-              presentationId,
-              slideIndex,
-              strategy: 'placeholder',
-              generated: new Date().toISOString(),
-            }
-          );
-
-          thumbnails.push({
-            id: uuidv4(),
-            slideIndex,
-            url: uploadResult.url,
-            format: options.format,
-            size: { width: options.width, height: options.height },
-            fileSize: placeholderBuffer.length,
-            strategy: 'placeholder',
-            createdAt: new Date(),
-            metadata: {
-              uploadPath: uploadResult.path,
-              slideTitle: slide.name || `Slide ${slideIndex + 1}`,
-              shapeCount: slide.shapes?.length || 0,
-            },
-          });
-        } catch (slideError) {
-          errors.push(`Failed to generate placeholder for slide ${slideIndex}: ${slideError}`);
-        }
-      }
-
-      return { thumbnails, errors };
-    } catch (error) {
-      logger.error('Placeholder thumbnail generation failed', { error, presentationId });
-      return { 
-        thumbnails: [], 
-        errors: [error instanceof Error ? error.message : 'Unknown error'] 
-      };
-    }
-  }
-
-  /**
-   * Generate placeholder image from slide data
-   */
-  private async generatePlaceholderImage(
-    slide: any,
-    options: { width: number; height: number; format: string }
-  ): Promise<Buffer> {
-    // This is a simplified placeholder generation
-    // In a real implementation, you might use a library like Canvas or Sharp
-    // to create actual images based on slide content
-    
-    const slideTitle = slide.name || 'Untitled Slide';
-    const shapeCount = slide.shapes?.length || 0;
-    const hasImages = slide.shapes?.some((shape: any) => shape.type === 'Picture') || false;
-    
-    // Create a simple text-based representation
-    const placeholderText = `${slideTitle}\n${shapeCount} elements\n${hasImages ? 'Contains images' : 'Text only'}`;
-    
-    // For now, return a simple buffer representing the placeholder
-    // In production, you'd generate an actual image
-    return Buffer.from(placeholderText, 'utf8');
-  }
+  // NOTE: Placeholder thumbnail methods removed per project rules
+  // Project requires REAL thumbnails only using Aspose.Slides library
 
   // =============================================================================
   // THUMBNAIL MANAGEMENT
@@ -545,21 +436,22 @@ export class ThumbnailManagerService {
   /**
    * Determine optimal strategy based on presentation characteristics
    */
-  private async determineOptimalStrategy(inputPath: string): Promise<'real' | 'placeholder'> {
+  private async determineOptimalStrategy(inputPath: string): Promise<'real'> {
+    // ALWAYS use real thumbnails - no placeholders allowed per project rules
     try {
-      // Check file size - larger files get placeholder strategy for speed
       const stats = await fs.stat(inputPath);
       const fileSizeMB = stats.size / (1024 * 1024);
-
-      if (fileSizeMB > 10) {
-        return 'placeholder';
-      }
-
-      // For smaller files, try real thumbnails
+      
+      logger.info('Using real thumbnail generation', { 
+        fileSizeMB, 
+        strategy: 'real',
+        reason: 'Project rules require real thumbnails only'
+      });
+      
       return 'real';
     } catch (error) {
-      logger.warn('Failed to determine optimal strategy, defaulting to placeholder', { error });
-      return 'placeholder';
+      logger.warn('Failed to get file stats, using real strategy', { error });
+      return 'real';
     }
   }
 

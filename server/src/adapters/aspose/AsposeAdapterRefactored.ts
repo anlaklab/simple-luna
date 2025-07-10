@@ -32,6 +32,7 @@ import { ThumbnailService } from './services/ThumbnailService';
 import { AssetService } from './services/AssetService';
 import { MetadataService } from './services/MetadataService';
 import { ensureDirectoryExists } from './utils/asposeUtils';
+import { randomUUID } from 'crypto';
 
 export class AsposeAdapterRefactored {
   private conversionService: IConversionService;
@@ -246,15 +247,69 @@ export class AsposeAdapterRefactored {
     options: any = {}
   ): Promise<{ success: boolean; buffer?: Buffer; size?: number; error?: string; processingStats?: any }> {
     try {
+      const aspose = require('../../../lib/aspose.slides.js');
+      const Presentation = aspose.Presentation;
+      const SaveFormat = aspose.SaveFormat;
+      const fs = require('fs');
+      const path = require('path');
+
       if (format === 'pdf' || format === 'html') {
-        // For now, return a mock buffer - this would need real implementation
-        const mockBuffer = Buffer.from(`Mock ${format.toUpperCase()} content`);
-        return {
-          success: true,
-          buffer: mockBuffer,
-          size: mockBuffer.length,
-          processingStats: { slideCount: 1, shapeCount: 0 }
-        };
+        // Load the presentation
+        const presentation = new Presentation(filePath);
+        
+        try {
+                     // Generate unique output filename
+           const outputFileName = `converted_${randomUUID()}.${format}`;
+           const outputPath = path.join(this.config.tempDirectory || './temp', outputFileName);
+          
+          // Ensure temp directory exists
+          await ensureDirectoryExists(path.dirname(outputPath));
+          
+          // Perform real conversion using Aspose.Slides
+          if (format === 'pdf') {
+            presentation.save(outputPath, SaveFormat.Pdf);
+          } else if (format === 'html') {
+            presentation.save(outputPath, SaveFormat.Html);
+          }
+          
+          // Read the converted file into buffer
+          const buffer = fs.readFileSync(outputPath);
+          
+          // Get processing stats
+          const slideCount = presentation.getSlides().getCount();
+          let shapeCount = 0;
+          for (let i = 0; i < slideCount; i++) {
+            const slide = presentation.getSlides().get_Item(i);
+            shapeCount += slide.getShapes().getCount();
+          }
+          
+          // Clean up temp file
+          try {
+            fs.unlinkSync(outputPath);
+          } catch (cleanupError) {
+            logger.warn('Failed to cleanup temp file', { outputPath, error: cleanupError });
+          }
+          
+          presentation.dispose();
+          
+          logger.info(`Successfully converted to ${format}`, { 
+            filePath, 
+            outputSize: buffer.length,
+            slideCount,
+            shapeCount 
+          });
+          
+          return {
+            success: true,
+            buffer,
+            size: buffer.length,
+            processingStats: { slideCount, shapeCount }
+          };
+          
+        } catch (conversionError) {
+          presentation.dispose();
+          throw conversionError;
+        }
       }
       
       return {
@@ -262,6 +317,7 @@ export class AsposeAdapterRefactored {
         error: `Format ${format} not supported in convertToBuffer`
       };
     } catch (error) {
+      logger.error('Failed to convert to buffer', { error, filePath, format });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Conversion failed'
