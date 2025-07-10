@@ -1,38 +1,427 @@
 /**
- * Module Factory - Centralized Dependency Injection & Module Management
+ * Module Factory - Central DI Container & Factory Registry
  * 
- * Implements factory pattern for creating and managing Luna modules.
- * Provides centralized DI container and module registration system.
+ * Integrates specialized factories and provides centralized component management.
+ * Updated to work with shared adapters and specialized module factories.
+ * Enhanced with Dynamic Component Loading for ultimate scalability.
  */
 
+import fs from 'fs';
+import path from 'path';
 import { 
   BaseProcessor, 
   BaseService, 
-  BaseController, 
+  BaseController,
   BaseAdapter,
-  BaseFactory,
-  ModuleDefinition,
-  FeatureFlags,
-  ToggleableProcessor
+  FeatureFlags 
 } from '../interfaces/base.interfaces';
+import { sharedAdapters, SharedAdapterRegistry } from '../adapters/shared-adapters';
+import { logger } from '../../../utils/logger';
+import { 
+  DynamicLoadingSecurityManager,
+  DEFAULT_SECURITY_CONFIG,
+  DEFAULT_VALIDATION_CONFIG,
+  DEFAULT_ROBUSTNESS_CONFIG
+} from '../config/dynamic-loading.config';
+
+// Import specialized factories
+import { conversionFactory, ConversionFactory } from '../../conversion/factories/conversion.factory';
+import { aiFactory, AIFactory } from '../../ai/factories/ai.factory';
 
 // =============================================================================
-// CENTRALIZED MODULE FACTORY (DI Container)
+// DYNAMIC LOADING INTERFACES
 // =============================================================================
 
-export class ModuleFactory implements BaseFactory<any> {
+export interface DynamicLoadConfig {
+  options: {
+    enabledExtensions: string[];
+    mode: 'local' | 'cloud';
+    extensionsDir?: string;
+    maxExtensions?: number;
+  };
+  dependencies?: {
+    aspose?: any;
+    firebase?: any;
+    openai?: any;
+  };
+}
+
+export interface ExtensionMetadata {
+  name: string;
+  version: string;
+  loadedAt: Date;
+  filePath: string;
+  supportedTypes: string[];
+}
+
+// =============================================================================
+// GLOBAL DYNAMIC REGISTRY (Enhanced with Security)
+// =============================================================================
+
+const dynamicRegistry = new Map<string, any>();
+const extensionMetadata = new Map<string, ExtensionMetadata>();
+let registryInitialized = false;
+let securityManager: DynamicLoadingSecurityManager;
+
+// =============================================================================
+// DYNAMIC COMPONENT LOADING FUNCTIONS (Enhanced with Security)
+// =============================================================================
+
+export function loadDynamicComponents(config: DynamicLoadConfig): Map<string, any> {
+  const startTime = Date.now();
+  
+  try {
+    logger.info('Starting dynamic component loading with enhanced security', { config: config.options });
+
+    // Initialize security manager if not already done
+    if (!securityManager) {
+      securityManager = new DynamicLoadingSecurityManager(
+        {
+          ...DEFAULT_SECURITY_CONFIG,
+          allowedExtensionTypes: config.options.enabledExtensions || DEFAULT_SECURITY_CONFIG.allowedExtensionTypes
+        },
+        DEFAULT_VALIDATION_CONFIG,
+        {
+          ...DEFAULT_ROBUSTNESS_CONFIG,
+          enableHotReload: process.env.NODE_ENV === 'development'
+        }
+      );
+    }
+
+    // Use provided dir or default
+    const extensionsDir = config.options.extensionsDir || path.join(__dirname, '../extensions');
+    
+    if (!fs.existsSync(extensionsDir)) {
+      logger.warn('Extensions directory not found - skipping dynamic load', { extensionsDir });
+      return dynamicRegistry;
+    }
+
+    // Security check: Validate extensions directory
+    const dirValidation = securityManager['security'].validateFilePath(extensionsDir);
+    if (!dirValidation.valid) {
+      logger.error('Extensions directory failed security validation', { 
+        extensionsDir, 
+        reason: dirValidation.reason 
+      });
+      return dynamicRegistry;
+    }
+
+    // Get extension files matching pattern
+    const files = fs.readdirSync(extensionsDir).filter(file => 
+      (file.endsWith('-extension.ts') || file.endsWith('-extension.js')) &&
+      !file.startsWith('.')
+    );
+
+    logger.info(`Found ${files.length} potential extensions`, { files });
+
+    // Limit extensions for security/performance
+    const maxExtensions = config.options.maxExtensions || 20;
+    const filesToProcess = files.slice(0, maxExtensions);
+
+    let loadedCount = 0;
+    let failedCount = 0;
+
+    // Load extensions with enhanced security
+    const loadPromises = filesToProcess.map(async file => {
+      try {
+        const type = file.replace('-extension.ts', '').replace('-extension.js', '');
+        
+        // Check if extension is enabled
+        if (config.options.enabledExtensions.includes(type)) {
+          const success = await loadSingleExtensionSecure(extensionsDir, file, type, config);
+          if (success) {
+            loadedCount++;
+          } else {
+            failedCount++;
+          }
+        } else {
+          logger.debug(`Extension ${type} not enabled - skipping`);
+        }
+      } catch (error) {
+        logger.error(`Failed to process extension file ${file}`, { error: (error as Error).message });
+        failedCount++;
+      }
+    });
+
+    // Wait for all extensions to load (with timeout)
+    Promise.allSettled(loadPromises).then(() => {
+      const loadTime = Date.now() - startTime;
+      
+      logger.info('Dynamic component loading completed with security validation', {
+        totalFiles: files.length,
+        processed: filesToProcess.length,
+        loaded: loadedCount,
+        failed: failedCount,
+        loadTime: `${loadTime}ms`,
+        mode: config.options.mode,
+        securityValidated: true
+      });
+    });
+
+    registryInitialized = true;
+    return dynamicRegistry;
+
+  } catch (error) {
+    logger.error('Dynamic component loading failed', { error: (error as Error).message });
+    return dynamicRegistry;
+  }
+}
+
+async function loadSingleExtensionSecure(
+  extensionsDir: string, 
+  file: string, 
+  type: string, 
+  config: DynamicLoadConfig
+): Promise<boolean> {
+  try {
+    const extensionPath = path.join(extensionsDir, file);
+    
+    logger.info(`Loading extension ${type} with enhanced security validation`, { file });
+
+    // Use security manager for comprehensive validation and loading
+    const result = await securityManager.secureLoadExtension(
+      extensionPath,
+      type,
+      dynamicRegistry,
+      {
+        aspose: config.dependencies?.aspose,
+        firebase: config.dependencies?.firebase,
+        openai: config.dependencies?.openai
+      }
+    );
+
+    if (!result.success || !result.instance) {
+      logger.error(`Security validation failed for extension ${type}`, { 
+        error: result.error,
+        file 
+      });
+      return false;
+    }
+
+    const instance = result.instance;
+
+    // Initialize extension if it supports it
+    if (instance.initialize && typeof instance.initialize === 'function') {
+      try {
+        await instance.initialize();
+      } catch (initError) {
+        logger.warn(`Extension ${type} initialization failed`, { 
+          error: (initError as Error).message 
+        });
+        // Continue loading even if initialization fails
+      }
+    }
+
+    // Register extension
+    dynamicRegistry.set(type, instance);
+
+    // Store metadata
+    extensionMetadata.set(type, {
+      name: instance.name || type,
+      version: instance.version || '1.0.0',
+      loadedAt: new Date(),
+      filePath: extensionPath,
+      supportedTypes: instance.supportedTypes || [type]
+    });
+
+    logger.info(`Successfully loaded and validated dynamic extension: ${type}`, {
+      name: instance.name,
+      version: instance.version,
+      supportedTypes: instance.supportedTypes,
+      mode: config.options.mode,
+      securityValidated: true
+    });
+
+    return true;
+
+  } catch (error) {
+    logger.error(`Failed to load extension ${type} from ${file} with security validation`, { 
+      error: (error as Error).message,
+      stack: (error as Error).stack 
+    });
+    return false;
+  }
+}
+
+// Legacy function for backward compatibility (now uses secure loading)
+function loadSingleExtension(
+  extensionsDir: string, 
+  file: string, 
+  type: string, 
+  config: DynamicLoadConfig
+): boolean {
+  // Redirect to secure loading
+  loadSingleExtensionSecure(extensionsDir, file, type, config)
+    .then(success => {
+      if (!success) {
+        logger.warn(`Legacy load fallback failed for ${type}`);
+      }
+    })
+    .catch(error => {
+      logger.error(`Legacy load fallback error for ${type}`, { error: (error as Error).message });
+    });
+  
+  return true; // Return true to avoid blocking, actual result handled async
+}
+
+// =============================================================================
+// DYNAMIC REGISTRY ACCESS FUNCTIONS
+// =============================================================================
+
+export function getDynamicRegistry(): Map<string, any> {
+  return dynamicRegistry;
+}
+
+export function getDynamicExtension(type: string): any | null {
+  return dynamicRegistry.get(type) || null;
+}
+
+export function getExtensionMetadata(type?: string): ExtensionMetadata[] | ExtensionMetadata | null {
+  if (type) {
+    return extensionMetadata.get(type) || null;
+  }
+  return Array.from(extensionMetadata.values());
+}
+
+export function isDynamicRegistryInitialized(): boolean {
+  return registryInitialized;
+}
+
+export function getLoadedExtensionTypes(): string[] {
+  return Array.from(dynamicRegistry.keys());
+}
+
+export function clearDynamicRegistry(): void {
+  // Dispose extensions if they support it
+  dynamicRegistry.forEach((extension, type) => {
+    if (extension.dispose && typeof extension.dispose === 'function') {
+      extension.dispose().catch((error: Error) => {
+        logger.warn(`Extension ${type} disposal failed`, { error: error.message });
+      });
+    }
+  });
+
+  dynamicRegistry.clear();
+  extensionMetadata.clear();
+  registryInitialized = false;
+  logger.info('Dynamic registry cleared');
+}
+
+// =============================================================================
+// HOT RELOAD SUPPORT (Development)
+// =============================================================================
+
+export function reloadDynamicComponents(config: DynamicLoadConfig): Map<string, any> {
+  logger.info('Reloading dynamic components');
+  clearDynamicRegistry();
+  return loadDynamicComponents(config);
+}
+
+// =============================================================================
+// SECURITY AND HEALTH CHECK FUNCTIONS
+// =============================================================================
+
+export function getDynamicLoadingStats(): any {
+  const baseStats = {
+    registry: {
+      initialized: registryInitialized,
+      totalExtensions: dynamicRegistry.size,
+      types: Array.from(dynamicRegistry.keys()),
+      metadata: Array.from(extensionMetadata.values())
+    }
+  };
+
+  if (securityManager) {
+    return {
+      ...baseStats,
+      security: securityManager.getSecurityStats()
+    };
+  }
+
+  return baseStats;
+}
+
+export function validateDynamicRegistry(): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+
+  if (!registryInitialized) {
+    issues.push('Registry not initialized');
+  }
+
+  if (dynamicRegistry.size === 0) {
+    issues.push('No extensions loaded');
+  }
+
+  // Validate each extension
+  for (const [type, extension] of dynamicRegistry.entries()) {
+    try {
+      if (!extension.extract || typeof extension.extract !== 'function') {
+        issues.push(`Extension ${type} missing extract method`);
+      }
+      
+      if (!extension.name || typeof extension.name !== 'string') {
+        issues.push(`Extension ${type} missing valid name`);
+      }
+
+      if (!extension.version || typeof extension.version !== 'string') {
+        issues.push(`Extension ${type} missing valid version`);
+      }
+
+    } catch (error) {
+      issues.push(`Extension ${type} validation error: ${(error as Error).message}`);
+    }
+  }
+
+  return {
+    valid: issues.length === 0,
+    issues
+  };
+}
+
+// =============================================================================
+// CENTRAL MODULE FACTORY (Enhanced with Dynamic Loading)
+// =============================================================================
+
+export class ModuleFactory {
   private static instance: ModuleFactory;
   
-  // Registry maps for different component types
-  private processors = new Map<string, () => BaseProcessor<any, any>>();
-  private services = new Map<string, () => BaseService>();
-  private controllers = new Map<string, () => BaseController>();
-  private adapters = new Map<string, () => BaseAdapter>();
-  private modules = new Map<string, ModuleDefinition>();
+  // Central registries
+  private processors = new Map<string, BaseProcessor<any, any>>();
+  private services = new Map<string, BaseService>();
+  private controllers = new Map<string, BaseController>();
+  private adapters = new Map<string, BaseAdapter>();
   
-  // Singleton pattern
-  private constructor() {}
+  // Specialized factory references
+  private conversionFactory: ConversionFactory;
+  private aiFactory: AIFactory;
+  private adapterRegistry: SharedAdapterRegistry;
   
+  // Global feature flags and config
+  private globalFeatures: FeatureFlags = {
+    extractAssets: true,
+    includeMetadata: true,
+    enableAI: false,
+    cacheResults: true,
+    validateInput: true,
+    generateThumbnails: false,
+    mode: 'local'
+  };
+
+  // Dynamic loading config
+  private dynamicConfig: DynamicLoadConfig = {
+    options: {
+      enabledExtensions: ['chart', 'table'], // Default enabled
+      mode: 'local',
+      maxExtensions: 20
+    }
+  };
+
+  private constructor() {
+    this.conversionFactory = conversionFactory;
+    this.aiFactory = aiFactory;
+    this.adapterRegistry = sharedAdapters;
+  }
+
   public static getInstance(): ModuleFactory {
     if (!ModuleFactory.instance) {
       ModuleFactory.instance = new ModuleFactory();
@@ -41,249 +430,427 @@ export class ModuleFactory implements BaseFactory<any> {
   }
 
   // =============================================================================
-  // GENERIC FACTORY METHODS
+  // INITIALIZATION & ADAPTER SETUP (Enhanced with Dynamic Loading)
   // =============================================================================
 
-  create(type: string, options?: any): any {
-    // Try to create from different registries
-    if (this.processors.has(type)) {
-      return this.createProcessor(type, options);
-    }
-    if (this.services.has(type)) {
-      return this.createService(type, options);
-    }
-    if (this.controllers.has(type)) {
-      return this.createController(type, options);
-    }
-    if (this.adapters.has(type)) {
-      return this.createAdapter(type, options);
-    }
-    
-    throw new Error(`Unknown component type: ${type}`);
-  }
+  async initialize(configs?: {
+    firebase?: any;
+    openai?: any;
+    aspose?: any;
+    features?: FeatureFlags;
+    dynamicLoading?: {
+      enabledExtensions?: string[];
+      extensionsDir?: string;
+      maxExtensions?: number;
+    };
+  }): Promise<void> {
+    try {
+      // Apply global features if provided
+      if (configs?.features) {
+        this.globalFeatures = { ...this.globalFeatures, ...configs.features };
+      }
 
-  register(type: string, creator: () => any): void {
-    // Auto-detect component type and register appropriately
-    const instance = creator();
-    
-    if (this.isProcessor(instance)) {
-      this.processors.set(type, creator as () => BaseProcessor<any, any>);
-    } else if (this.isService(instance)) {
-      this.services.set(type, creator as () => BaseService);
-    } else if (this.isController(instance)) {
-      this.controllers.set(type, creator as () => BaseController);
-    } else if (this.isAdapter(instance)) {
-      this.adapters.set(type, creator as () => BaseAdapter);
-    } else {
-      throw new Error(`Cannot determine component type for: ${type}`);
-    }
-  }
+      // Configure dynamic loading
+      if (configs?.dynamicLoading) {
+        this.dynamicConfig.options = {
+          ...this.dynamicConfig.options,
+          ...configs.dynamicLoading
+        };
+      }
 
-  getAvailableTypes(): string[] {
-    return [
-      ...Array.from(this.processors.keys()).map(k => `processor:${k}`),
-      ...Array.from(this.services.keys()).map(k => `service:${k}`),
-      ...Array.from(this.controllers.keys()).map(k => `controller:${k}`),
-      ...Array.from(this.adapters.keys()).map(k => `adapter:${k}`),
-    ];
+      // Initialize shared adapters first
+      if (configs?.firebase || configs?.openai || configs?.aspose) {
+        await this.adapterRegistry.initializeAll({
+          firebase: configs.firebase,
+          openai: configs.openai,
+          aspose: configs.aspose
+        });
+      }
+
+      // Set up dynamic loading dependencies
+      this.dynamicConfig.dependencies = {
+        aspose: this.adapterRegistry.getAspose(),
+        firebase: this.adapterRegistry.getFirebase(),
+        openai: this.adapterRegistry.getOpenAI()
+      };
+
+      // Load dynamic components
+      const loadedExtensions = loadDynamicComponents(this.dynamicConfig);
+      
+      // Initialize specialized factories
+      await this.conversionFactory.initialize();
+      await this.aiFactory.initialize();
+
+      logger.info('✅ Central Module Factory initialized successfully', {
+        loadedExtensions: loadedExtensions.size,
+        globalFeatures: this.globalFeatures,
+        dynamicConfig: this.dynamicConfig.options
+      });
+
+    } catch (error) {
+      logger.error('❌ Module Factory initialization failed:', (error as Error).message);
+      throw error;
+    }
   }
 
   // =============================================================================
-  // SPECIFIC COMPONENT FACTORIES
+  // DYNAMIC EXTENSION MANAGEMENT
   // =============================================================================
 
-  // Processor Factory (for processing pipelines)
+  public enableDynamicExtension(type: string): boolean {
+    if (!this.dynamicConfig.options.enabledExtensions.includes(type)) {
+      this.dynamicConfig.options.enabledExtensions.push(type);
+      
+      // Reload to pick up newly enabled extension
+      loadDynamicComponents(this.dynamicConfig);
+      return true;
+    }
+    return false;
+  }
+
+  public disableDynamicExtension(type: string): boolean {
+    const index = this.dynamicConfig.options.enabledExtensions.indexOf(type);
+    if (index !== -1) {
+      this.dynamicConfig.options.enabledExtensions.splice(index, 1);
+      
+      // Remove from registry
+      const extension = dynamicRegistry.get(type);
+      if (extension && extension.dispose) {
+        extension.dispose().catch((error: Error) => {
+          logger.warn(`Extension ${type} disposal failed`, { error: error.message });
+        });
+      }
+      dynamicRegistry.delete(type);
+      extensionMetadata.delete(type);
+      
+      return true;
+    }
+    return false;
+  }
+
+  public getDynamicExtensionStats(): any {
+    return {
+      totalLoaded: dynamicRegistry.size,
+      types: Array.from(dynamicRegistry.keys()),
+      metadata: Array.from(extensionMetadata.values()),
+      initialized: registryInitialized,
+      config: this.dynamicConfig.options
+    };
+  }
+
+  // =============================================================================
+  // PROCESSOR FACTORY METHODS (Routing to Specialized Factories)
+  // =============================================================================
+
   createProcessor<TInput, TOutput>(
-    type: string, 
-    options?: { features?: FeatureFlags }
+    type: string,
+    options?: any
   ): BaseProcessor<TInput, TOutput> {
-    const creator = this.processors.get(type);
-    if (!creator) {
-      throw new Error(`Processor type not registered: ${type}`);
+    // Route to appropriate specialized factory
+    if (this.isConversionProcessor(type)) {
+      return this.conversionFactory.createProcessor<TInput, TOutput>(
+        type as any, 
+        { ...options, features: this.globalFeatures, dynamicRegistry }
+      );
     }
     
-    const processor = creator();
-    
-    // Apply feature flags if provided
-    if (options?.features && this.isToggleableProcessor(processor)) {
-      processor.features = { ...processor.features, ...options.features };
+    if (this.isAIProcessor(type)) {
+      return this.aiFactory.createProcessor<TInput, TOutput>(
+        type as any,
+        { ...options, useOpenAI: true, dynamicRegistry }
+      );
     }
-    
-    return processor;
-  }
 
-  // Service Factory
-  createService(type: string, config?: any): BaseService {
-    const creator = this.services.get(type);
-    if (!creator) {
-      throw new Error(`Service type not registered: ${type}`);
+    // Check central registry
+    const processor = this.processors.get(type);
+    if (!processor) {
+      throw new Error(`Processor not found: ${type}`);
     }
     
-    return creator();
-  }
-
-  // Controller Factory
-  createController(type: string, dependencies?: any): BaseController {
-    const creator = this.controllers.get(type);
-    if (!creator) {
-      throw new Error(`Controller type not registered: ${type}`);
-    }
-    
-    return creator();
-  }
-
-  // Adapter Factory
-  createAdapter<TConfig = any>(type: string, config?: TConfig): BaseAdapter<TConfig> {
-    const creator = this.adapters.get(type);
-    if (!creator) {
-      throw new Error(`Adapter type not registered: ${type}`);
-    }
-    
-    return creator();
+    return processor as BaseProcessor<TInput, TOutput>;
   }
 
   // =============================================================================
-  // MODULE MANAGEMENT
+  // CONVENIENCE FACTORY METHODS (High-level APIs)
   // =============================================================================
 
-  registerModule(module: ModuleDefinition): void {
-    this.modules.set(module.name, module);
-    
-    // Auto-register all components from the module
-    module.processors.forEach((processor, key) => {
-      this.processors.set(`${module.name}:${key}`, () => processor);
-    });
-    
-    module.services.forEach((service, key) => {
-      this.services.set(`${module.name}:${key}`, () => service);
-    });
-    
-    module.controllers.forEach((controller, key) => {
-      this.controllers.set(`${module.name}:${key}`, () => controller);
-    });
-    
-    module.adapters.forEach((adapter, key) => {
-      this.adapters.set(`${module.name}:${key}`, () => adapter);
-    });
-  }
-
-  async initializeModule(moduleName: string): Promise<void> {
-    const module = this.modules.get(moduleName);
-    if (!module) {
-      throw new Error(`Module not found: ${moduleName}`);
-    }
-    
-    await module.initialize();
-  }
-
-  async initializeAllModules(): Promise<void> {
-    const initPromises = Array.from(this.modules.values()).map(module => 
-      module.initialize()
-    );
-    
-    await Promise.all(initPromises);
-  }
-
-  getModule(name: string): ModuleDefinition | undefined {
-    return this.modules.get(name);
-  }
-
-  getAvailableModules(): string[] {
-    return Array.from(this.modules.keys());
-  }
-
-  // =============================================================================
-  // FEATURE-SPECIFIC FACTORIES (por módulo)
-  // =============================================================================
-
-  // Conversion Module Factory
-  createConversionProcessor(
+  // Conversion processors
+  createConversionProcessor<TInput, TOutput>(
     type: 'pptx2json' | 'json2pptx' | 'thumbnails' | 'formats',
-    features?: FeatureFlags
-  ): BaseProcessor<any, any> {
-    return this.createProcessor(`conversion:${type}`, { features });
+    options?: any
+  ): BaseProcessor<TInput, TOutput> {
+    return this.conversionFactory.createProcessor<TInput, TOutput>(type, {
+      features: this.globalFeatures,
+      useSharedAdapters: true,
+      ...options
+    });
   }
 
-  // AI Module Factory
-  createAIProcessor(
+  // AI processors
+  createAIProcessor<TInput, TOutput>(
     type: 'translate' | 'analyze' | 'chat' | 'suggestions',
-    features?: FeatureFlags
-  ): BaseProcessor<any, any> {
-    return this.createProcessor(`ai:${type}`, { features });
-  }
-
-  // Extraction Module Factory
-  createExtractionProcessor(
-    type: 'assets' | 'metadata' | 'async',
-    features?: FeatureFlags
-  ): BaseProcessor<any, any> {
-    return this.createProcessor(`extraction:${type}`, { features });
+    options?: any
+  ): BaseProcessor<TInput, TOutput> {
+    return this.aiFactory.createProcessor<TInput, TOutput>(type, {
+      useOpenAI: true,
+      enableCaching: this.globalFeatures.cacheResults,
+      ...options
+    });
   }
 
   // =============================================================================
-  // TYPE DETECTION HELPERS (private)
+  // PIPELINE FACTORY (Cross-module pipelines)
   // =============================================================================
 
-  private isProcessor(obj: any): obj is BaseProcessor<any, any> {
-    return obj && 
-           typeof obj.process === 'function' &&
-           typeof obj.name === 'string' &&
-           typeof obj.getCapabilities === 'function';
+  createCrossModulePipeline(steps: Array<{
+    type: string;
+    module: 'conversion' | 'ai' | 'extraction' | 'analysis';
+    options?: any;
+  }>) {
+    const processors = steps.map(step => {
+      switch (step.module) {
+        case 'conversion':
+          return this.createConversionProcessor(step.type as any, step.options);
+        case 'ai':
+          return this.createAIProcessor(step.type as any, step.options);
+        default:
+          return this.createProcessor(step.type, step.options);
+      }
+    });
+
+    return {
+      processors,
+      async execute(input: any, context?: any) {
+        let result = input;
+        const executionLog: any[] = [];
+        
+        for (const [index, processor] of processors.entries()) {
+          const stepStart = Date.now();
+          try {
+            result = await processor.process(result);
+            executionLog.push({
+              step: index,
+              processor: processor.name,
+              duration: Date.now() - stepStart,
+              success: true
+            });
+          } catch (error) {
+            executionLog.push({
+              step: index,
+              processor: processor.name,
+              duration: Date.now() - stepStart,
+              success: false,
+              error: (error as Error).message
+            });
+            throw error;
+          }
+        }
+        
+        return { result, executionLog };
+      }
+    };
   }
 
-  private isService(obj: any): obj is BaseService {
-    return obj && 
-           typeof obj.name === 'string' &&
-           typeof obj.healthCheck === 'function';
+  // =============================================================================
+  // FEATURE-DRIVEN PROCESSOR CREATION
+  // =============================================================================
+
+  createFeatureDrivenProcessor(
+    baseType: string,
+    features: FeatureFlags,
+    module?: 'conversion' | 'ai'
+  ) {
+    const effectiveFeatures = { ...this.globalFeatures, ...features };
+    
+    if (module === 'conversion' || this.isConversionProcessor(baseType)) {
+      return this.conversionFactory.createProcessor(baseType as any, {
+        features: effectiveFeatures,
+        useSharedAdapters: true
+      });
+    }
+    
+    if (module === 'ai' || this.isAIProcessor(baseType)) {
+      return this.aiFactory.createProcessor(baseType as any, {
+        features: effectiveFeatures,
+        useOpenAI: true
+      });
+    }
+    
+    throw new Error(`Cannot create feature-driven processor for unknown type: ${baseType}`);
   }
 
-  private isController(obj: any): obj is BaseController {
-    return obj && 
-           typeof obj.module === 'string' &&
-           Array.isArray(obj.endpoints) &&
-           typeof obj.handleRequest === 'function';
-  }
+  // =============================================================================
+  // BATCH PROCESSING FACTORY
+  // =============================================================================
 
-  private isAdapter(obj: any): obj is BaseAdapter {
-    return obj && 
-           typeof obj.name === 'string' &&
-           typeof obj.type === 'string' &&
-           typeof obj.initialize === 'function' &&
-           typeof obj.isConnected === 'function';
-  }
-
-  private isToggleableProcessor(obj: any): obj is ToggleableProcessor<any, any> {
-    return this.isProcessor(obj) && 
-           'features' in obj &&
-           typeof (obj as any).processWithFeatures === 'function';
+  createUniversalBatchProcessor(
+    processorType: string,
+    module: 'conversion' | 'ai',
+    batchOptions: {
+      concurrency?: number;
+      retryAttempts?: number;
+      features?: FeatureFlags;
+    } = {}
+  ) {
+    const { concurrency = 3, retryAttempts = 2, features } = batchOptions;
+    
+    // Capture references to factory methods
+    const createConversionProcessor = this.createConversionProcessor.bind(this);
+    const createAIProcessor = this.createAIProcessor.bind(this);
+    
+    return {
+      async processBatch<TInput, TOutput>(
+        inputs: TInput[],
+        progressCallback?: (completed: number, total: number, errors: Error[]) => void
+      ): Promise<{ results: TOutput[]; errors: Error[] }> {
+        const results: TOutput[] = [];
+        const errors: Error[] = [];
+        
+        for (let i = 0; i < inputs.length; i += concurrency) {
+          const chunk = inputs.slice(i, i + concurrency);
+          
+          const chunkPromises = chunk.map(async (input): Promise<TOutput | null> => {
+            let attempt = 0;
+            while (attempt <= retryAttempts) {
+              try {
+                const processor = module === 'conversion'
+                  ? createConversionProcessor(processorType as any, { features })
+                  : createAIProcessor(processorType as any, { features });
+                
+                const result = await processor.process(input);
+                return result as TOutput;
+              } catch (error) {
+                attempt++;
+                if (attempt > retryAttempts) {
+                  errors.push(error as Error);
+                  return null;
+                }
+                await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+              }
+            }
+            return null;
+          });
+          
+          const chunkResults = await Promise.allSettled(chunkPromises);
+          
+          chunkResults.forEach((result) => {
+            if (result.status === 'fulfilled' && result.value !== null) {
+              results.push(result.value);
+            }
+          });
+          
+          if (progressCallback) {
+            progressCallback(Math.min(i + concurrency, inputs.length), inputs.length, errors);
+          }
+        }
+        
+        return { results, errors };
+      }
+    };
   }
 
   // =============================================================================
   // UTILITY METHODS
   // =============================================================================
 
-  clear(): void {
-    this.processors.clear();
-    this.services.clear();
-    this.controllers.clear();
-    this.adapters.clear();
-    this.modules.clear();
+  private isConversionProcessor(type: string): boolean {
+    return ['pptx2json', 'json2pptx', 'thumbnails', 'formats'].includes(type);
   }
 
+  private isAIProcessor(type: string): boolean {
+    return ['translate', 'analyze', 'chat', 'suggestions'].includes(type);
+  }
+
+  // =============================================================================
+  // REGISTRY MANAGEMENT
+  // =============================================================================
+
+  registerProcessor(name: string, processor: BaseProcessor<any, any>): void {
+    this.processors.set(name, processor);
+  }
+
+  registerService(name: string, service: BaseService): void {
+    this.services.set(name, service);
+  }
+
+  registerController(name: string, controller: BaseController): void {
+    this.controllers.set(name, controller);
+  }
+
+  // =============================================================================
+  // INTROSPECTION & HEALTH CHECK
+  // =============================================================================
+
   getStats() {
+    const dynamicStats = this.getDynamicExtensionStats();
+    
     return {
-      processors: this.processors.size,
-      services: this.services.size,
-      controllers: this.controllers.size,
-      adapters: this.adapters.size,
-      modules: this.modules.size,
-      total: this.processors.size + this.services.size + this.controllers.size + this.adapters.size
+      central: {
+        processors: this.processors.size,
+        services: this.services.size,
+        controllers: this.controllers.size,
+        adapters: this.adapters.size
+      },
+      specialized: {
+        conversion: this.conversionFactory.getStats(),
+        ai: this.aiFactory.getStats()
+      },
+      dynamic: dynamicStats,
+      adapters: this.adapterRegistry.getAvailableAdapters(),
+      globalFeatures: this.globalFeatures
+    };
+  }
+
+  getAllAvailableProcessors(): Record<string, string[]> {
+    return {
+      central: Array.from(this.processors.keys()),
+      conversion: this.conversionFactory.getAvailableProcessors(),
+      ai: this.aiFactory.getAvailableProcessors()
+    };
+  }
+
+  async healthCheckAll() {
+    const results = {
+      adapters: await this.adapterRegistry.healthCheckAll(),
+      central: {
+        processors: this.processors.size,
+        services: this.services.size,
+        lastCheck: new Date()
+      }
+    };
+    
+    return results;
+  }
+
+  // =============================================================================
+  // GLOBAL FEATURE FLAGS MANAGEMENT
+  // =============================================================================
+
+  updateGlobalFeatures(features: Partial<FeatureFlags>): void {
+    this.globalFeatures = { ...this.globalFeatures, ...features };
+    console.log('✅ Global features updated:', this.globalFeatures);
+  }
+
+  getGlobalFeatures(): FeatureFlags {
+    return { ...this.globalFeatures };
+  }
+
+  // Reset to defaults
+  resetGlobalFeatures(): void {
+    this.globalFeatures = {
+      extractAssets: true,
+      includeMetadata: true,
+      enableAI: false,
+      cacheResults: true,
+      validateInput: true,
+      generateThumbnails: false,
+      mode: 'local'
     };
   }
 }
 
 // =============================================================================
-// CONVENIENCE EXPORT (Singleton Instance)
+// CONVENIENCE EXPORTS
 // =============================================================================
 
 export const moduleFactory = ModuleFactory.getInstance(); 

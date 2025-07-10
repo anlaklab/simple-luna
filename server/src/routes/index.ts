@@ -22,6 +22,7 @@ import { AsposeAdapterRefactored } from '../adapters/aspose/AsposeAdapterRefacto
 import { FirebaseAdapter } from '../adapters/firebase.adapter';
 import { createEnhancedAIRoutes } from './enhanced-ai.routes';
 import enhancedSwaggerRoutes from './enhanced-swagger.routes';
+import dynamicExtensionsRoutes from './dynamic-extensions.routes';
 // import batchRoutes from './batch.routes'; // Temporarily disabled due to Firebase config issue
 
 // =============================================================================
@@ -159,6 +160,12 @@ if (asyncExtractionRoutes) {
 if (enhancedAIRoutes) {
   router.use('/', enhancedAIRoutes);
 }
+
+/**
+ * Mount dynamic extensions routes
+ * Handles dynamic extension management and execution
+ */
+router.use('/', dynamicExtensionsRoutes);
 
 /**
  * Mount admin routes
