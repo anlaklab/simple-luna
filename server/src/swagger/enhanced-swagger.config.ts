@@ -84,12 +84,20 @@ export function generateEnhancedSwaggerSpec(req: Request) {
         description: 'Asset and metadata extraction from presentations',
       },
       {
+        name: 'Dynamic Extensions',
+        description: 'Runtime extension management and testing - zero-config scalability',
+      },
+      {
         name: 'Async Operations',
         description: 'Background processing with job tracking and queuing',
       },
       {
         name: 'Batch Operations',
         description: 'High-performance bulk operations with concurrency control',
+      },
+      {
+        name: 'Sessions',
+        description: 'Session management and conversation tracking',
       },
       {
         name: 'System',
@@ -453,6 +461,226 @@ export function generateEnhancedSwaggerSpec(req: Request) {
             shapeCount: { type: 'number' },
             memoryUsedMB: { type: 'number' },
             conversionMethod: { type: 'string' },
+          },
+        },
+        
+        // =============================================================================
+        // DYNAMIC EXTENSIONS SCHEMAS
+        // =============================================================================
+        
+        DynamicExtension: {
+          type: 'object',
+          description: 'Dynamic extension metadata and capabilities',
+          properties: {
+            name: {
+              type: 'string',
+              description: 'Extension name',
+              example: 'chart',
+            },
+            version: {
+              type: 'string',
+              description: 'Extension version',
+              example: '1.0.0',
+            },
+            loadedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'When the extension was loaded',
+            },
+            supportedTypes: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Shape types supported by this extension',
+              example: ['Chart', 'ChartObject'],
+            },
+            filePath: {
+              type: 'string',
+              description: 'Path to extension file',
+              example: './src/modules/shared/extensions/chart-extension.ts',
+            },
+          },
+          required: ['name', 'version', 'loadedAt', 'supportedTypes'],
+        },
+        
+        DynamicExtensionCapabilities: {
+          type: 'object',
+          description: 'Extension runtime capabilities',
+          properties: {
+            name: { type: 'string' },
+            version: { type: 'string' },
+            supportedTypes: {
+              type: 'array',
+              items: { type: 'string' },
+            },
+            hasInitialize: {
+              type: 'boolean',
+              description: 'Extension has initialize method',
+            },
+            hasDispose: {
+              type: 'boolean',
+              description: 'Extension has dispose method',
+            },
+            hasValidate: {
+              type: 'boolean',
+              description: 'Extension has validate method',
+            },
+            hasExtract: {
+              type: 'boolean',
+              description: 'Extension has extract method (required)',
+            },
+          },
+        },
+        
+        ExtensionTestResult: {
+          type: 'object',
+          description: 'Result of extension testing',
+          properties: {
+            extensionType: { type: 'string' },
+            testTimestamp: { type: 'string', format: 'date-time' },
+            tests: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  test: { type: 'string' },
+                  success: { type: 'boolean' },
+                  result: { type: 'object' },
+                  error: { type: 'string' },
+                  note: { type: 'string' },
+                },
+              },
+            },
+            summary: {
+              type: 'object',
+              properties: {
+                total: { type: 'number' },
+                passed: { type: 'number' },
+                failed: { type: 'number' },
+                passRate: { type: 'string' },
+              },
+            },
+          },
+        },
+        
+        DynamicExtensionsStats: {
+          type: 'object',
+          description: 'Comprehensive dynamic extensions system statistics',
+          properties: {
+            loading: {
+              type: 'object',
+              description: 'Dynamic loading statistics',
+              properties: {
+                registry: {
+                  type: 'object',
+                  properties: {
+                    initialized: { type: 'boolean' },
+                    totalExtensions: { type: 'number' },
+                    types: {
+                      type: 'array',
+                      items: { type: 'string' },
+                    },
+                  },
+                },
+                security: {
+                  type: 'object',
+                  nullable: true,
+                  description: 'Security validation statistics',
+                },
+              },
+            },
+            factory: {
+              type: 'object',
+              description: 'Factory statistics',
+              properties: {
+                totalLoaded: { type: 'number' },
+                types: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+                config: { type: 'object' },
+              },
+            },
+            validation: {
+              type: 'object',
+              properties: {
+                valid: { type: 'boolean' },
+                issues: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+              },
+            },
+            systemHealth: {
+              type: 'object',
+              properties: {
+                registryValid: { type: 'boolean' },
+                totalIssues: { type: 'number' },
+                lastCheck: { type: 'string', format: 'date-time' },
+              },
+            },
+          },
+        },
+        
+        ExtensionReloadRequest: {
+          type: 'object',
+          description: 'Request to reload extensions with new configuration',
+          properties: {
+            enabledExtensions: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Extension types to enable',
+              default: ['chart', 'table', 'video'],
+              example: ['chart', 'table', 'video', 'audio'],
+            },
+            maxExtensions: {
+              type: 'number',
+              description: 'Maximum extensions to load',
+              default: 20,
+              minimum: 1,
+              maximum: 50,
+            },
+          },
+        },
+        
+        ExtensionHealthCheck: {
+          type: 'object',
+          description: 'Dynamic extensions system health status',
+          properties: {
+            status: {
+              type: 'string',
+              enum: ['healthy', 'degraded', 'unhealthy'],
+              description: 'Overall system health',
+            },
+            timestamp: {
+              type: 'string',
+              format: 'date-time',
+            },
+            registry: {
+              type: 'object',
+              properties: {
+                initialized: { type: 'boolean' },
+                extensionCount: { type: 'number' },
+                loadedTypes: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+              },
+            },
+            validation: {
+              type: 'object',
+              properties: {
+                valid: { type: 'boolean' },
+                issues: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+              },
+            },
+            security: {
+              type: 'object',
+              nullable: true,
+              description: 'Security validation results',
+            },
           },
         },
         

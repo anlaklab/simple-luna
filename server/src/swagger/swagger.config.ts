@@ -126,8 +126,28 @@ All conversions use a standardized JSON schema that preserves:
         description: 'AI-powered features - translation, analysis, insights',
       },
       {
+        name: 'Enhanced AI',
+        description: 'Advanced AI operations with Universal Schema awareness',
+      },
+      {
         name: 'Extraction',
         description: 'Data extraction - assets, metadata, content analysis',
+      },
+      {
+        name: 'Dynamic Extensions',
+        description: 'Runtime extension management - load, test, enable/disable extensions dynamically',
+      },
+      {
+        name: 'Async Operations',
+        description: 'Background processing with job tracking and queuing',
+      },
+      {
+        name: 'Batch Operations',
+        description: 'High-performance bulk operations with concurrency control',
+      },
+      {
+        name: 'Sessions',
+        description: 'Session management and conversation tracking',
       },
       {
         name: 'Utility',

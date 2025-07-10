@@ -25,8 +25,64 @@ const router = Router();
 // =============================================================================
 
 /**
- * GET /dynamic-extensions
- * List all loaded dynamic extensions
+ * @swagger
+ * /dynamic-extensions:
+ *   get:
+ *     tags: [Dynamic Extensions]
+ *     summary: List all loaded dynamic extensions
+ *     description: Retrieves a list of all currently loaded dynamic extensions with their metadata
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved extensions list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalExtensions:
+ *                       type: number
+ *                       description: Total number of loaded extensions
+ *                       example: 3
+ *                     loadedTypes:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       description: Array of loaded extension types
+ *                       example: ["chart", "table", "video"]
+ *                     extensions:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: "chart"
+ *                           version:
+ *                             type: string
+ *                             example: "1.0.0"
+ *                           loadedAt:
+ *                             type: string
+ *                             format: date-time
+ *                           supportedTypes:
+ *                             type: array
+ *                             items:
+ *                               type: string
+ *                             example: ["Chart", "ChartObject"]
+ *                           filePath:
+ *                             type: string
+ *                             example: "./src/modules/shared/extensions/chart-extension.ts"
+ *       500:
+ *         description: Failed to retrieve extension registry
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/', (req, res) => {
   try {
@@ -59,8 +115,53 @@ router.get('/', (req, res) => {
 });
 
 /**
- * GET /dynamic-extensions/stats
- * Get comprehensive statistics about dynamic loading system
+ * @swagger
+ * /dynamic-extensions/stats:
+ *   get:
+ *     tags: [Dynamic Extensions]
+ *     summary: Get comprehensive statistics about dynamic loading system
+ *     description: Returns detailed statistics about the dynamic extension loading system including security metrics
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved system statistics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     loading:
+ *                       type: object
+ *                       description: Dynamic loading statistics
+ *                     factory:
+ *                       type: object
+ *                       description: Factory statistics
+ *                     validation:
+ *                       type: object
+ *                       properties:
+ *                         valid:
+ *                           type: boolean
+ *                         issues:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                     systemHealth:
+ *                       type: object
+ *                       properties:
+ *                         registryValid:
+ *                           type: boolean
+ *                         totalIssues:
+ *                           type: number
+ *                         lastCheck:
+ *                           type: string
+ *                           format: date-time
+ *       500:
+ *         description: Failed to retrieve system statistics
  */
 router.get('/stats', (req, res) => {
   try {
@@ -92,8 +193,72 @@ router.get('/stats', (req, res) => {
 });
 
 /**
- * GET /dynamic-extensions/:type
- * Get specific extension details and capabilities
+ * @swagger
+ * /dynamic-extensions/{type}:
+ *   get:
+ *     tags: [Dynamic Extensions]
+ *     summary: Get specific extension details and capabilities
+ *     description: Retrieves detailed information about a specific loaded extension
+ *     parameters:
+ *       - in: path
+ *         name: type
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Extension type (e.g., chart, table, video)
+ *         example: chart
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved extension details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     type:
+ *                       type: string
+ *                       example: "chart"
+ *                     capabilities:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                         version:
+ *                           type: string
+ *                         supportedTypes:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                         hasInitialize:
+ *                           type: boolean
+ *                         hasDispose:
+ *                           type: boolean
+ *                         hasValidate:
+ *                           type: boolean
+ *                         hasExtract:
+ *                           type: boolean
+ *                     metadata:
+ *                       type: object
+ *                     runtime:
+ *                       type: object
+ *                       properties:
+ *                         loaded:
+ *                           type: boolean
+ *                         available:
+ *                           type: boolean
+ *                         lastAccessed:
+ *                           type: string
+ *                           format: date-time
+ *       404:
+ *         description: Extension not found
+ *       500:
+ *         description: Failed to retrieve extension details
  */
 router.get('/:type', (req, res) => {
   try {
@@ -119,7 +284,7 @@ router.get('/:type', (req, res) => {
       hasExtract: typeof extension.extract === 'function'
     };
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         type,
@@ -135,7 +300,7 @@ router.get('/:type', (req, res) => {
 
   } catch (error) {
     logger.error(`Failed to get extension ${req.params.type}`, { error: (error as Error).message });
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to retrieve extension details'
     });
@@ -147,8 +312,82 @@ router.get('/:type', (req, res) => {
 // =============================================================================
 
 /**
- * POST /dynamic-extensions/:type/test
- * Test extension with mock data
+ * @swagger
+ * /dynamic-extensions/{type}/test:
+ *   post:
+ *     tags: [Dynamic Extensions]
+ *     summary: Test extension with mock data
+ *     description: Tests a specific extension with optional test data to verify functionality
+ *     parameters:
+ *       - in: path
+ *         name: type
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Extension type to test
+ *         example: chart
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               testData:
+ *                 type: object
+ *                 nullable: true
+ *                 description: Test data to pass to extension (optional)
+ *               options:
+ *                 type: object
+ *                 description: Extension options (optional)
+ *           example:
+ *             testData: null
+ *             options: {}
+ *     responses:
+ *       200:
+ *         description: Test completed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     extensionType:
+ *                       type: string
+ *                     testTimestamp:
+ *                       type: string
+ *                       format: date-time
+ *                     tests:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           test:
+ *                             type: string
+ *                           success:
+ *                             type: boolean
+ *                           result:
+ *                             type: object
+ *                           error:
+ *                             type: string
+ *                     summary:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: number
+ *                         passed:
+ *                           type: number
+ *                         failed:
+ *                           type: number
+ *                         passRate:
+ *                           type: string
+ *       404:
+ *         description: Extension not found
+ *       500:
+ *         description: Extension test failed
  */
 router.post('/:type/test', async (req, res) => {
   try {
@@ -247,7 +486,7 @@ router.post('/:type/test', async (req, res) => {
     const successfulTests = testResults.tests.filter((t: any) => t.success).length;
     const totalTests = testResults.tests.length;
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         ...testResults,
@@ -262,7 +501,7 @@ router.post('/:type/test', async (req, res) => {
 
   } catch (error) {
     logger.error(`Extension test failed for ${req.params.type}`, { error: (error as Error).message });
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Extension test failed',
       details: (error as Error).message
@@ -271,8 +510,66 @@ router.post('/:type/test', async (req, res) => {
 });
 
 /**
- * POST /dynamic-extensions/test-all
- * Test all loaded extensions
+ * @swagger
+ * /dynamic-extensions/test-all:
+ *   post:
+ *     tags: [Dynamic Extensions]
+ *     summary: Test all loaded extensions
+ *     description: Runs tests on all currently loaded extensions and returns a summary
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               options:
+ *                 type: object
+ *                 description: Options to pass to all extensions
+ *           example:
+ *             options: {}
+ *     responses:
+ *       200:
+ *         description: Bulk testing completed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     summary:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: number
+ *                         passed:
+ *                           type: number
+ *                         failed:
+ *                           type: number
+ *                         passRate:
+ *                           type: string
+ *                     results:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           type:
+ *                             type: string
+ *                           timestamp:
+ *                             type: string
+ *                             format: date-time
+ *                           success:
+ *                             type: boolean
+ *                           tests:
+ *                             type: object
+ *                     timestamp:
+ *                       type: string
+ *                       format: date-time
+ *       500:
+ *         description: Bulk testing failed
  */
 router.post('/test-all', async (req, res) => {
   try {
@@ -377,8 +674,57 @@ router.post('/test-all', async (req, res) => {
 // =============================================================================
 
 /**
- * POST /dynamic-extensions/reload
- * Reload all dynamic extensions
+ * @swagger
+ * /dynamic-extensions/reload:
+ *   post:
+ *     tags: [Dynamic Extensions]
+ *     summary: Reload all dynamic extensions
+ *     description: Reloads all dynamic extensions with optional configuration changes
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               enabledExtensions:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of extension types to enable
+ *                 default: ["chart", "table", "video"]
+ *               maxExtensions:
+ *                 type: number
+ *                 description: Maximum number of extensions to load
+ *                 default: 20
+ *           example:
+ *             enabledExtensions: ["chart", "table", "video", "audio"]
+ *             maxExtensions: 25
+ *     responses:
+ *       200:
+ *         description: Extensions reloaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     reloaded:
+ *                       type: boolean
+ *                     extensionCount:
+ *                       type: number
+ *                     loadedTypes:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     timestamp:
+ *                       type: string
+ *                       format: date-time
+ *       500:
+ *         description: Extension reload failed
  */
 router.post('/reload', async (req, res) => {
   try {
@@ -417,8 +763,45 @@ router.post('/reload', async (req, res) => {
 });
 
 /**
- * POST /dynamic-extensions/:type/enable
- * Enable specific extension type
+ * @swagger
+ * /dynamic-extensions/{type}/enable:
+ *   post:
+ *     tags: [Dynamic Extensions]
+ *     summary: Enable specific extension type
+ *     description: Enables a specific extension type if it's available
+ *     parameters:
+ *       - in: path
+ *         name: type
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Extension type to enable
+ *         example: audio
+ *     responses:
+ *       200:
+ *         description: Extension enabled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     type:
+ *                       type: string
+ *                     enabled:
+ *                       type: boolean
+ *                     timestamp:
+ *                       type: string
+ *                       format: date-time
+ *                 error:
+ *                   type: string
+ *                   description: Error message if enabling failed
+ *       500:
+ *         description: Failed to enable extension
  */
 router.post('/:type/enable', (req, res) => {
   try {
@@ -452,8 +835,45 @@ router.post('/:type/enable', (req, res) => {
 });
 
 /**
- * POST /dynamic-extensions/:type/disable
- * Disable specific extension type
+ * @swagger
+ * /dynamic-extensions/{type}/disable:
+ *   post:
+ *     tags: [Dynamic Extensions]
+ *     summary: Disable specific extension type
+ *     description: Disables a specific extension type and removes it from the registry
+ *     parameters:
+ *       - in: path
+ *         name: type
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Extension type to disable
+ *         example: video
+ *     responses:
+ *       200:
+ *         description: Extension disabled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     type:
+ *                       type: string
+ *                     disabled:
+ *                       type: boolean
+ *                     timestamp:
+ *                       type: string
+ *                       format: date-time
+ *                 error:
+ *                   type: string
+ *                   description: Error message if disabling failed
+ *       500:
+ *         description: Failed to disable extension
  */
 router.post('/:type/disable', (req, res) => {
   try {
@@ -491,8 +911,72 @@ router.post('/:type/disable', (req, res) => {
 // =============================================================================
 
 /**
- * GET /dynamic-extensions/health
- * Health check for dynamic loading system
+ * @swagger
+ * /dynamic-extensions/health:
+ *   get:
+ *     tags: [Dynamic Extensions]
+ *     summary: Health check for dynamic loading system
+ *     description: Performs comprehensive health check of the dynamic extension loading system
+ *     responses:
+ *       200:
+ *         description: System is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     status:
+ *                       type: string
+ *                       enum: [healthy, degraded]
+ *                     timestamp:
+ *                       type: string
+ *                       format: date-time
+ *                     registry:
+ *                       type: object
+ *                       properties:
+ *                         initialized:
+ *                           type: boolean
+ *                         extensionCount:
+ *                           type: number
+ *                         loadedTypes:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                     validation:
+ *                       type: object
+ *                       properties:
+ *                         valid:
+ *                           type: boolean
+ *                         issues:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                     security:
+ *                       type: object
+ *                       nullable: true
+ *       503:
+ *         description: System is degraded or unhealthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     status:
+ *                       type: string
+ *                       example: "degraded"
+ *       500:
+ *         description: Health check failed
  */
 router.get('/health', (req, res) => {
   try {

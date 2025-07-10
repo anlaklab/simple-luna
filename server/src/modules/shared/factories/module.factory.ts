@@ -488,7 +488,7 @@ export class ModuleFactory {
       });
 
     } catch (error) {
-      logger.error('❌ Module Factory initialization failed:', (error as Error).message);
+      logger.error('❌ Module Factory initialization failed:', { error: (error as Error).message });
       throw error;
     }
   }

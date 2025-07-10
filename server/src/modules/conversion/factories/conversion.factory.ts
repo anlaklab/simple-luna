@@ -97,7 +97,7 @@ export class ConversionFactory {
         dynamicExtensions: this.dependencies.dynamicRegistry?.size || 0
       });
     } catch (error) {
-      logger.warn('⚠️ Some shared adapters not available:', (error as Error).message);
+      logger.warn('⚠️ Some shared adapters not available:', { error: (error as Error).message });
       // Continue with available adapters
     }
   }
@@ -269,6 +269,7 @@ export class ConversionFactory {
 
     // Capture reference to factory methods
     const isToggleableProcessor = this.isToggleableProcessor.bind(this);
+    const hasDynamicRegistrySupport = this.hasDynamicRegistrySupport.bind(this);
 
     return {
       processors,
@@ -317,7 +318,7 @@ export class ConversionFactory {
           });
 
           // Set filtered registry if processor supports it
-          if (this.hasDynamicRegistrySupport(processor)) {
+          if (hasDynamicRegistrySupport(processor)) {
             (processor as any).setDynamicRegistry(filteredRegistry);
           }
 
