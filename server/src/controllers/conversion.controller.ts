@@ -637,7 +637,7 @@ export class ConversionController {
   // =============================================================================
 
   private generateRequestId(): string {
-    return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `req_${Date.now()}_${require('crypto').randomUUID().replace(/-/g, '').substring(0, 9)}`;
   }
 
   private createErrorResponse(

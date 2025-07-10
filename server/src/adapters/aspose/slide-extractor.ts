@@ -1,9 +1,9 @@
 /**
- * Slide Extractor - Handles slide-level property extraction
+ * Slide Extractor - Handles slide-level extraction for Aspose.Slides
  */
 
 import { logger } from '../../utils/logger';
-import { ConversionOptions } from '../aspose.adapter';
+import { ConversionOptions } from './types/interfaces';
 import { ShapeExtractor } from './shape-extractor';
 import { FillExtractor } from './fill-extractor';
 import { EffectExtractor } from './effect-extractor';

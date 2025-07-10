@@ -308,7 +308,7 @@ export class JobsService {
    */
   private generateJobId(): string {
     const timestamp = Date.now().toString(36);
-    const randomStr = Math.random().toString(36).substring(2, 8);
+    const randomStr = require('crypto').randomUUID().replace(/-/g, '').substring(0, 8);
     return `job_${timestamp}_${randomStr}`;
   }
 

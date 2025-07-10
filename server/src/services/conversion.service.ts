@@ -5,12 +5,18 @@
  */
 
 import { logger } from '../utils/logger';
-import { AsposeAdapter } from '../adapters/aspose.adapter';
+import { AsposeAdapterRefactored } from '../adapters/aspose/AsposeAdapterRefactored';
 import { FirebaseAdapter } from '../adapters/firebase.adapter';
 import { 
   UniversalPresentation,
   UniversalPresentationSchema 
 } from '../schemas/universal-presentation.schema';
+import { 
+  ConversionOptions,
+  ConversionResult,
+  AssetResult
+} from '../adapters/aspose/types/interfaces';
+import { UploadTierService } from './upload-tier.service';
 import {
   Pptx2JsonRequest,
   Json2PptxRequest,
@@ -42,13 +48,13 @@ export interface ConversionServiceConfig {
 }
 
 export class ConversionService {
-  private readonly asposeAdapter: AsposeAdapter;
+  private readonly asposeAdapter: AsposeAdapterRefactored;
   private readonly firebaseAdapter?: FirebaseAdapter;
   private readonly config: ConversionServiceConfig;
 
   constructor(config: ConversionServiceConfig) {
     this.config = config;
-    this.asposeAdapter = new AsposeAdapter(config.asposeConfig);
+    this.asposeAdapter = new AsposeAdapterRefactored(config.asposeConfig || {});
     
     if (config.firebaseConfig) {
       this.firebaseAdapter = new FirebaseAdapter(config.firebaseConfig);
@@ -90,7 +96,6 @@ export class ConversionService {
         includeAnimations: options.includeAnimations,
         includeComments: options.includeComments,
         extractImages: options.extractImages,
-        optimizeForSize: options.optimizeForSize,
       });
 
       if (!result.success || !result.data) {
@@ -112,14 +117,13 @@ export class ConversionService {
       // Extract assets if requested
       let extractedAssets;
       if (options.extractImages || options.includeAssets) {
-        const assetResult = await this.asposeAdapter.extractAssets(filePath, {
-          assetTypes: options.extractImages ? ['images'] : ['images', 'videos', 'audios'],
-          includeMetadata: true,
+        const assetResult = await this.asposeAdapter.extractAssetsLegacy(filePath, {
+          assetTypes: options.extractImages ? ['images'] : ['images', 'videos', 'audio'],
           generateThumbnails: false,
         });
         
-        if (assetResult.success) {
-          extractedAssets = assetResult.assets.map(asset => ({
+        if (assetResult.success && assetResult.assets) {
+          extractedAssets = assetResult.assets.map((asset: any) => ({
             type: asset.type,
             filename: asset.filename,
             originalName: asset.originalName,
@@ -137,10 +141,10 @@ export class ConversionService {
           originalFilename,
           extractedAssets,
           processingStats: {
-            slideCount: result.processingStats.slideCount,
-            shapeCount: result.processingStats.shapeCount,
-            imageCount: result.processingStats.imageCount,
-            animationCount: result.processingStats.animationCount,
+            slideCount: result.data?.processingStats?.slideCount || 0,
+            shapeCount: result.data?.processingStats?.shapeCount || 0,
+            imageCount: result.data?.processingStats?.imageCount || 0,
+            animationCount: result.data?.processingStats?.animationCount || 0,
             conversionTimeMs: processingTime,
           },
         },
@@ -154,7 +158,7 @@ export class ConversionService {
 
       logger.info('PPTX to JSON conversion completed successfully', {
         requestId,
-        slideCount: result.processingStats.slideCount,
+        slideCount: result.data?.processingStats?.slideCount || 0,
         processingTimeMs: processingTime,
       });
 
@@ -216,7 +220,7 @@ export class ConversionService {
         validationResult.data,
         tempPath,
         {
-          outputFormat: request.outputFormat,
+          outputFormat: 'pptx' as const,
           includeMetadata: request.includeMetadata,
           preserveOriginalAssets: request.preserveOriginalAssets,
           compressionLevel: request.compressionLevel,
@@ -278,12 +282,15 @@ export class ConversionService {
       const response: Json2PptxResponse = {
         success: true,
         data: {
-          file: fileInfo,
+          file: {
+            ...fileInfo,
+            size: fileInfo.size ?? 0
+          },
           outputFormat: request.outputFormat,
           processingStats: {
-            slideCount: result.processingStats.slideCount,
-            shapeCount: result.processingStats.shapeCount,
-            fileSize: result.size,
+            slideCount: result.processingStats?.slideCount ?? 0,
+            shapeCount: result.processingStats?.shapeCount ?? 0,
+            fileSize: result.size ?? 0,
             conversionTimeMs: processingTime,
           },
         },
@@ -373,14 +380,14 @@ export class ConversionService {
       const response: ConvertFormatResponse = {
         success: true,
         data: {
-          files,
+          files: files.map(f => ({ ...f, size: f.size ?? 0 })),
           outputFormat: request.outputFormat,
-          slideCount: result.processingStats.slideCount,
+          slideCount: result.processingStats?.slideCount ?? 0,
           processedSlides: request.slideIndices || Array.from(
-            { length: result.processingStats.slideCount }, 
+            { length: result.processingStats?.slideCount ?? 0 }, 
             (_, i) => i
           ),
-          totalSize: result.size,
+          totalSize: result.size ?? 0,
         },
         meta: {
           timestamp: new Date().toISOString(),
@@ -459,7 +466,7 @@ export class ConversionService {
         slideIndex: thumbnail.slideIndex,
         slideId: thumbnail.slideId,
         thumbnail: request.returnFormat === 'base64' 
-          ? thumbnail.buffer.toString('base64')
+          ? (thumbnail.buffer?.toString('base64') ?? '')
           : '', // Would handle URL/buffer formats here
         format: thumbnail.format,
         size: thumbnail.size,
@@ -473,7 +480,10 @@ export class ConversionService {
           totalSlides: thumbnails.length > 0 ? Math.max(...thumbnails.map(t => t.slideIndex)) + 1 : 0,
           generatedCount: thumbnails.length,
           format: request.format || 'png',
-          size: request.size || { width: 300, height: 225 },
+          size: {
+            width: request.size?.width ?? 300,
+            height: request.size?.height ?? 225
+          },
         },
         meta: {
           timestamp: new Date().toISOString(),
@@ -532,7 +542,8 @@ export class ConversionService {
 
     try {
       // Test Aspose adapter
-      health.aspose = await this.asposeAdapter.healthCheck();
+      const asposeHealth = await this.asposeAdapter.healthCheck();
+      health.aspose = typeof asposeHealth === 'boolean' ? asposeHealth : asposeHealth.isHealthy;
       
       // Test Firebase adapter if configured
       if (this.firebaseAdapter) {
@@ -558,7 +569,7 @@ export class ConversionService {
   // =============================================================================
 
   private generateRequestId(): string {
-    return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `req_${Date.now()}_${require('crypto').randomUUID().replace(/-/g, '').substring(0, 9)}`;
   }
 
   private getMimeTypeForFormat(format: string): string {

@@ -1,16 +1,14 @@
 /**
- * Conversation Routes - AI dialogue and streaming LLM interactions
- * 
- * Handles conversational AI, document research, and streaming responses
+ * Conversation Routes - AI chat endpoints for presentations
  */
 
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
-import { OpenAIAdapter } from '../adapters/openai.adapter';
-import { AsposeAdapter } from '../adapters/aspose.adapter';
-import { JobsService } from '../services/jobs.service';
 import { logger } from '../utils/logger';
 import { handleAsyncErrors } from '../middleware/error.middleware';
+import { AsposeAdapterRefactored } from '../adapters/aspose/AsposeAdapterRefactored';
+import { OpenAIAdapter } from '../adapters/openai.adapter';
+import { JobsService } from '../services/jobs.service';
 
 // =============================================================================
 // ROUTER SETUP
@@ -46,7 +44,7 @@ const openaiAdapter = openaiConfig ? new OpenAIAdapter(openaiConfig) : undefined
       licenseFilePath: process.env.ASPOSE_LICENSE_PATH || './Aspose.Slides.Product.Family.lic',
     };
 
-const asposeAdapter = new AsposeAdapter(asposeConfig);
+const asposeAdapter = new AsposeAdapterRefactored({});
 
 const firebaseConfig = process.env.FIREBASE_PROJECT_ID ? {
   projectId: process.env.FIREBASE_PROJECT_ID,
@@ -167,7 +165,7 @@ router.post('/conversation', upload.single('file'), handleAsyncErrors(async (req
 
         if (conversionResult.success && conversionResult.data) {
           const presentation = conversionResult.data;
-          presentationContext = this.generatePresentationContext(presentation);
+          presentationContext = generatePresentationContext(presentation);
           
           await jobsService.updateJob(job.id, { progress: 50 });
         }
@@ -181,8 +179,8 @@ router.post('/conversation', upload.single('file'), handleAsyncErrors(async (req
     }
 
     // Build conversation prompt based on mode
-    const systemPrompt = this.buildConversationSystemPrompt(mode, presentationContext, context);
-    const userPrompt = this.buildUserPrompt(message, conversationHistory, mode);
+    const systemPrompt = buildConversationSystemPrompt(mode, presentationContext, context);
+    const userPrompt = buildUserPrompt(message, conversationHistory, mode);
 
     await jobsService.updateJob(job.id, { progress: 75 });
 

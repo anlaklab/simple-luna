@@ -33,17 +33,14 @@ export interface AsposeConfig {
 // =============================================================================
 
 export interface ConversionOptions {
-  format?: 'universal-json' | 'pptx';
   includeAssets?: boolean;
   includeMetadata?: boolean;
   includeAnimations?: boolean;
   includeComments?: boolean;
-  extractImages?: boolean;
-  extractCharts?: boolean;
-  includeMasterSlides?: boolean;
-  includeLayoutSlides?: boolean;
-  compression?: boolean;
-  quality?: 'low' | 'medium' | 'high';
+  enableValidation?: boolean;
+  preserveFormatting?: boolean;
+  extractImages?: boolean; // Added for backward compatibility
+  outputFormat?: 'pptx' | 'pptm' | 'pdf' | 'html' | 'png' | 'jpg' | 'jpeg' | 'svg' | 'bmp' | 'gif' | 'tiff'; // Expanded output formats
 }
 
 export interface ConversionResult {
@@ -52,9 +49,14 @@ export interface ConversionResult {
     presentation?: UniversalPresentation;
     originalFilename?: string;
     processingStats?: ProcessingStats;
+    slides?: any[]; // For backward compatibility
+    slideSize?: any; // For backward compatibility
+    documentProperties?: any; // For backward compatibility
+    security?: any; // For backward compatibility
   };
   error?: string;
   processingTimeMs?: number;
+  processingStats?: ProcessingStats; // Direct access for backward compatibility
 }
 
 export interface ProcessingStats {
@@ -65,6 +67,9 @@ export interface ProcessingStats {
   assetCount: number;
   textLength: number;
   processingTimeMs: number;
+  imageCount?: number; // For backward compatibility
+  chartCount?: number; // For backward compatibility
+  tableCount?: number; // For backward compatibility
 }
 
 export interface IConversionService {
@@ -81,19 +86,32 @@ export interface IConversionService {
 export interface ThumbnailOptions {
   slideIndices?: number[];
   size?: { width: number; height: number };
-  format?: 'png' | 'jpg' | 'svg';
-  quality?: 'low' | 'medium' | 'high';
+  format?: 'png' | 'jpg' | 'svg' | 'webp' | 'jpeg'; // Expanded format types
+  quality?: 'low' | 'medium' | 'high' | 'ultra'; // Expanded quality types
   returnFormat?: 'base64' | 'urls' | 'buffers';
   uploadToStorage?: boolean;
+  width?: number; // For backward compatibility
+  height?: number; // For backward compatibility
+  backgroundColor?: string; // For backward compatibility
+  includeNotes?: boolean; // For backward compatibility
+  strategy?: string; // For backward compatibility
 }
 
 export interface ThumbnailResult {
   slideIndex: number;
-  thumbnail: string | Buffer;
+  thumbnail?: string | Buffer; // Made optional for backward compatibility
   format: string;
   size: { width: number; height: number };
   fileSize?: number;
   url?: string;
+  buffer?: Buffer; // For backward compatibility
+  slideId?: number; // For backward compatibility
+  generatedAt?: Date; // For backward compatibility
+  strategy?: string; // For backward compatibility
+  presentationId?: string; // For backward compatibility
+  id?: string; // For backward compatibility
+  metadata?: Record<string, any>; // For backward compatibility
+  createdAt?: Date; // For backward compatibility
 }
 
 export interface IThumbnailService {
@@ -192,11 +210,14 @@ export interface FileGenerationOptions {
 export interface FileGenerationResult {
   success: boolean;
   data?: {
-    filePath: string;
-    fileSize: number;
-    outputFormat: string;
-    processingStats: ProcessingStats;
+    filePath?: string; // For backward compatibility
+    fileSize?: number;
+    outputFormat?: string;
+    processingStats?: ProcessingStats;
   };
+  filePath?: string; // Direct access for backward compatibility
+  size?: number; // Direct access for backward compatibility
+  processingStats?: ProcessingStats; // Direct access for backward compatibility
   error?: string;
 }
 

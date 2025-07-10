@@ -1,7 +1,5 @@
 /**
- * Presentation Service
- * 
- * Comprehensive service for presentation CRUD operations and management
+ * Presentation Service - Core presentation management
  */
 
 import { 
@@ -17,7 +15,7 @@ import {
   PresentationVersionInfo,
   PresentationAccessInfo
 } from '../types/presentation.types';
-import { AsposeAdapter } from '../adapters/aspose.adapter';
+import { AsposeAdapterRefactored } from '../adapters/aspose/AsposeAdapterRefactored';
 import { FirebaseAdapter, FirebaseConfig } from '../adapters/firebase.adapter';
 import { ThumbnailManagerService } from './thumbnail-manager.service';
 import { logger } from '../utils/logger';
@@ -26,7 +24,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 
 export class PresentationService {
-  private asposeAdapter: AsposeAdapter;
+  private asposeAdapter: AsposeAdapterRefactored;
   private firebase: FirebaseAdapter;
   private thumbnailManager: ThumbnailManagerService;
   private readonly presentationsCollectionName = 'presentations';
@@ -36,18 +34,22 @@ export class PresentationService {
   private readonly uploadsDir: string;
 
   constructor() {
-    this.asposeAdapter = new AsposeAdapter();
+    this.asposeAdapter = new AsposeAdapterRefactored({});
     
     // Create Firebase config from environment variables
-    const firebaseConfig: FirebaseConfig = {
+    const firebaseConfig: any = {
       projectId: process.env.FIREBASE_PROJECT_ID!,
       privateKey: process.env.FIREBASE_PRIVATE_KEY!,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET!,
+      databaseURL: process.env.FIREBASE_DATABASE_URL,
     };
-    
+
     this.firebase = new FirebaseAdapter(firebaseConfig);
-    this.thumbnailManager = new ThumbnailManagerService();
+    this.thumbnailManager = new ThumbnailManagerService({ 
+      asposeConfig: {},
+      outputDirectory: './temp/thumbnails' 
+    });
     this.uploadsDir = path.join(process.cwd(), 'temp', 'uploads');
     this.ensureUploadDirectory();
     logger.info('PresentationService initialized');
@@ -107,7 +109,7 @@ export class PresentationService {
         filePath: storageResult.path,
         mimeType: request.file.mimetype,
         
-        slideCount: conversionResult.data.slides.length,
+        slideCount: conversionResult.data.slides?.length ?? 0,
         slideSize: {
           width: conversionResult.data.slideSize?.width || 1920,
           height: conversionResult.data.slideSize?.height || 1080,
@@ -117,13 +119,13 @@ export class PresentationService {
         },
         
         stats: {
-          totalShapes: conversionResult.processingStats.shapeCount,
-          totalImages: conversionResult.processingStats.imageCount,
+          totalShapes: conversionResult.processingStats?.shapeCount ?? 0,
+          totalImages: conversionResult.processingStats?.imageCount ?? 0,
           totalVideos: 0,
           totalAudios: 0,
           totalCharts: 0,
           totalTables: 0,
-          totalAnimations: conversionResult.processingStats.animationCount,
+          totalAnimations: conversionResult.processingStats?.animationCount ?? 0,
           totalWords: 0,
           totalCharacters: 0,
           averageWordsPerSlide: 0,
@@ -410,60 +412,59 @@ export class PresentationService {
       } = query;
 
       // Build Firestore query
-      let firebaseQuery = this.firebase.getCollection(this.presentationsCollectionName);
-
-      // Apply filters
+      // Build filters for Firebase query
+      const filters: Array<{ field: string; operator: any; value: any }> = [];
+      
       if (owner) {
-        firebaseQuery = firebaseQuery.where('access.owner', '==', owner);
+        filters.push({ field: 'access.owner', operator: '==', value: owner });
       }
       if (visibility) {
-        firebaseQuery = firebaseQuery.where('access.visibility', '==', visibility);
+        filters.push({ field: 'access.visibility', operator: '==', value: visibility });
       }
       if (status) {
-        firebaseQuery = firebaseQuery.where('processing.status', '==', status);
+        filters.push({ field: 'processing.status', operator: '==', value: status });
       }
       if (starred !== undefined) {
-        firebaseQuery = firebaseQuery.where('organization.starred', '==', starred);
+        filters.push({ field: 'organization.starred', operator: '==', value: starred });
       }
       if (archived !== undefined) {
-        firebaseQuery = firebaseQuery.where('organization.archived', '==', archived);
+        filters.push({ field: 'organization.archived', operator: '==', value: archived });
       }
       if (favorite !== undefined) {
-        firebaseQuery = firebaseQuery.where('organization.favorite', '==', favorite);
+        filters.push({ field: 'organization.favorite', operator: '==', value: favorite });
       }
       if (tags && tags.length > 0) {
-        firebaseQuery = firebaseQuery.where('organization.tags', 'array-contains-any', tags);
+        filters.push({ field: 'organization.tags', operator: 'array-contains-any', value: tags });
       }
       if (categories && categories.length > 0) {
-        firebaseQuery = firebaseQuery.where('organization.categories', 'array-contains-any', categories);
+        filters.push({ field: 'organization.categories', operator: 'array-contains-any', value: categories });
       }
       if (dateFrom) {
-        firebaseQuery = firebaseQuery.where('timestamps.created', '>=', dateFrom);
+        filters.push({ field: 'timestamps.created', operator: '>=', value: dateFrom });
       }
       if (dateTo) {
-        firebaseQuery = firebaseQuery.where('timestamps.created', '<=', dateTo);
+        filters.push({ field: 'timestamps.created', operator: '<=', value: dateTo });
       }
       if (minFileSize) {
-        firebaseQuery = firebaseQuery.where('fileSize', '>=', minFileSize);
+        filters.push({ field: 'fileSize', operator: '>=', value: minFileSize });
       }
       if (maxFileSize) {
-        firebaseQuery = firebaseQuery.where('fileSize', '<=', maxFileSize);
+        filters.push({ field: 'fileSize', operator: '<=', value: maxFileSize });
       }
       if (minSlideCount) {
-        firebaseQuery = firebaseQuery.where('slideCount', '>=', minSlideCount);
+        filters.push({ field: 'slideCount', operator: '>=', value: minSlideCount });
       }
       if (maxSlideCount) {
-        firebaseQuery = firebaseQuery.where('slideCount', '<=', maxSlideCount);
+        filters.push({ field: 'slideCount', operator: '<=', value: maxSlideCount });
       }
 
-      // Apply sorting
-      firebaseQuery = firebaseQuery.orderBy(`timestamps.${sortBy}`, sortOrder);
-
-      // Apply pagination
-      firebaseQuery = firebaseQuery.limit(limit).offset(offset);
-
-      // Execute query
-      const presentations = await this.firebase.queryDocuments<PresentationMetadata>(firebaseQuery);
+      // Execute query using queryDocuments
+      const presentations = await this.firebase.queryDocuments<PresentationMetadata>(
+        this.presentationsCollectionName,
+        filters,
+        limit,
+        { field: `timestamps.${sortBy}`, direction: sortOrder }
+      );
 
       // Apply text search if provided (client-side filtering for now)
       let filteredPresentations = presentations;

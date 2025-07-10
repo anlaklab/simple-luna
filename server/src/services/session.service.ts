@@ -169,7 +169,7 @@ export class SessionService {
       }
 
       // Prepare updates
-      const updateData: Partial<ChatSession> = {
+      const updateData: any = {
         ...updates,
         updatedAt: new Date(),
       };
@@ -257,40 +257,38 @@ export class SessionService {
         dateTo,
       } = query;
 
-      // Build Firebase query
-      let firebaseQuery = this.firebase.getCollection(this.collectionName);
-
-      // Apply filters
+      // Build filters for Firebase query
+      const filters: Array<{ field: string; operator: any; value: any }> = [];
+      
       if (userId) {
-        firebaseQuery = firebaseQuery.where('userId', '==', userId);
+        filters.push({ field: 'userId', operator: '==', value: userId });
       }
       if (status) {
-        firebaseQuery = firebaseQuery.where('status', '==', status);
+        filters.push({ field: 'status', operator: '==', value: status });
       }
       if (archived !== undefined) {
-        firebaseQuery = firebaseQuery.where('metadata.archived', '==', archived);
+        filters.push({ field: 'metadata.archived', operator: '==', value: archived });
       }
       if (bookmarked !== undefined) {
-        firebaseQuery = firebaseQuery.where('metadata.bookmarked', '==', bookmarked);
+        filters.push({ field: 'metadata.bookmarked', operator: '==', value: bookmarked });
       }
       if (tags && tags.length > 0) {
-        firebaseQuery = firebaseQuery.where('metadata.tags', 'array-contains-any', tags);
+        filters.push({ field: 'metadata.tags', operator: 'array-contains-any', value: tags });
       }
       if (dateFrom) {
-        firebaseQuery = firebaseQuery.where('createdAt', '>=', dateFrom);
+        filters.push({ field: 'createdAt', operator: '>=', value: dateFrom });
       }
       if (dateTo) {
-        firebaseQuery = firebaseQuery.where('createdAt', '<=', dateTo);
+        filters.push({ field: 'createdAt', operator: '<=', value: dateTo });
       }
 
-      // Apply sorting
-      firebaseQuery = firebaseQuery.orderBy(sortBy, sortOrder);
-
-      // Apply pagination
-      firebaseQuery = firebaseQuery.limit(limit).offset(offset);
-
-      // Execute query
-      const sessions = await this.firebase.queryDocuments<ChatSession>(firebaseQuery);
+      // Execute query using queryDocuments
+      const sessions = await this.firebase.queryDocuments<ChatSession>(
+        this.collectionName,
+        filters,
+        limit,
+        { field: sortBy, direction: sortOrder }
+      );
 
       // Apply text search if provided
       let filteredSessions = sessions;

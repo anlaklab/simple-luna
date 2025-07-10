@@ -369,6 +369,55 @@ export class OpenAIAdapter {
     }
   }
 
+  /**
+   * Create chat completion (for backward compatibility)
+   */
+  async createChatCompletion(params: {
+    messages: Array<{ role: string; content: string }>;
+    model?: string;
+    temperature?: number;
+    max_tokens?: number;
+  }): Promise<any> {
+    try {
+      const response = await this.client.chat.completions.create({
+        model: params.model || this.config.defaultModel!,
+        messages: params.messages as any,
+        max_tokens: params.max_tokens || this.config.defaultMaxTokens!,
+        temperature: params.temperature || this.config.defaultTemperature!,
+      });
+
+      return response;
+    } catch (error) {
+      logger.error('Chat completion failed', { error, params });
+      throw error;
+    }
+  }
+
+  /**
+   * Create chat completion stream (for backward compatibility)
+   */
+  async createChatCompletionStream(params: {
+    messages: Array<{ role: string; content: string }>;
+    model?: string;
+    temperature?: number;
+    max_tokens?: number;
+  }): Promise<any> {
+    try {
+      const response = await this.client.chat.completions.create({
+        model: params.model || this.config.defaultModel!,
+        messages: params.messages as any,
+        max_tokens: params.max_tokens || this.config.defaultMaxTokens!,
+        temperature: params.temperature || this.config.defaultTemperature!,
+        stream: true,
+      });
+
+      return response;
+    } catch (error) {
+      logger.error('Chat completion stream failed', { error, params });
+      throw error;
+    }
+  }
+
   // =============================================================================
   // UTILITY METHODS
   // =============================================================================

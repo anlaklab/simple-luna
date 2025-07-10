@@ -61,9 +61,9 @@ const upload = multer({
     ];
     
     if (allowedMimeTypes.includes(file.mimetype)) {
-      cb(null, true);
+      return cb(null, true);
     } else {
-      cb(new Error(`Invalid file type. Allowed types: ${allowedMimeTypes.join(', ')}`));
+      return cb(new Error(`Invalid file type. Allowed types: ${allowedMimeTypes.join(', ')}`));
     }
   },
 });
@@ -136,7 +136,7 @@ app.post(`${API_BASE}/pptx2json`, upload.single('file'), (req, res) => {
     });
   }
 
-  res.json({
+  return res.json({
     success: true,
     data: {
       message: 'PPTX to JSON conversion endpoint working',

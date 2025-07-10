@@ -133,7 +133,7 @@ router.post('/upload', upload.single('file'), handleAsyncErrors(async (req: Requ
     );
 
     // Save file metadata to Firestore
-    const fileId = `file_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const fileId = `file_${Date.now()}_${require('crypto').randomUUID().replace(/-/g, '').substring(0, 8)}`;
     await firebaseAdapter.saveDocument('files', fileId, {
       filename: uploadResult.filename,
       originalName: req.file.originalname,
@@ -458,7 +458,7 @@ router.get('/presentations', handleAsyncErrors(async (req: Request, res: Respons
       type: undefined, // Get all types, we'll filter client-side
       status: status as any,
       limit: parseInt(limit as string) + parseInt(offset as string), // Get more to account for filtering
-      orderBy: orderBy as string,
+      orderBy: (orderBy === 'createdAt' || orderBy === 'updatedAt') ? orderBy as 'createdAt' | 'updatedAt' : 'updatedAt',
       orderDirection: orderDirection as 'asc' | 'desc',
     });
 
@@ -467,7 +467,7 @@ router.get('/presentations', handleAsyncErrors(async (req: Request, res: Respons
       job.type === 'pptx2json' || 
       job.type === 'json2pptx' || 
       job.type === 'upload' ||
-      job.type === 'conversion'
+      job.type === 'convertformat'
     );
 
     // Apply search filter if provided

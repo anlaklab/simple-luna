@@ -452,7 +452,7 @@ export class SessionsController {
         },
       });
     } catch (error) {
-      logger.error('Failed to get session stats', { error, userId: req.query.userId });
+      logger.error('Failed to get session stats', { error, userId: req.query.userId as string });
       throw error;
     }
   };

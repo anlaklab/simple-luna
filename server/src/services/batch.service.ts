@@ -919,18 +919,19 @@ export class BatchService {
     offset: number = 0
   ): Promise<{ operations: BatchOperation[]; total: number }> {
     try {
-      let query = this.firebase.getCollection(this.batchCollectionName);
-
+      // Build filters for Firebase query
+      const filters: Array<{ field: string; operator: any; value: any }> = [];
+      
       if (userId) {
-        query = query.where('userId', '==', userId);
+        filters.push({ field: 'userId', operator: '==', value: userId });
       }
 
-      query = query
-        .orderBy('createdAt', 'desc')
-        .limit(limit)
-        .offset(offset);
-
-      const operations = await this.firebase.queryDocuments<BatchOperation>(query);
+      const operations = await this.firebase.queryDocuments<BatchOperation>(
+        this.batchCollectionName,
+        filters,
+        limit,
+        { field: 'createdAt', direction: 'desc' }
+      );
       
       // Get total count (simplified for this implementation)
       const total = operations.length;

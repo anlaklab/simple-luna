@@ -5,16 +5,18 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
+import { ZodSchema } from 'zod';
+import multer from 'multer';
+import { randomUUID } from 'crypto';
 import { logger } from '../utils/logger';
 
 /**
  * Generic request validation middleware factory
  */
-export function validateRequest<T>(schema: z.ZodSchema<T>, source: 'body' | 'query' | 'params' = 'body') {
+export function validateRequest<T>(schema: ZodSchema<T>, source: 'body' | 'query' | 'params' = 'body') {
   return (req: Request, res: Response, next: NextFunction) => {
     const startTime = Date.now();
-    const requestId = req.get('X-Request-ID') || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const requestId = req.get('X-Request-ID') || `req_${randomUUID().replace(/-/g, '').substring(0, 16)}`;
     
     // Set request ID for tracking
     req.requestId = requestId;
@@ -120,6 +122,8 @@ export function validateRequest<T>(schema: z.ZodSchema<T>, source: 'body' | 'que
         },
       });
     }
+    
+    return; // Explicit return for TypeScript
   };
 }
 
@@ -244,7 +248,7 @@ export function validateFileUpload(options: {
  * Options validation middleware for multipart forms
  * Validates JSON options field in multipart/form-data requests
  */
-export function validateFormOptions<T>(schema: z.ZodSchema<T>) {
+export function validateFormOptions<T>(schema: ZodSchema<T>) {
   return (req: Request, res: Response, next: NextFunction) => {
     const requestId = req.requestId || `req_${Date.now()}`;
     
@@ -316,6 +320,8 @@ export function validateFormOptions<T>(schema: z.ZodSchema<T>) {
     });
 
     next();
+    
+    return; // Explicit return for TypeScript
   };
 }
 

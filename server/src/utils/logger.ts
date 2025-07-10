@@ -37,7 +37,7 @@ class Logger {
           timestamp,
           level,
           message,
-          ...(stack && { stack }),
+          ...(stack ? { stack } : {}),
           ...meta,
         };
         return JSON.stringify(logObject);

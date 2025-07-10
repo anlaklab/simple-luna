@@ -3,7 +3,7 @@
  */
 
 import { logger } from '../../utils/logger';
-import { ConversionOptions } from '../aspose.adapter';
+import { ConversionOptions } from './types/interfaces';
 import { FillExtractor } from './fill-extractor';
 import { EffectExtractor } from './effect-extractor';
 import { TextExtractor } from './text-extractor';
@@ -284,16 +284,66 @@ export class ShapeExtractor {
    */
   private extractChartData(shape: any): any | null {
     try {
-      // TODO: Implement chart data extraction when Aspose API is available
+      const chartData = shape.getChartData();
+      if (!chartData) return null;
+
+      const result: any = {
+        chartType: chartData.getChartType ? chartData.getChartType() : 0,
+        hasDataTable: chartData.getDataTable ? chartData.getDataTable().hasTable() : false,
+        hasLegend: chartData.getLegend ? chartData.getLegend().hasLegend() : false,
+        hasTitle: chartData.getChartTitle ? chartData.getChartTitle().hasTitle() : false,
+        categories: [],
+        series: [],
+      };
+
+      // Extract categories if available
+      if (chartData.getCategories && chartData.getCategories().size() > 0) {
+        const categories = chartData.getCategories();
+        for (let i = 0; i < categories.size(); i++) {
+          const category = categories.get_Item(i);
+          result.categories.push({
+            value: category.getAsCell ? category.getAsCell().getValue() : category.getValue(),
+          });
+        }
+      }
+
+      // Extract series data if available
+      if (chartData.getSeries && chartData.getSeries().size() > 0) {
+        const series = chartData.getSeries();
+        for (let i = 0; i < series.size(); i++) {
+          const serie = series.get_Item(i);
+          const serieData: any = {
+            name: serie.getName ? serie.getName().getAsString() : `Series ${i + 1}`,
+            values: [],
+          };
+
+          // Extract data points
+          if (serie.getDataPoints && serie.getDataPoints().size() > 0) {
+            const dataPoints = serie.getDataPoints();
+            for (let j = 0; j < dataPoints.size(); j++) {
+              const point = dataPoints.get_Item(j);
+              serieData.values.push({
+                value: point.getValue ? point.getValue().getData() : null,
+                index: j,
+              });
+            }
+          }
+
+          result.series.push(serieData);
+        }
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error extracting chart data', { error });
       return {
         chartType: 0,
         hasDataTable: false,
-        hasLegend: true,
+        hasLegend: false,
         hasTitle: false,
+        categories: [],
+        series: [],
       };
-    } catch (error) {
-      logger.error('Error extracting chart data', { error });
-      return null;
     }
   }
 
@@ -370,15 +420,57 @@ export class ShapeExtractor {
    */
   private extractVideoProperties(shape: any): any | null {
     try {
-      // TODO: Implement video properties extraction
+      const videoData = shape.getVideoData();
+      if (!videoData) return null;
+
+      const result: any = {
+        autoPlay: false,
+        loop: false,
+        volume: 50,
+        fileName: '',
+        mediaType: 'video',
+      };
+
+      // Extract video frame properties
+      if (shape.getPlayMode) {
+        result.autoPlay = shape.getPlayMode() === 1; // 1 = Auto
+      }
+
+      if (shape.getRewindVideo) {
+        result.loop = shape.getRewindVideo();
+      }
+
+      if (shape.getVolume) {
+        result.volume = shape.getVolume();
+      }
+
+      // Extract embedded video data
+      if (videoData.getEmbeddedVideo && videoData.getEmbeddedVideo()) {
+        const embeddedVideo = videoData.getEmbeddedVideo();
+        if (embeddedVideo.getName) {
+          result.fileName = embeddedVideo.getName();
+        }
+        if (embeddedVideo.getBinaryData) {
+          result.hasEmbeddedData = true;
+          result.dataSize = embeddedVideo.getBinaryData().length;
+        }
+      }
+
+      // Extract linked video path
+      if (videoData.getLinkPathLong) {
+        result.linkPath = videoData.getLinkPathLong();
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error extracting video properties', { error });
       return {
         autoPlay: false,
         loop: false,
         volume: 50,
+        fileName: '',
+        mediaType: 'video',
       };
-    } catch (error) {
-      logger.error('Error extracting video properties', { error });
-      return null;
     }
   }
 
@@ -387,15 +479,57 @@ export class ShapeExtractor {
    */
   private extractAudioProperties(shape: any): any | null {
     try {
-      // TODO: Implement audio properties extraction
+      const audioData = shape.getAudioData();
+      if (!audioData) return null;
+
+      const result: any = {
+        autoPlay: false,
+        loop: false,
+        volume: 50,
+        fileName: '',
+        mediaType: 'audio',
+      };
+
+      // Extract audio frame properties
+      if (shape.getPlayMode) {
+        result.autoPlay = shape.getPlayMode() === 1; // 1 = Auto
+      }
+
+      if (shape.getRewindAudio) {
+        result.loop = shape.getRewindAudio();
+      }
+
+      if (shape.getVolume) {
+        result.volume = shape.getVolume();
+      }
+
+      // Extract embedded audio data
+      if (audioData.getEmbeddedAudio && audioData.getEmbeddedAudio()) {
+        const embeddedAudio = audioData.getEmbeddedAudio();
+        if (embeddedAudio.getName) {
+          result.fileName = embeddedAudio.getName();
+        }
+        if (embeddedAudio.getBinaryData) {
+          result.hasEmbeddedData = true;
+          result.dataSize = embeddedAudio.getBinaryData().length;
+        }
+      }
+
+      // Extract linked audio path
+      if (audioData.getLinkPathLong) {
+        result.linkPath = audioData.getLinkPathLong();
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error extracting audio properties', { error });
       return {
         autoPlay: false,
         loop: false,
         volume: 50,
+        fileName: '',
+        mediaType: 'audio',
       };
-    } catch (error) {
-      logger.error('Error extracting audio properties', { error });
-      return null;
     }
   }
 
@@ -404,14 +538,68 @@ export class ShapeExtractor {
    */
   private extractSmartArtProperties(shape: any): any | null {
     try {
-      // TODO: Implement SmartArt properties extraction
+      const smartArtData = shape.getSmartArtData();
+      if (!smartArtData) return null;
+
+      const result: any = {
+        layout: 0,
+        nodes: [],
+        isReversed: false,
+      };
+
+      // Extract layout information
+      if (smartArtData.getLayout) {
+        result.layout = smartArtData.getLayout();
+      }
+
+      if (smartArtData.isReversed) {
+        result.isReversed = smartArtData.isReversed();
+      }
+
+      // Extract SmartArt nodes
+      if (smartArtData.getAllNodes && smartArtData.getAllNodes().size() > 0) {
+        const nodes = smartArtData.getAllNodes();
+        for (let i = 0; i < nodes.size(); i++) {
+          const node = nodes.get_Item(i);
+          const nodeData: any = {
+            level: node.getLevel ? node.getLevel() : 0,
+            position: node.getPosition ? node.getPosition() : i,
+            isAssistant: node.isAssistant ? node.isAssistant() : false,
+            textFrame: null,
+          };
+
+          // Extract node text
+          if (node.getTextFrame && node.getTextFrame()) {
+            nodeData.textFrame = this.textExtractor.extractTextFrame(node.getTextFrame());
+          }
+
+          // Extract child nodes
+          if (node.getChildNodes && node.getChildNodes().size() > 0) {
+            nodeData.childNodes = [];
+            const childNodes = node.getChildNodes();
+            for (let j = 0; j < childNodes.size(); j++) {
+              const childNode = childNodes.get_Item(j);
+              nodeData.childNodes.push({
+                level: childNode.getLevel ? childNode.getLevel() : nodeData.level + 1,
+                position: j,
+                textFrame: childNode.getTextFrame ? 
+                  this.textExtractor.extractTextFrame(childNode.getTextFrame()) : null,
+              });
+            }
+          }
+
+          result.nodes.push(nodeData);
+        }
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error extracting SmartArt properties', { error });
       return {
         layout: 0,
         nodes: [],
+        isReversed: false,
       };
-    } catch (error) {
-      logger.error('Error extracting SmartArt properties', { error });
-      return null;
     }
   }
 
@@ -420,14 +608,58 @@ export class ShapeExtractor {
    */
   private extractOleObjectProperties(shape: any): any | null {
     try {
-      // TODO: Implement OLE object properties extraction
+      const objectData = shape.getObjectData();
+      if (!objectData) return null;
+
+      const result: any = {
+        objectType: 'Unknown',
+        displayAsIcon: true,
+        fileName: '',
+        progId: '',
+      };
+
+      // Extract OLE object information
+      if (objectData.getEmbeddedFileLabel) {
+        result.fileName = objectData.getEmbeddedFileLabel();
+      }
+
+      if (objectData.getEmbeddedFileExtension) {
+        result.fileExtension = objectData.getEmbeddedFileExtension();
+      }
+
+      if (objectData.getSubType) {
+        result.objectType = objectData.getSubType().toString();
+      }
+
+      if (objectData.getProgId) {
+        result.progId = objectData.getProgId();
+      }
+
+      // Check if displayed as icon
+      if (shape.getDisplayAsIcon) {
+        result.displayAsIcon = shape.getDisplayAsIcon();
+      }
+
+      // Extract embedded data size
+      if (objectData.getEmbeddedFileData) {
+        result.hasEmbeddedData = true;
+        result.dataSize = objectData.getEmbeddedFileData().length;
+      }
+
+      // Extract object name
+      if (shape.getObjectName) {
+        result.objectName = shape.getObjectName();
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error extracting OLE object properties', { error });
       return {
         objectType: 'Unknown',
         displayAsIcon: true,
+        fileName: '',
+        progId: '',
       };
-    } catch (error) {
-      logger.error('Error extracting OLE object properties', { error });
-      return null;
     }
   }
 
@@ -436,14 +668,63 @@ export class ShapeExtractor {
    */
   private extractConnectorProperties(shape: any): any | null {
     try {
-      // TODO: Implement connector properties extraction
-      return {
-        startShapeIndex: 0,
-        endShapeIndex: 0,
+      const result: any = {
+        startShapeIndex: -1,
+        endShapeIndex: -1,
+        startConnectionSiteIndex: 0,
+        endConnectionSiteIndex: 0,
+        connectorType: 'Straight',
       };
+
+      // Extract start shape connection
+      if (shape.getStartShapeConnectedTo && shape.getStartShapeConnectedTo()) {
+        const startShape = shape.getStartShapeConnectedTo();
+        // Get shape index from parent collection
+        result.hasStartConnection = true;
+        if (shape.getStartShapeConnectionSiteIndex) {
+          result.startConnectionSiteIndex = shape.getStartShapeConnectionSiteIndex();
+        }
+      }
+
+      // Extract end shape connection  
+      if (shape.getEndShapeConnectedTo && shape.getEndShapeConnectedTo()) {
+        const endShape = shape.getEndShapeConnectedTo();
+        result.hasEndConnection = true;
+        if (shape.getEndShapeConnectionSiteIndex) {
+          result.endConnectionSiteIndex = shape.getEndShapeConnectionSiteIndex();
+        }
+      }
+
+      // Extract connector type
+      if (shape.getConnectorType) {
+        const connectorType = shape.getConnectorType();
+        const typeMap: Record<number, string> = {
+          0: 'Straight',
+          1: 'Elbow',
+          2: 'Curved',
+        };
+        result.connectorType = typeMap[connectorType] || 'Straight';
+      }
+
+      // Extract rerouting information
+      if (shape.getAdjustments && shape.getAdjustments().size() > 0) {
+        result.adjustments = [];
+        const adjustments = shape.getAdjustments();
+        for (let i = 0; i < adjustments.size(); i++) {
+          result.adjustments.push(adjustments.get_Item(i).getRawValue());
+        }
+      }
+
+      return result;
     } catch (error) {
       logger.error('Error extracting connector properties', { error });
-      return null;
+      return {
+        startShapeIndex: -1,
+        endShapeIndex: -1,
+        startConnectionSiteIndex: 0,
+        endConnectionSiteIndex: 0,
+        connectorType: 'Straight',
+      };
     }
   }
 }

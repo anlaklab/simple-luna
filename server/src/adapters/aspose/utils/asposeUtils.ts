@@ -203,7 +203,7 @@ export async function createTempFile(content: Buffer | string, extension: string
   try {
     await fs.mkdir(tempDir, { recursive: true });
     
-    const fileName = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}${extension}`;
+    const fileName = `temp_${Date.now()}_${require('crypto').randomUUID().replace(/-/g, '').substring(0, 9)}${extension}`;
     const filePath = path.join(tempDir, fileName);
     
     await fs.writeFile(filePath, content);

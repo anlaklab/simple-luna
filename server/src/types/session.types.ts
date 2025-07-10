@@ -100,11 +100,7 @@ export interface MessageCreateRequest {
   sessionId: string;
   content: string;
   role?: 'user' | 'system';
-  metadata?: {
-    contentType?: 'text' | 'presentation' | 'analysis';
-    attachments?: string[];
-    context?: Record<string, any>;
-  };
+  metadata?: ChatSessionMetadata;
 }
 
 export interface SessionListQuery {
@@ -230,4 +226,12 @@ export interface SessionEventPayload {
     ipAddress?: string;
     source?: string;
   };
+}
+
+export interface ChatSessionMetadata {
+  contentType?: 'text' | 'presentation' | 'analysis';
+  attachments?: string[];
+  context?: Record<string, any>;
+  tokens?: number; // For backward compatibility
+  totalTokens?: number; // For backward compatibility
 }

@@ -22,6 +22,12 @@ export interface UploadOptions {
   makePublic?: boolean;
   metadata?: Record<string, any>;
   customName?: string;
+  presentationId?: string; // For backward compatibility
+  owner?: string; // For backward compatibility
+  format?: string; // For backward compatibility
+  slideIndex?: number; // For backward compatibility
+  strategy?: string; // For backward compatibility
+  generated?: string; // For backward compatibility
 }
 
 export interface FileUploadResult {
@@ -269,9 +275,9 @@ export class FirebaseAdapter {
   }
 
   /**
-   * Get a document from Firestore
+   * Get a document from Firestore with generic typing
    */
-  async getDocument(collection: string, docId: string): Promise<DatabaseDocument | null> {
+  async getDocument<T = any>(collection: string, docId: string): Promise<T | null> {
     try {
       const doc = await this.firestore.collection(collection).doc(docId).get();
       
@@ -286,10 +292,10 @@ export class FirebaseAdapter {
 
       return {
         id: doc.id,
-        data,
+        ...data,
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date(),
-      };
+      } as T;
     } catch (error) {
       logger.error('Get document error', { error, collection, docId });
       throw error;
@@ -297,10 +303,10 @@ export class FirebaseAdapter {
   }
 
   /**
-   * Query documents from Firestore
+   * Query documents from Firestore with generic typing
    */
-  async queryDocuments(
-    collection: string,
+  async queryDocuments<T = any>(
+    queryOrCollection: string | FirebaseFirestore.Query | FirebaseFirestore.CollectionReference,
     filters: Array<{
       field: string;
       operator: FirebaseFirestore.WhereFilterOp;
@@ -308,9 +314,15 @@ export class FirebaseAdapter {
     }> = [],
     limit?: number,
     orderBy?: { field: string; direction: 'asc' | 'desc' }
-  ): Promise<DatabaseDocument[]> {
+  ): Promise<T[]> {
     try {
-      let query: FirebaseFirestore.Query = this.firestore.collection(collection);
+      let query: FirebaseFirestore.Query;
+
+      if (typeof queryOrCollection === 'string') {
+        query = this.firestore.collection(queryOrCollection);
+      } else {
+        query = queryOrCollection as FirebaseFirestore.Query;
+      }
 
       // Apply filters
       filters.forEach(({ field, operator, value }) => {
@@ -333,13 +345,13 @@ export class FirebaseAdapter {
         const data = doc.data();
         return {
           id: doc.id,
-          data,
+          ...data,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
-        };
+        } as T;
       });
     } catch (error) {
-      logger.error('Query documents error', { error, collection, filters });
+      logger.error('Query documents error', { error, queryOrCollection, filters });
       throw error;
     }
   }
@@ -406,6 +418,85 @@ export class FirebaseAdapter {
       logger.error('Batch commit error', { error });
       throw error;
     }
+  }
+
+  // =============================================================================
+  // LEGACY COMPATIBILITY METHODS
+  // =============================================================================
+
+  /**
+   * Legacy method: createDocument (alias for saveDocument)
+   */
+  async createDocument(
+    collection: string,
+    docId: string,
+    data: Record<string, any>
+  ): Promise<void> {
+    return this.saveDocument(collection, docId, data);
+  }
+
+  /**
+   * Legacy method: getCollection (returns query builder)
+   */
+  getCollection(collection: string): FirebaseFirestore.CollectionReference {
+    return this.firestore.collection(collection);
+  }
+
+  /**
+   * Legacy method: downloadFile (alias for getDownloadUrl)
+   */
+  async downloadFile(path: string): Promise<Buffer> {
+    try {
+      const file = this.storage.file(path);
+      const [buffer] = await file.download();
+      return buffer;
+    } catch (error) {
+      logger.error('Download file error', { error, path });
+      throw error;
+    }
+  }
+
+  /**
+   * Build a query from a collection reference
+   */
+  buildQuery(
+    collection: string | FirebaseFirestore.CollectionReference,
+    filters: Array<{
+      field: string;
+      operator: FirebaseFirestore.WhereFilterOp;
+      value: any;
+    }> = [],
+    orderBy?: { field: string; direction: 'asc' | 'desc' },
+    limit?: number,
+    offset?: number
+  ): FirebaseFirestore.Query {
+    let query: FirebaseFirestore.Query;
+
+    if (typeof collection === 'string') {
+      query = this.firestore.collection(collection);
+    } else {
+      query = collection;
+    }
+
+    // Apply filters
+    filters.forEach(({ field, operator, value }) => {
+      query = query.where(field, operator, value);
+    });
+
+    // Apply ordering
+    if (orderBy) {
+      query = query.orderBy(orderBy.field, orderBy.direction);
+    }
+
+    // Apply pagination
+    if (offset) {
+      query = query.offset(offset);
+    }
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    return query;
   }
 
   // =============================================================================
