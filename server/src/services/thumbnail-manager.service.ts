@@ -193,8 +193,20 @@ export class ThumbnailManagerService {
    * Get file path for a presentation
    */
   private async getFilePath(presentationId: string): Promise<string> {
-    // Mock implementation - in real app this would fetch from database
-    return `./temp/presentations/${presentationId}.pptx`;
+    try {
+      // Get real presentation metadata from Firebase
+      const presentation = await this.firebase.getDocument('presentations', presentationId);
+      if (presentation && presentation.filePath) {
+        return presentation.filePath;
+      }
+      
+      logger.warn('Presentation not found in Firebase, using fallback path', { presentationId });
+      return `./temp/presentations/${presentationId}.pptx`;
+    } catch (error) {
+      logger.error('Failed to get presentation file path from Firebase', { error, presentationId });
+      // Fallback to temp directory path
+      return `./temp/presentations/${presentationId}.pptx`;
+    }
   }
 
   /**

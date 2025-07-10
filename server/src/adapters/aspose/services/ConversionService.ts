@@ -533,15 +533,16 @@ export class ConversionService implements IConversionService {
   }
 
   // =============================================================================
-  // JSON → PPTX CONVERSION (PLACEHOLDER - NOT IMPLEMENTED)
+  // JSON → PPTX CONVERSION (FUTURE IMPLEMENTATION)
   // =============================================================================
 
   async convertJsonToPptx(presentationData: UniversalPresentation, outputPath: string, options?: FileGenerationOptions): Promise<FileGenerationResult> {
-    // This is a complex reverse conversion that would need significant implementation
-    logger.warn('JSON to PPTX conversion not yet implemented');
+    // TODO: Implement reverse conversion from Universal Schema to PPTX
+    // This will require complex shape reconstruction and Aspose.Slides API integration
+    logger.warn('JSON to PPTX conversion will be implemented in Phase 2 of refactoring');
     return {
       success: false,
-      error: 'JSON to PPTX conversion is not yet implemented',
+      error: 'JSON to PPTX conversion scheduled for Phase 2 implementation',
     };
   }
 

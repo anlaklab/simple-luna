@@ -7,7 +7,7 @@
 // Import from existing schema - will be resolved during implementation
 
 // =============================================================================
-// PLACEHOLDER TYPES (to be replaced with actual imports)
+// TYPE DEFINITIONS FOR ASPOSE ADAPTER SERVICES
 // =============================================================================
 
 export interface UniversalPresentation {

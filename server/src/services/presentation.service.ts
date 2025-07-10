@@ -861,8 +861,26 @@ export class PresentationService {
       throw new Error('Failed to generate images');
     }
 
-    // Create a ZIP file with all images (simplified - would use actual ZIP library)
-    const zipBuffer = Buffer.from('Mock ZIP file with images');
+    // Create a ZIP file with all images using archiver
+    const archiver = require('archiver');
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    
+    // Collect image buffers for ZIP
+    const zipBuffer = await new Promise<Buffer>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      archive.on('data', (chunk: Buffer) => chunks.push(chunk));
+      archive.on('end', () => resolve(Buffer.concat(chunks)));
+      archive.on('error', reject);
+      
+      // Add each thumbnail as an image file
+      result.thumbnails.forEach(thumbnail => {
+        if (thumbnail.buffer) {
+          archive.append(thumbnail.buffer, { name: `slide-${thumbnail.slideIndex}.${thumbnail.format}` });
+        }
+      });
+      
+      archive.finalize();
+    });
     const exportPath = `exports/${presentation.id}/images.zip`;
     
     const uploadResult = await this.firebase.uploadFile(
