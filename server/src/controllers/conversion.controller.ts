@@ -115,22 +115,8 @@ export class ConversionController {
         return;
       }
 
-      // Parse and validate options
-      let options = {};
-      if (req.body.options) {
-        try {
-          options = JSON.parse(req.body.options);
-        } catch (error) {
-          res.status(400).json(this.createErrorResponse(
-            'validation_error',
-            'INVALID_OPTIONS',
-            'Options parameter must be valid JSON',
-            requestId,
-            Date.now() - startTime
-          ));
-          return;
-        }
-      }
+      // Use already-parsed and validated options from middleware
+      const options = req.body.options || {};
 
       const validationResult = Pptx2JsonRequestSchema.safeParse(options);
       if (!validationResult.success) {
@@ -358,22 +344,8 @@ export class ConversionController {
         return;
       }
 
-      // Parse and validate options
-      let options = {};
-      if (req.body.options) {
-        try {
-          options = JSON.parse(req.body.options);
-        } catch (error) {
-          res.status(400).json(this.createErrorResponse(
-            'validation_error',
-            'INVALID_OPTIONS',
-            'Options parameter must be valid JSON',
-            requestId,
-            Date.now() - startTime
-          ));
-          return;
-        }
-      }
+      // Use already-parsed and validated options from middleware
+      const options = req.body.options || {};
 
       const validationResult = ConvertFormatRequestSchema.safeParse(options);
       if (!validationResult.success) {
@@ -510,22 +482,8 @@ export class ConversionController {
         return;
       }
 
-      // Parse and validate options
-      let options = {};
-      if (req.body.options) {
-        try {
-          options = JSON.parse(req.body.options);
-        } catch (error) {
-          res.status(400).json(this.createErrorResponse(
-            'validation_error',
-            'INVALID_OPTIONS',
-            'Options parameter must be valid JSON',
-            requestId,
-            Date.now() - startTime
-          ));
-          return;
-        }
-      }
+      // Use already-parsed and validated options from middleware
+      const options = req.body.options || {};
 
       const validationResult = ThumbnailsRequestSchema.safeParse(options);
       if (!validationResult.success) {

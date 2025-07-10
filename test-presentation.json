@@ -1,0 +1,150 @@
+{
+  "id": "test-presentation",
+  "title": "Test Presentation",
+  "description": "A test presentation for upload functionality",
+  "status": "completed",
+  "slideCount": 3,
+  "author": "Test User",
+  "company": "Test Company",
+  "createdAt": "2025-01-08T22:00:00.000Z",
+  "updatedAt": "2025-01-08T22:00:00.000Z",
+  "data": {
+    "presentation": {
+      "metadata": {
+        "title": "Test Presentation",
+        "subject": "Testing upload functionality",
+        "author": "Test User",
+        "company": "Test Company",
+        "createdTime": "2025-01-08T22:00:00.000Z",
+        "lastSavedTime": "2025-01-08T22:00:00.000Z",
+        "slideCount": 3,
+        "keywords": "test, upload, presentation",
+        "comments": "Test presentation for upload functionality",
+        "revision": 1
+      },
+      "slideSize": {
+        "width": 1920,
+        "height": 1080,
+        "type": "OnScreen16x9"
+      },
+      "slides": [
+        {
+          "slideId": 1,
+          "slideIndex": 0,
+          "name": "Title Slide",
+          "slideType": "Slide",
+          "shapes": [
+            {
+              "shapeType": "Shape",
+              "name": "Title",
+              "geometry": { "x": 100, "y": 200, "width": 1720, "height": 300 },
+              "textFrame": {
+                "text": "Test Presentation",
+                "paragraphs": [{
+                  "portions": [{
+                    "text": "Test Presentation",
+                    "fontHeight": 44,
+                    "fontBold": true,
+                    "fontColor": "#1f2937"
+                  }],
+                  "alignment": "Center"
+                }]
+              },
+              "fillFormat": { "type": "NoFill" }
+            }
+          ],
+          "background": {
+            "type": "Solid",
+            "solidFillColor": { "type": "RGB", "r": 255, "g": 255, "b": 255 }
+          }
+        },
+        {
+          "slideId": 2,
+          "slideIndex": 1,
+          "name": "Content Slide 1",
+          "slideType": "Slide",
+          "shapes": [
+            {
+              "shapeType": "Shape",
+              "name": "Content Title",
+              "geometry": { "x": 100, "y": 200, "width": 1720, "height": 300 },
+              "textFrame": {
+                "text": "Slide 2 Content",
+                "paragraphs": [{
+                  "portions": [{
+                    "text": "Slide 2 Content",
+                    "fontHeight": 32,
+                    "fontBold": false,
+                    "fontColor": "#1f2937"
+                  }],
+                  "alignment": "Left"
+                }]
+              },
+              "fillFormat": { "type": "NoFill" }
+            }
+          ],
+          "background": {
+            "type": "Solid",
+            "solidFillColor": { "type": "RGB", "r": 255, "g": 255, "b": 255 }
+          }
+        },
+        {
+          "slideId": 3,
+          "slideIndex": 2,
+          "name": "Content Slide 2",
+          "slideType": "Slide",
+          "shapes": [
+            {
+              "shapeType": "Shape",
+              "name": "Content Title",
+              "geometry": { "x": 100, "y": 200, "width": 1720, "height": 300 },
+              "textFrame": {
+                "text": "Slide 3 Content",
+                "paragraphs": [{
+                  "portions": [{
+                    "text": "Slide 3 Content",
+                    "fontHeight": 32,
+                    "fontBold": false,
+                    "fontColor": "#1f2937"
+                  }],
+                  "alignment": "Left"
+                }]
+              },
+              "fillFormat": { "type": "NoFill" }
+            }
+          ],
+          "background": {
+            "type": "Solid",
+            "solidFillColor": { "type": "RGB", "r": 255, "g": 255, "b": 255 }
+          }
+        }
+      ],
+      "masterSlides": [{
+        "slideId": 0,
+        "name": "Master Slide",
+        "slideType": "MasterSlide",
+        "shapes": [],
+        "background": {
+          "type": "Solid",
+          "solidFillColor": { "type": "RGB", "r": 255, "g": 255, "b": 255 }
+        }
+      }],
+      "layoutSlides": [],
+      "theme": {
+        "name": "Default Theme",
+        "colorScheme": {
+          "background1": "#ffffff",
+          "text1": "#1f2937",
+          "background2": "#f9fafb",
+          "text2": "#374151",
+          "accent1": "#3b82f6",
+          "accent2": "#10b981"
+        },
+        "fontScheme": {
+          "majorFont": "Calibri",
+          "minorFont": "Calibri"
+        }
+      }
+    }
+  }
+} 

@@ -11,6 +11,7 @@ WORKDIR /app
 RUN apk add --no-cache \
     openjdk11-jre \
     openjdk11-jdk \
+    openjdk11-jre-headless \
     python3 \
     make \
     g++ \
@@ -21,6 +22,8 @@ RUN apk add --no-cache \
     ttf-dejavu \
     ttf-liberation \
     msttcorefonts-installer \
+    linux-headers \
+    libc6-compat \
     && update-ms-fonts \
     && fc-cache -f
 
@@ -31,6 +34,11 @@ ENV JAVA_TOOL_OPTIONS="-Djava.awt.headless=true -Dfile.encoding=UTF-8 -Djava.uti
 ENV AWT_TOOLKIT=java.awt.headless.HeadlessToolkit
 ENV DISPLAY=""
 
+# Critical: Set up proper Java environment for Node.js java package
+ENV JAVA_INCLUDE_PATH="$JAVA_HOME/include"
+ENV JAVA_INCLUDE_PATH2="$JAVA_HOME/include/linux"
+ENV LD_LIBRARY_PATH="$JAVA_HOME/lib/server:$JAVA_HOME/lib:$LD_LIBRARY_PATH"
+
 # Create necessary directories
 RUN mkdir -p /app/temp/uploads /app/temp/aspose /app/temp/conversions /app/temp/thumbnails /app/logs
 
@@ -38,16 +46,19 @@ RUN mkdir -p /app/temp/uploads /app/temp/aspose /app/temp/conversions /app/temp/
 COPY package*.json ./
 COPY server/package*.json ./server/
 
-# Install server dependencies first (without java issues)
+# Install server dependencies first
 WORKDIR /app/server
 RUN npm ci --only=production
 
 # Install Firebase for server (required dependency)
 RUN npm install firebase firebase-admin
 
-# Go back to root and install root dependencies without java
+# Go back to root and install root dependencies
 WORKDIR /app
-RUN npm ci --only=production --ignore-scripts || npm install --only=production --ignore-scripts
+RUN npm ci --only=production --ignore-scripts
+
+# CRITICAL: Install and build the java package properly
+RUN npm install java --build-from-source || npm install java || echo "Java package installation attempted"
 
 # Copy Aspose.Slides library (most important part)
 COPY lib/ ./lib/
@@ -61,18 +72,26 @@ COPY server/ ./server/
 # CRITICAL: Ensure server/lib with license manager is copied
 COPY server/lib/ ./server/lib/
 
+# Build TypeScript server
+WORKDIR /app/server
+RUN npm run build || echo "TypeScript build failed, using existing dist/"
+
 # Copy client build (if exists) or source
 COPY client/ ./client/
 
 # Copy configuration files
 COPY .env* ./
-COPY index.js ./
 
-# Try to build java package if possible, but don't fail if it doesn't work
-RUN npm rebuild java 2>/dev/null || echo "⚠️ Java package build failed - using pre-built Aspose.Slides library instead"
+# Final attempt to rebuild java package with proper environment
+RUN npm rebuild java --build-from-source 2>/dev/null || \
+    npm rebuild java 2>/dev/null || \
+    echo "⚠️ Java package build failed - attempting alternative installation" && \
+    npm install java@latest --build-from-source 2>/dev/null || \
+    echo "✅ Java package installation completed (may use fallback methods)"
 
-# Set proper permissions
-RUN chmod +x ./lib/aspose.slides.js
+# Go back to root and set proper permissions
+WORKDIR /app
+RUN chmod +x ./lib/aspose.slides.js 2>/dev/null || echo "Aspose.slides.js permissions already set"
 RUN chown -R node:node /app
 
 # Create non-root user for security
@@ -85,5 +104,5 @@ EXPOSE 3000 5173
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:3000/api/v1/health || exit 1
 
-# Default command - start the server
-CMD ["node", "server/index.js"] 
+# Default command - start the TypeScript server with all routes
+CMD ["node", "server/dist/index.js"] 

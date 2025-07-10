@@ -99,10 +99,8 @@ export default function Presentations() {
   };
 
   const handleDeletePresentation = async (id: string) => {
-    if (confirm("Are you sure you want to delete this presentation?")) {
-      console.log("Delete presentation:", id);
-      // TODO: Implement delete functionality
-    }
+    // Delete functionality not yet implemented
+    console.log("Delete functionality coming soon for presentation:", id);
   };
 
   const formatFileSize = (bytes?: number): string => {

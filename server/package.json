@@ -4,9 +4,10 @@
   "description": "Professional Node.js backend for Luna app - PowerPoint processing with Aspose.Slides, Firebase, and OpenAI integration",
   "main": "dist/index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "nodemon src/index.ts",
+    "test": "jest"
   },
   "keywords": [
     "powerpoint",

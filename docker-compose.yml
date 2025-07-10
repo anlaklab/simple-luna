@@ -1,5 +1,4 @@
 # 🐳 Luna Project - Docker Compose Configuration
-version: '3.8'
 
 services:
   # =============================================================================
@@ -19,7 +18,7 @@ services:
       - PORT=3000
       
       # File Processing Configuration
-      - MAX_FILE_SIZE=500MB
+      - MAX_FILE_SIZE=62914560
       - UPLOAD_TEMP_DIR=/app/temp/uploads
       - ASPOSE_TEMP_DIR=/app/temp/aspose
       
@@ -30,12 +29,11 @@ services:
       # Aspose.Slides Configuration (LOCAL LIBRARY)
       - ASPOSE_LICENSE_PATH=${ASPOSE_LICENSE_PATH:-/app/Aspose.Slides.Product.Family.lic}
       
-      # Firebase Configuration (from .env file)
+      # Firebase Configuration (Firestore + Storage only)
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
       - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
       - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
       - FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}
-      - FIRESTORE_DATABASE_URL=${FIRESTORE_DATABASE_URL}
       
       # OpenAI Configuration (from .env file)
       - OPENAI_API_KEY=${OPENAI_API_KEY}

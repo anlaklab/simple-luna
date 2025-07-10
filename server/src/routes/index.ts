@@ -11,6 +11,8 @@ import aiRoutes from './ai.routes';
 import swaggerRoutes from './swagger.routes';
 import adminRoutes from './admin.routes';
 import conversationRoutes from './conversation.routes';
+import sessionsRoutes from './sessions.routes';
+// import batchRoutes from './batch.routes'; // Temporarily disabled due to Firebase config issue
 
 // =============================================================================
 // ROUTER SETUP
@@ -58,6 +60,18 @@ router.use('/', adminRoutes);
  * Handles AI dialogue, streaming LLM interactions
  */
 router.use('/', conversationRoutes);
+
+/**
+ * Mount session management routes
+ * Handles chat sessions, messages, archival
+ */
+router.use('/sessions', sessionsRoutes);
+
+/**
+ * Mount batch operations routes
+ * Handles bulk operations on presentations, sessions, thumbnails
+ */
+// router.use('/batch', batchRoutes); // Temporarily disabled due to Firebase config issue
 
 /**
  * Mount API documentation routes

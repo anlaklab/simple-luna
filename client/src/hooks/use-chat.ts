@@ -40,8 +40,8 @@ export function useChat({ presentationId, onPresentationCreate }: UseChatProps) 
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
       if (presentationId) {
-        // For existing presentations, add to conversation (TODO: implement conversation endpoint)
-        throw new Error("Conversation with existing presentations not yet implemented");
+        // Conversation with existing presentations not yet available
+        throw new Error("Conversation with existing presentations coming soon");
       } else {
         // Create new presentation using AI generation
         const response = await apiRequest("POST", "/api/v1/ai/generate-presentation", {

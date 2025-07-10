@@ -194,7 +194,7 @@ export const conversionApi = {
       inputSize: number;
       conversionTime: number;
       presentation: UniversalPresentation;
-    }>('/convert/pptx-to-json', formData);
+    }>('/pptx2json', formData);
   },
 
   // Convert Universal JSON to PPTX
@@ -206,9 +206,9 @@ export const conversionApi = {
       conversionTime: number;
       downloadUrl: string;
       filename: string;
-    }>('/convert/json-to-pptx', {
+    }>('/json2pptx', {
       method: 'POST',
-      body: JSON.stringify({ presentation, outputFilename }),
+      body: JSON.stringify({ presentationData: presentation, outputFilename }),
     }),
 
   // Export PPTX to PDF
@@ -225,7 +225,7 @@ export const conversionApi = {
       conversionTime: number;
       downloadUrl: string;
       filename: string;
-    }>('/convert/pptx-to-pdf', formData);
+    }>('/convertformat', formData);
   },
 
   // Generate thumbnails
@@ -249,7 +249,7 @@ export const conversionApi = {
       conversionTime: number;
       thumbnails: any[];
       downloadUrl: string;
-    }>('/convert/pptx-to-thumbnails', formData);
+    }>('/thumbnails', formData);
   },
 };
 

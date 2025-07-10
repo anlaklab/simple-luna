@@ -68,69 +68,16 @@ export function usePresentations() {
     },
   });
 
-  // Export presentation mutation (placeholder)
-  const exportPresentationMutation = useMutation({
-    mutationFn: async (presentationId: string) => {
-      // TODO: Implement export functionality
-      throw new Error("Export functionality not yet implemented");
-    },
-    onSuccess: (blob, presentationId) => {
-      toast({
-        title: "Export Successful",
-        description: "Your presentation has been downloaded.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Export Failed",
-        description: "Failed to export presentation. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Generate thumbnails mutation (placeholder)
-  const generateThumbnailsMutation = useMutation({
-    mutationFn: async (presentationId: string) => {
-      // TODO: Implement thumbnail generation
-      throw new Error("Thumbnail generation not yet implemented");
-    },
-    onSuccess: (result, presentationId) => {
-      toast({
-        title: "Thumbnails Generated",
-        description: `Generated slide thumbnails`,
-      });
-      
-      // Invalidate queries to refresh the presentation data
-      queryClient.invalidateQueries({
-        queryKey: [`/api/v1/presentations/${presentationId}`],
-      });
-    },
-    onError: (error, presentationId) => {
-      toast({
-        title: "Thumbnail Generation Failed", 
-        description: "Could not generate slide thumbnails. They can be generated later.",
-        variant: "destructive",
-      });
-    },
-  });
-
   return {
     presentations,
     isLoading,
     createPresentation: createPresentationMutation.mutate,
-    exportPresentation: exportPresentationMutation.mutate,
-    generateThumbnails: generateThumbnailsMutation.mutate,
     isCreating: createPresentationMutation.isPending,
-    isExporting: exportPresentationMutation.isPending,
-    isGeneratingThumbnails: generateThumbnailsMutation.isPending,
   };
 }
 
 // Hook to get a specific presentation using correct Firebase API
-export function usePresentation(id: string | null) {
-  const { generateThumbnails } = usePresentations();
-  
+export function usePresentation(id: string | null) {  
   const query = useQuery<Presentation>({
     queryKey: [`/api/v1/presentations/${id}`],
     queryFn: async () => {

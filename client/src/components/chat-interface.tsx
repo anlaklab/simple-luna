@@ -87,8 +87,8 @@ export function ChatInterface({ presentationId, onPresentationCreate }: ChatInte
       formData.append('validateSchema', 'true');
       formData.append('autoFix', 'true');
       
-      // Use the comprehensive conversion endpoint
-      const response = await apiRequest('POST', '/api/v1/convert/upload', formData);
+      // Use the comprehensive upload endpoint
+      const response = await apiRequest('POST', '/api/v1/upload', formData);
       const result = await response.json();
       
       if (result.success && result.data.presentationId) {

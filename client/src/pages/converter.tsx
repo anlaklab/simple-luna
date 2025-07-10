@@ -63,7 +63,7 @@ export default function Converter() {
     formData.append('file', file);
 
     try {
-      const response = await fetch('/api/v1/convert/pptx-to-json', {
+      const response = await fetch('/api/v1/pptx2json', {
         method: 'POST',
         body: formData,
       });
@@ -179,7 +179,7 @@ export default function Converter() {
       // Validate JSON
       const parsedJson = JSON.parse(jsonData);
       
-      const response = await apiRequest("POST", "/api/v1/convert/json-to-pptx", { jsonData: parsedJson });
+      const response = await apiRequest("POST", "/api/v1/json2pptx", { presentationData: parsedJson });
       const blob = await response.blob();
       
       // Download the file
