@@ -150,6 +150,10 @@ All conversions use a standardized JSON schema that preserves:
         description: 'Session management and conversation tracking',
       },
       {
+        name: 'Granular Control',
+        description: 'Individual slide/shape operations and raw rendering capabilities',
+      },
+      {
         name: 'Utility',
         description: 'Health checks, documentation, system status',
       },

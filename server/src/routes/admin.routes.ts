@@ -48,15 +48,125 @@ const jobsService = new JobsService({ firebaseConfig });
 // =============================================================================
 
 /**
- * POST /upload - Upload any file to Firebase Storage
- * 
- * @route POST /upload
- * @desc Upload file to Firebase Storage and index in Firestore
- * @access Public
- * @param {File} file - File to upload
- * @param {string} [folder] - Storage folder (optional)
- * @param {boolean} [makePublic] - Make file public (default: false)
- * @returns {Object} Upload result with file metadata and URLs
+ * @swagger
+ * /upload:
+ *   post:
+ *     tags:
+ *       - Utility
+ *     summary: Upload file to Firebase Storage
+ *     description: |
+ *       Upload any file to Firebase Storage with automatic indexing in Firestore.
+ *       This endpoint creates a job for tracking the upload process and stores
+ *       file metadata for easy retrieval and management.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: File to upload (max 50MB)
+ *               folder:
+ *                 type: string
+ *                 description: Storage folder path
+ *                 default: 'uploads'
+ *                 example: 'presentations'
+ *               makePublic:
+ *                 type: boolean
+ *                 description: Whether to make the file publicly accessible
+ *                 default: false
+ *             required:
+ *               - file
+ *           examples:
+ *             presentation:
+ *               summary: Upload presentation file
+ *               value:
+ *                 file: (binary)
+ *                 folder: 'presentations'
+ *                 makePublic: false
+ *             public_document:
+ *               summary: Upload public document
+ *               value:
+ *                 file: (binary)
+ *                 folder: 'documents'
+ *                 makePublic: true
+ *     parameters:
+ *       - in: header
+ *         name: x-user-id
+ *         schema:
+ *           type: string
+ *         description: User identifier for tracking uploads
+ *         example: 'user_123'
+ *     responses:
+ *       200:
+ *         description: File uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     fileId:
+ *                       type: string
+ *                       description: Unique file identifier in Firestore
+ *                       example: 'file_1705316200000_abc12345'
+ *                     jobId:
+ *                       type: string
+ *                       description: Job identifier for tracking the upload
+ *                       example: 'job_upload_def67890'
+ *                     file:
+ *                       type: object
+ *                       properties:
+ *                         filename:
+ *                           type: string
+ *                           description: Generated filename in storage
+ *                           example: 'presentation_2024-01-15T10-30-00.pptx'
+ *                         originalName:
+ *                           type: string
+ *                           description: Original filename
+ *                           example: 'my-presentation.pptx'
+ *                         size:
+ *                           type: number
+ *                           description: File size in bytes
+ *                           example: 2048576
+ *                         contentType:
+ *                           type: string
+ *                           description: MIME type
+ *                           example: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+ *                         url:
+ *                           type: string
+ *                           format: uri
+ *                           description: Direct access URL (if public)
+ *                         downloadUrl:
+ *                           type: string
+ *                           format: uri
+ *                           description: Signed download URL
+ *                     uploadStats:
+ *                       type: object
+ *                       properties:
+ *                         folder:
+ *                           type: string
+ *                         makePublic:
+ *                           type: boolean
+ *                         uploadTimeMs:
+ *                           type: number
+ *                           description: Upload processing time
+ *                 meta:
+ *                   $ref: '#/components/schemas/SuccessMeta'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       413:
+ *         $ref: '#/components/responses/FileTooLarge'
+ *       503:
+ *         $ref: '#/components/responses/ServiceUnavailable'
  */
 router.post('/upload', upload.single('file'), handleAsyncErrors(async (req: Request, res: Response): Promise<void> => {
   const startTime = Date.now();
@@ -221,13 +331,95 @@ router.post('/upload', upload.single('file'), handleAsyncErrors(async (req: Requ
 // =============================================================================
 
 /**
- * GET /file/:id - Retrieve file metadata and download URL by ID
- * 
- * @route GET /file/:id
- * @desc Get file metadata and signed download URL
- * @access Public
- * @param {string} id - File ID
- * @returns {Object} File metadata and download information
+ * @swagger
+ * /file/{id}:
+ *   get:
+ *     tags:
+ *       - Utility
+ *     summary: Retrieve file metadata and download URL
+ *     description: |
+ *       Get comprehensive file metadata and signed download URL for a file stored in Firebase Storage.
+ *       This endpoint provides all information needed to access and manage uploaded files.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: File identifier in Firestore
+ *         example: 'file_1705316200000_abc12345'
+ *     responses:
+ *       200:
+ *         description: File metadata retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       description: File identifier
+ *                       example: 'file_1705316200000_abc12345'
+ *                     filename:
+ *                       type: string
+ *                       description: Generated filename in storage
+ *                       example: 'presentation_2024-01-15T10-30-00.pptx'
+ *                     originalName:
+ *                       type: string
+ *                       description: Original filename when uploaded
+ *                       example: 'my-presentation.pptx'
+ *                     size:
+ *                       type: number
+ *                       description: File size in bytes
+ *                       example: 2048576
+ *                     contentType:
+ *                       type: string
+ *                       description: MIME type
+ *                       example: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+ *                     url:
+ *                       type: string
+ *                       format: uri
+ *                       description: Direct access URL (if public)
+ *                     downloadUrl:
+ *                       type: string
+ *                       format: uri
+ *                       description: Signed download URL (always accessible)
+ *                     folder:
+ *                       type: string
+ *                       description: Storage folder
+ *                       example: 'presentations'
+ *                     makePublic:
+ *                       type: boolean
+ *                       description: Whether file is publicly accessible
+ *                     userId:
+ *                       type: string
+ *                       description: User who uploaded the file
+ *                     jobId:
+ *                       type: string
+ *                       description: Associated upload job ID
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                       description: Upload timestamp
+ *                     metadata:
+ *                       type: object
+ *                       description: Additional file metadata
+ *                 meta:
+ *                   $ref: '#/components/schemas/SuccessMeta'
+ *       404:
+ *         description: File not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       503:
+ *         $ref: '#/components/responses/ServiceUnavailable'
  */
 router.get('/file/:id', handleAsyncErrors(async (req: Request, res: Response): Promise<void> => {
   const startTime = Date.now();
@@ -333,13 +525,104 @@ router.get('/file/:id', handleAsyncErrors(async (req: Request, res: Response): P
 // =============================================================================
 
 /**
- * GET /job/:id - Retrieve job status and results by ID
- * 
- * @route GET /job/:id
- * @desc Get job status, progress, and results
- * @access Public
- * @param {string} id - Job ID
- * @returns {Object} Job information and status
+ * @swagger
+ * /job/{id}:
+ *   get:
+ *     tags:
+ *       - Utility
+ *     summary: Retrieve job status and results
+ *     description: |
+ *       Get detailed information about a specific job including status, progress,
+ *       results, and metadata. This endpoint is used to track the progress of
+ *       asynchronous operations like file uploads and conversions.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Job identifier
+ *         example: 'job_upload_def67890'
+ *     responses:
+ *       200:
+ *         description: Job information retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     job:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                           example: 'job_upload_def67890'
+ *                         type:
+ *                           type: string
+ *                           enum: [upload, pptx2json, json2pptx, convertformat, extract-assets, extract-metadata]
+ *                           example: 'upload'
+ *                         status:
+ *                           type: string
+ *                           enum: [pending, processing, completed, failed, cancelled]
+ *                           example: 'completed'
+ *                         progress:
+ *                           type: number
+ *                           minimum: 0
+ *                           maximum: 100
+ *                           description: Progress percentage
+ *                           example: 100
+ *                         error:
+ *                           type: string
+ *                           description: Error message (if status is failed)
+ *                         inputFileId:
+ *                           type: string
+ *                           description: Input file identifier
+ *                         inputJsonId:
+ *                           type: string
+ *                           description: Input JSON identifier
+ *                         resultFileId:
+ *                           type: string
+ *                           description: Result file identifier
+ *                         resultJsonId:
+ *                           type: string
+ *                           description: Result JSON identifier
+ *                         userId:
+ *                           type: string
+ *                           description: User who created the job
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                           description: Job creation timestamp
+ *                         updatedAt:
+ *                           type: string
+ *                           format: date-time
+ *                           description: Last update timestamp
+ *                         completedAt:
+ *                           type: string
+ *                           format: date-time
+ *                           description: Completion timestamp
+ *                         processingTimeMs:
+ *                           type: number
+ *                           description: Total processing time in milliseconds
+ *                         metadata:
+ *                           type: object
+ *                           description: Job-specific metadata
+ *                 meta:
+ *                   $ref: '#/components/schemas/SuccessMeta'
+ *       404:
+ *         description: Job not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
  */
 router.get('/job/:id', handleAsyncErrors(async (req: Request, res: Response): Promise<void> => {
   const startTime = Date.now();
@@ -428,16 +711,171 @@ router.get('/job/:id', handleAsyncErrors(async (req: Request, res: Response): Pr
 }));
 
 /**
- * GET /presentations - List all presentations (alias for status with specific filters)
- * 
- * @route GET /presentations
- * @desc Get all presentations stored in Firebase with pagination and filtering
- * @access Public
- * @query {string} [search] - Search term for presentation names
- * @query {string} [status] - Filter by status
- * @query {number} [limit] - Limit number of results (default: 50)
- * @query {number} [offset] - Offset for pagination
- * @returns {Object} List of presentations
+ * @swagger
+ * /presentations:
+ *   get:
+ *     tags:
+ *       - Utility
+ *     summary: List presentations with filtering
+ *     description: |
+ *       Retrieve a filtered list of presentations based on job data from Firebase.
+ *       This endpoint aggregates presentation-related jobs and provides a unified view
+ *       of all presentations processed by the system with search and pagination.
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search term for presentation titles or filenames
+ *         example: 'quarterly'
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, processing, completed, failed, cancelled]
+ *         description: Filter by job status
+ *         example: 'completed'
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 50
+ *         description: Maximum number of presentations to return
+ *         example: 20
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *           default: 0
+ *         description: Number of presentations to skip for pagination
+ *         example: 0
+ *       - in: query
+ *         name: orderBy
+ *         schema:
+ *           type: string
+ *           enum: [createdAt, updatedAt]
+ *           default: updatedAt
+ *         description: Field to order results by
+ *         example: 'updatedAt'
+ *       - in: query
+ *         name: orderDirection
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Order direction
+ *         example: 'desc'
+ *     responses:
+ *       200:
+ *         description: Presentations retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         description: Job/presentation identifier
+ *                       type:
+ *                         type: string
+ *                         enum: [pptx2json, json2pptx, upload, convertformat]
+ *                         description: Operation type
+ *                       status:
+ *                         type: string
+ *                         enum: [pending, processing, completed, failed, cancelled]
+ *                       title:
+ *                         type: string
+ *                         description: Presentation title or filename
+ *                       description:
+ *                         type: string
+ *                         description: Presentation description
+ *                       author:
+ *                         type: string
+ *                         description: User who created/uploaded the presentation
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       updatedAt:
+ *                         type: string
+ *                         format: date-time
+ *                       completedAt:
+ *                         type: string
+ *                         format: date-time
+ *                       slideCount:
+ *                         type: number
+ *                         description: Number of slides (if known)
+ *                       fileSize:
+ *                         type: number
+ *                         description: File size in bytes
+ *                       processingTimeMs:
+ *                         type: number
+ *                         description: Processing time in milliseconds
+ *                       resultFileId:
+ *                         type: string
+ *                         description: Result file identifier
+ *                       resultJsonId:
+ *                         type: string
+ *                         description: Result JSON identifier
+ *                       error:
+ *                         type: string
+ *                         description: Error message (if status is failed)
+ *                       progress:
+ *                         type: number
+ *                         description: Progress percentage
+ *                       metadata:
+ *                         type: object
+ *                         description: Additional metadata
+ *                 meta:
+ *                   type: object
+ *                   properties:
+ *                     timestamp:
+ *                       type: string
+ *                       format: date-time
+ *                     requestId:
+ *                       type: string
+ *                     processingTimeMs:
+ *                       type: number
+ *                     version:
+ *                       type: string
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: number
+ *                           description: Total presentations matching filter
+ *                         limit:
+ *                           type: number
+ *                         offset:
+ *                           type: number
+ *                         hasMore:
+ *                           type: boolean
+ *                           description: Whether there are more results
+ *                     filters:
+ *                       type: object
+ *                       properties:
+ *                         search:
+ *                           type: string
+ *                         status:
+ *                           type: string
+ *                         orderBy:
+ *                           type: string
+ *                         orderDirection:
+ *                           type: string
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
  */
 router.get('/presentations', handleAsyncErrors(async (req: Request, res: Response): Promise<void> => {
   const startTime = Date.now();
@@ -557,16 +995,174 @@ router.get('/presentations', handleAsyncErrors(async (req: Request, res: Respons
 }));
 
 /**
- * GET /status - List recent jobs and system status
- * 
- * @route GET /status
- * @desc Get recent jobs and system health information
- * @access Public
- * @query {string} [userId] - Filter by user ID
- * @query {string} [type] - Filter by job type
- * @query {string} [status] - Filter by job status
- * @query {number} [limit] - Limit number of results (default: 20)
- * @returns {Object} System status and recent jobs
+ * @swagger
+ * /status:
+ *   get:
+ *     tags:
+ *       - Utility
+ *     summary: Get system status and recent jobs
+ *     description: |
+ *       Retrieve comprehensive system status including recent job activity,
+ *       performance statistics, and health information for monitoring
+ *       the overall state of the Luna processing platform.
+ *     parameters:
+ *       - in: query
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         description: Filter jobs by user ID
+ *         example: 'user_123'
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [upload, pptx2json, json2pptx, convertformat, extract-assets, extract-metadata]
+ *         description: Filter jobs by type
+ *         example: 'pptx2json'
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, processing, completed, failed, cancelled]
+ *         description: Filter jobs by status
+ *         example: 'completed'
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Maximum number of recent jobs to return
+ *         example: 20
+ *     responses:
+ *       200:
+ *         description: System status retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     system:
+ *                       type: object
+ *                       properties:
+ *                         status:
+ *                           type: string
+ *                           enum: [healthy, degraded, unhealthy]
+ *                           example: 'healthy'
+ *                         services:
+ *                           type: object
+ *                           properties:
+ *                             jobs:
+ *                               type: string
+ *                               enum: [healthy, degraded, unhealthy]
+ *                               description: Jobs service status
+ *                             firebase:
+ *                               type: string
+ *                               enum: [healthy, degraded, unhealthy]
+ *                               description: Firebase service status
+ *                         uptime:
+ *                           type: number
+ *                           description: Server uptime in seconds
+ *                           example: 86400
+ *                         memory:
+ *                           type: object
+ *                           properties:
+ *                             rss:
+ *                               type: number
+ *                               description: Resident set size in bytes
+ *                             heapTotal:
+ *                               type: number
+ *                               description: Total heap size in bytes
+ *                             heapUsed:
+ *                               type: number
+ *                               description: Used heap size in bytes
+ *                             external:
+ *                               type: number
+ *                               description: External memory usage in bytes
+ *                         version:
+ *                           type: string
+ *                           example: '1.0'
+ *                     jobs:
+ *                       type: object
+ *                       properties:
+ *                         recent:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: string
+ *                               type:
+ *                                 type: string
+ *                                 enum: [upload, pptx2json, json2pptx, convertformat, extract-assets, extract-metadata]
+ *                               status:
+ *                                 type: string
+ *                                 enum: [pending, processing, completed, failed, cancelled]
+ *                               progress:
+ *                                 type: number
+ *                               createdAt:
+ *                                 type: string
+ *                                 format: date-time
+ *                               updatedAt:
+ *                                 type: string
+ *                                 format: date-time
+ *                               processingTimeMs:
+ *                                 type: number
+ *                               error:
+ *                                 type: string
+ *                         statistics:
+ *                           type: object
+ *                           properties:
+ *                             total:
+ *                               type: number
+ *                               description: Total number of recent jobs
+ *                             byStatus:
+ *                               type: object
+ *                               additionalProperties:
+ *                                 type: number
+ *                               description: Job count by status
+ *                             byType:
+ *                               type: object
+ *                               additionalProperties:
+ *                                 type: number
+ *                               description: Job count by type
+ *                             averageProcessingTime:
+ *                               type: number
+ *                               description: Average processing time in milliseconds
+ *                 meta:
+ *                   type: object
+ *                   properties:
+ *                     timestamp:
+ *                       type: string
+ *                       format: date-time
+ *                     requestId:
+ *                       type: string
+ *                     processingTimeMs:
+ *                       type: number
+ *                     version:
+ *                       type: string
+ *                     filters:
+ *                       type: object
+ *                       properties:
+ *                         userId:
+ *                           type: string
+ *                         type:
+ *                           type: string
+ *                         status:
+ *                           type: string
+ *                         limit:
+ *                           type: string
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
  */
 router.get('/status', handleAsyncErrors(async (req: Request, res: Response): Promise<void> => {
   const startTime = Date.now();

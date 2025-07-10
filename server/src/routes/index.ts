@@ -21,6 +21,7 @@ import { JobsService } from '../services/jobs.service';
 import { AsposeAdapterRefactored } from '../adapters/aspose/AsposeAdapterRefactored';
 import { FirebaseAdapter } from '../adapters/firebase.adapter';
 import { createEnhancedAIRoutes } from './enhanced-ai.routes';
+import { createGranularControlRoutes } from './granular-control.routes';
 import enhancedSwaggerRoutes from './enhanced-swagger.routes';
 import dynamicExtensionsRoutes from './dynamic-extensions.routes';
 // import batchRoutes from './batch.routes'; // Temporarily disabled due to Firebase config issue
@@ -117,6 +118,17 @@ try {
   // Continue without enhanced AI functionality
 }
 
+// Initialize Granular Control routes
+let granularControlRoutes: Router | null = null;
+
+try {
+  // Create granular control routes for individual slide/shape operations
+  granularControlRoutes = createGranularControlRoutes();
+} catch (error) {
+  console.warn('Failed to initialize granular control services:', error);
+  // Continue without granular control functionality
+}
+
 // =============================================================================
 // ROUTE MOUNTING
 // =============================================================================
@@ -159,6 +171,14 @@ if (asyncExtractionRoutes) {
  */
 if (enhancedAIRoutes) {
   router.use('/', enhancedAIRoutes);
+}
+
+/**
+ * Mount granular control routes
+ * Handles individual slide/shape operations and raw rendering
+ */
+if (granularControlRoutes) {
+  router.use('/', granularControlRoutes);
 }
 
 /**
@@ -512,6 +532,93 @@ router.get('/docs', (req: Request, res: Response) => {
             },
           },
         },
+      },
+
+      granularControl: {
+        description: 'Granular control endpoints for individual slide/shape operations',
+        routes: {
+          'GET /presentations/{presentationId}/slides/{slideIndex}': {
+            description: 'Extract individual slide data with Universal Schema compliance',
+            contentType: 'application/json',
+            parameters: {
+              presentationId: 'Presentation identifier (required)',
+              slideIndex: 'Zero-based slide index (required)',
+              includeShapes: 'Include shape data (default: true)',
+              includeNotes: 'Include slide notes (default: true)',
+              includeBackground: 'Include background formatting (default: true)',
+            },
+            response: {
+              slide: 'Complete slide data in Universal Schema format',
+              metadata: 'Extraction metadata and processing statistics',
+            },
+          },
+          'GET /presentations/{presentationId}/slides/{slideIndex}/shapes/{shapeId}': {
+            description: 'Extract individual shape data with detailed formatting',
+            contentType: 'application/json',
+            parameters: {
+              presentationId: 'Presentation identifier (required)',
+              slideIndex: 'Zero-based slide index (required)',
+              shapeId: 'Shape identifier (required)',
+              includeFormatting: 'Include formatting details (default: true)',
+              includeText: 'Include text content (default: true)',
+            },
+            response: {
+              shape: 'Complete shape data with geometry, formatting, and content',
+            },
+          },
+          'POST /render/slide': {
+            description: 'Render slide from Universal Schema JSON to various formats',
+            contentType: 'application/json',
+            parameters: {
+              slideData: 'Universal Schema slide data (required)',
+              renderOptions: 'Rendering options: format, dimensions, quality',
+            },
+            response: {
+              renderedSlide: 'Base64 encoded result or download URL',
+              format: 'Output format used',
+              dimensions: 'Final dimensions',
+              renderingStats: 'Performance and processing statistics',
+            },
+            formats: ['json', 'pptx', 'png', 'svg'],
+          },
+          'POST /render/shape': {
+            description: 'Render individual shape from Universal Schema JSON',
+            contentType: 'application/json',
+            parameters: {
+              shapeData: 'Universal Schema shape data (required)',
+              renderOptions: 'Rendering options: format, size, background',
+            },
+            response: {
+              renderedShape: 'SVG markup or base64 encoded image',
+              format: 'Output format used',
+              bounds: 'Shape boundaries and positioning',
+            },
+            formats: ['json', 'svg', 'png'],
+          },
+          'POST /transform/slide': {
+            description: 'Apply transformations to slide data without affecting full presentation',
+            contentType: 'application/json',
+            parameters: {
+              slideData: 'Original slide data (required)',
+              transformations: 'Array of transformations: translate, resize, recolor, rotate',
+              preserveAspectRatio: 'Preserve aspect ratio during transformations (default: true)',
+            },
+            response: {
+              transformedSlide: 'Transformed slide data',
+              appliedTransformations: 'List of applied transformations',
+              transformationStats: 'Transformation statistics and metrics',
+            },
+            transformations: ['translate', 'resize', 'recolor', 'rotate', 'scale'],
+          },
+        },
+        benefits: [
+          'Surgical precision for individual slides and shapes',
+          'Real-time preview generation',
+          'Performance optimization (process only what you need)',
+          'Fine-grained control over transformations',
+          'Universal Schema compliance maintained',
+          'Multiple output formats supported',
+        ],
       },
       
       utility: {

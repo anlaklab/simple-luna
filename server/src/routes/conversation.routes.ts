@@ -61,14 +61,192 @@ const jobsService = new JobsService({ firebaseConfig });
 // =============================================================================
 
 /**
- * POST /conversation - Start AI dialogue about a presentation
- * 
- * @route POST /conversation
- * @desc Initiate conversational AI interaction with presentation context
- * @access Public
- * @param {File} [file] - Optional PPTX file for context
- * @param {Object} conversation - Conversation parameters
- * @returns {Object} Streaming or standard AI response
+ * @swagger
+ * /conversation:
+ *   post:
+ *     tags:
+ *       - AI Features
+ *     summary: Start AI dialogue about a presentation
+ *     description: |
+ *       Initiate an AI-powered conversation with optional presentation context.
+ *       This endpoint supports multiple conversation modes (chat, research, command),
+ *       streaming responses, and can analyze uploaded PPTX files to provide
+ *       contextual responses about the presentation content.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: Optional PPTX file for conversation context
+ *               message:
+ *                 type: string
+ *                 description: The message or question to ask the AI
+ *                 example: "Can you summarize this presentation and suggest improvements?"
+ *               conversationHistory:
+ *                 type: string
+ *                 description: JSON array of previous conversation turns for context
+ *                 example: '[{"role":"user","content":"Hello"},{"role":"assistant","content":"Hi! How can I help?"}]'
+ *               mode:
+ *                 type: string
+ *                 enum: [chat, research, command]
+ *                 default: chat
+ *                 description: |
+ *                   Conversation mode:
+ *                   - chat: Conversational, friendly responses
+ *                   - research: Detailed, analytical responses with citations
+ *                   - command: Structured, actionable command execution
+ *               streaming:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Whether to stream the response in real-time
+ *               context:
+ *                 type: string
+ *                 description: JSON object with additional context or instructions
+ *                 example: '{"instructions":"Focus on accessibility issues","targetAudience":"executives"}'
+ *             required:
+ *               - message
+ *           examples:
+ *             basic_chat:
+ *               summary: Basic chat conversation
+ *               value:
+ *                 message: "What makes a good presentation?"
+ *                 mode: "chat"
+ *                 streaming: false
+ *             presentation_analysis:
+ *               summary: Analyze uploaded presentation
+ *               value:
+ *                 file: (binary)
+ *                 message: "Can you analyze this presentation and suggest improvements?"
+ *                 mode: "research"
+ *                 streaming: false
+ *             streaming_conversation:
+ *               summary: Streaming conversation with context
+ *               value:
+ *                 message: "Help me improve the structure of my quarterly review presentation"
+ *                 mode: "command"
+ *                 streaming: true
+ *                 conversationHistory: '[{"role":"user","content":"I need help with my presentation"},{"role":"assistant","content":"I\'d be happy to help! What specific aspects would you like to work on?"}]'
+ *     parameters:
+ *       - in: header
+ *         name: x-user-id
+ *         schema:
+ *           type: string
+ *         description: User identifier for tracking conversations
+ *         example: 'user_123'
+ *     responses:
+ *       200:
+ *         description: Conversation response (standard mode)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     conversation:
+ *                       type: object
+ *                       properties:
+ *                         response:
+ *                           type: string
+ *                           description: AI assistant response
+ *                           example: "Based on your presentation, I notice several strengths and areas for improvement..."
+ *                         mode:
+ *                           type: string
+ *                           enum: [chat, research, command]
+ *                           example: "research"
+ *                         streaming:
+ *                           type: boolean
+ *                           example: false
+ *                         hasContext:
+ *                           type: boolean
+ *                           description: Whether presentation context was available
+ *                           example: true
+ *                         usage:
+ *                           type: object
+ *                           properties:
+ *                             prompt_tokens:
+ *                               type: number
+ *                               description: Tokens used in prompt
+ *                             completion_tokens:
+ *                               type: number
+ *                               description: Tokens used in completion
+ *                             total_tokens:
+ *                               type: number
+ *                               description: Total tokens used
+ *                     jobId:
+ *                       type: string
+ *                       description: Job identifier for tracking
+ *                       example: 'job_conversation_abc123'
+ *                 meta:
+ *                   $ref: '#/components/schemas/SuccessMeta'
+ *           text/event-stream:
+ *             description: Streaming response (when streaming=true)
+ *             schema:
+ *               type: string
+ *               description: |
+ *                 Server-Sent Events stream with the following event types:
+ *                 - content: Partial AI response content
+ *                 - complete: Conversation completion notification
+ *                 - error: Error notification
+ *             examples:
+ *               content_chunk:
+ *                 summary: Content chunk during streaming
+ *                 value: 'data: {"type":"content","content":"Based on your presentation","requestId":"req_123","timestamp":"2024-01-15T10:30:00.000Z"}\n\n'
+ *               completion:
+ *                 summary: Stream completion event
+ *                 value: 'data: {"type":"complete","requestId":"req_123","jobId":"job_123","processingTimeMs":2500,"timestamp":"2024-01-15T10:30:00.000Z"}\n\n'
+ *               error_event:
+ *                 summary: Error during streaming
+ *                 value: 'data: {"type":"error","error":"Connection timeout","requestId":"req_123","timestamp":"2024-01-15T10:30:00.000Z"}\n\n'
+ *       400:
+ *         description: Invalid request parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               missing_message:
+ *                 summary: Missing required message
+ *                 value:
+ *                   success: false
+ *                   error:
+ *                     type: "validation_error"
+ *                     code: "MESSAGE_REQUIRED"
+ *                     message: "Message is required for conversation"
+ *                   meta:
+ *                     timestamp: "2024-01-15T10:30:00.000Z"
+ *                     requestId: "req_123"
+ *                     processingTimeMs: 50
+ *       413:
+ *         $ref: '#/components/responses/FileTooLarge'
+ *       503:
+ *         description: OpenAI service unavailable
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               service_unavailable:
+ *                 summary: OpenAI not configured
+ *                 value:
+ *                   success: false
+ *                   error:
+ *                     type: "service_unavailable"
+ *                     code: "OPENAI_NOT_CONFIGURED"
+ *                     message: "OpenAI service is not configured"
+ *                   meta:
+ *                     timestamp: "2024-01-15T10:30:00.000Z"
+ *                     requestId: "req_123"
+ *                     processingTimeMs: 25
  */
 router.post('/conversation', upload.single('file'), handleAsyncErrors(async (req: Request, res: Response): Promise<void> => {
   const startTime = Date.now();
