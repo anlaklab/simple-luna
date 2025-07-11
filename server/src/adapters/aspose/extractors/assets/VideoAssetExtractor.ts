@@ -17,8 +17,10 @@ import {
   ExtractionMethod
 } from '../../types/asset-interfaces';
 
-// ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
-const asposeDriver = require('../../../../../lib/AsposeDriverFactory');
+// ✅ FIXED: Use path that works in Docker - from server/dist back to app root then to lib
+const path = require('path');
+const asposeDriverPath = path.resolve(__dirname, '../../../../../lib/AsposeDriverFactory');
+const asposeDriver = require(asposeDriverPath);
 
 export class VideoAssetExtractor implements VideoExtractor {
   readonly name = 'VideoAssetExtractor';
