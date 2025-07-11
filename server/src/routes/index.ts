@@ -24,6 +24,7 @@ import { createEnhancedAIRoutes } from './enhanced-ai.routes';
 import { createGranularControlRoutes } from './granular-control.routes';
 import enhancedSwaggerRoutes from './enhanced-swagger.routes';
 import dynamicExtensionsRoutes from './dynamic-extensions.routes';
+import debugRoutes from './debug.routes';
 // import batchRoutes from './batch.routes'; // Temporarily disabled due to Firebase config issue
 
 // =============================================================================
@@ -222,6 +223,13 @@ router.use('/', swaggerRoutes);
  * Handles enhanced OpenAPI 3.0 documentation with examples
  */
 router.use('/', enhancedSwaggerRoutes);
+
+/**
+ * Mount debug routes
+ * Handles system monitoring, debugging, and internal metrics
+ * ⚠️  WARNING: These routes should be protected in production
+ */
+router.use('/debug', debugRoutes);
 
 // =============================================================================
 // API DOCUMENTATION ROUTE

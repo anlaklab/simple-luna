@@ -841,6 +841,101 @@ export const enhancedAiApi = {
 };
 
 // =============================================================================
+// DEBUG API (Internal Monitoring)
+// =============================================================================
+
+export interface SystemMetrics {
+  cpu: number;
+  memory: number;
+  disk: number;
+  activeConnections: number;
+  queueSize: number;
+  uptime: number;
+  nodeVersion: string;
+  platform: string;
+}
+
+export interface ServiceStatus {
+  name: string;
+  status: 'online' | 'error' | 'degraded';
+  lastCheck: Date;
+  details?: string;
+}
+
+export interface SessionData {
+  id: string;
+  userId: string;
+  status: 'active' | 'processing' | 'completed' | 'error';
+  startTime: Date;
+  currentStep: string;
+  progress: number;
+  errors: string[];
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+export interface ConversionJob {
+  id: string;
+  filename: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  startTime: Date;
+  endTime?: Date;
+  slideCount: number;
+  processedSlides: number;
+  extractorErrors: string[];
+  fileSize: number;
+  userId?: string;
+}
+
+export interface LogEntry {
+  level: string;
+  message: string;
+  timestamp: Date;
+  service?: string;
+}
+
+export const debugApi = {
+  // Get system metrics
+  getSystemMetrics: () => 
+    apiCall<SystemMetrics>('/debug/metrics'),
+
+  // Get service health status
+  getServiceStatus: () => 
+    apiCall<ServiceStatus[]>('/debug/services'),
+
+  // Get active sessions
+  getActiveSessions: () => 
+    apiCall<SessionData[]>('/debug/sessions'),
+
+  // Get conversion jobs
+  getConversionJobs: () => 
+    apiCall<ConversionJob[]>('/debug/jobs'),
+
+  // Get recent logs
+  getRecentLogs: (limit?: number) => 
+    apiCall<LogEntry[]>(`/debug/logs${limit ? `?limit=${limit}` : ''}`),
+
+  // Get all debug data at once
+  getDebugData: () => 
+    apiCall<{
+      metrics: SystemMetrics;
+      services: ServiceStatus[];
+      sessions: SessionData[];
+      jobs: ConversionJob[];
+      logs: LogEntry[];
+    }>('/debug/all'),
+
+  // Health check
+  getDebugHealth: () => 
+    apiCall<{
+      status: 'healthy' | 'degraded' | 'unhealthy';
+      uptime: number;
+      version: string;
+    }>('/debug/health'),
+};
+
+// =============================================================================
 // EXPORT ALL APIS
 // =============================================================================
 
@@ -852,4 +947,5 @@ export const api = {
   granular: granularApi,
   downloads: downloadsApi,
   assets: assetsApi,
+  debug: debugApi,
 }; 

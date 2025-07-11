@@ -22,6 +22,7 @@ import Home from '@/pages/home';
 import Converter from '@/pages/converter';
 import Presentations from '@/pages/presentations';
 import PresentationAnalysis from '@/pages/presentation-analysis';
+import DebugDashboard from '@/pages/debug-dashboard';
 import NotFound from '@/pages/not-found';
 
 // Conditional DevTools import for development only
@@ -121,6 +122,9 @@ function AppContent() {
         <Route path="/analysis/:id">
           {(params) => <PresentationAnalysis id={params.id} />}
         </Route>
+        
+        {/* Debug dashboard (development/internal use) */}
+        <Route path="/debug" component={DebugDashboard} />
         
         {/* 404 page */}
         <Route component={NotFound} />
