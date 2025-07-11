@@ -1,14 +1,18 @@
 /**
- * NotesService - Notes Operations for Slides
+ * NotesService - Notes and Comments Management
  * 
- * Handles notes extraction and management per slide with toggleable features.
- * Integrates with SlideService for hierarchical operations.
+ * Handles extraction and manipulation of speaker notes, comments, and handout notes.
+ * Supports toggleable features and round-trip fidelity.
+ * Uses common mappers for precise conversion.
  */
 
 import { logger } from '../../../utils/logger';
 import { randomUUID } from 'crypto';
 import { AsposeAdapterRefactored } from '../../../adapters/aspose/AsposeAdapterRefactored';
 import { BaseService, ServiceHealth } from '../../shared/interfaces/base.interfaces';
+
+// ✅ ROBUST IMPORT: Use AsposeDriverFactory for unified access
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
 
 // =============================================================================
 // NOTES SERVICE INTERFACES
@@ -83,6 +87,7 @@ export class NotesService implements BaseService {
   readonly description = 'Notes extraction and management per slide with toggleable features';
 
   private notesMapper: NotesMapper;
+  private isAsposeInitialized = false;
 
   constructor(private aspose: AsposeAdapterRefactored) {
     this.notesMapper = this.createNotesMapper();
@@ -99,10 +104,21 @@ export class NotesService implements BaseService {
         throw new Error('Aspose adapter not available');
       }
 
+      // ✅ Initialize AsposeDriverFactory
+      await this.initializeAsposeDriver();
+
       logger.info('✅ NotesService initialized successfully');
     } catch (error) {
       logger.error('❌ NotesService initialization failed:', { error: (error as Error).message });
       throw error;
+    }
+  }
+
+  private async initializeAsposeDriver(): Promise<void> {
+    if (!this.isAsposeInitialized) {
+      await asposeDriver.initialize();
+      this.isAsposeInitialized = true;
+      logger.info('✅ AsposeDriverFactory initialized in NotesService');
     }
   }
 
@@ -551,8 +567,8 @@ export class NotesService implements BaseService {
 
       add: async (slide: any, notes: UniversalNotes, options: NotesOptions): Promise<boolean> => {
         try {
-          // Load Aspose.Slides
-          const aspose = require('/app/lib/aspose.slides.js');
+          // ✅ Ensure AsposeDriverFactory is initialized
+          await this.initializeAsposeDriver();
 
           if (notes.speakerNotes) {
             const notesSlideManager = slide.getNotesSlideManager();
@@ -577,8 +593,8 @@ export class NotesService implements BaseService {
 
       update: async (slide: any, notes: UniversalNotes, options: NotesOptions): Promise<boolean> => {
         try {
-          // Load Aspose.Slides
-          const aspose = require('/app/lib/aspose.slides.js');
+          // ✅ Ensure AsposeDriverFactory is initialized
+          await this.initializeAsposeDriver();
 
           if (notes.speakerNotes) {
             const notesSlideManager = slide.getNotesSlideManager();

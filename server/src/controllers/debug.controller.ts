@@ -3,6 +3,9 @@ import * as os from 'os';
 import * as fs from 'fs';
 import { logger } from '../utils/logger';
 
+// ✅ ROBUST IMPORT: Use AsposeDriverFactory for unified access
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
+
 interface SystemMetrics {
   cpu: number;
   memory: number;
@@ -339,10 +342,16 @@ export class DebugController {
 
   private async checkAsposeStatus(): Promise<'online' | 'error' | 'degraded'> {
     try {
-      // Try to require the Aspose library
-      require('../../../lib/aspose.slides.js');
-      return 'online';
-    } catch {
+      // ✅ REFACTORED: Use AsposeDriverFactory to check status
+      if (asposeDriver.isInitialized()) {
+        return 'online';
+      }
+      
+      // Try to initialize if not already initialized
+      await asposeDriver.initialize();
+      return asposeDriver.isInitialized() ? 'online' : 'error';
+    } catch (error) {
+      logger.error('Failed to check Aspose status', { error: (error as Error).message });
       return 'error';
     }
   }

@@ -14,6 +14,9 @@ import { AssetService } from '../../../adapters/aspose/services/AssetService';
 import { MetadataService } from '../../../adapters/aspose/services/MetadataService';
 import { ThumbnailService } from '../../../adapters/aspose/services/ThumbnailService';
 
+// ✅ ROBUST IMPORT: Use AsposeDriverFactory for unified access
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
+
 // =============================================================================
 // COMPREHENSIVE CONVERSION INTERFACES
 // =============================================================================
@@ -84,6 +87,8 @@ export class ConversionService implements BaseService {
   readonly version = '2.0.0';
   readonly description = 'Comprehensive PPTX processing with full feature coverage';
 
+  private isAsposeInitialized = false;
+
   constructor(
     private aspose: AsposeAdapterRefactored,
     private asposeConversion: AsposeConversionService,
@@ -108,10 +113,21 @@ export class ConversionService implements BaseService {
         throw new Error('Aspose conversion service not available');
       }
 
+      // ✅ Initialize AsposeDriverFactory
+      await this.initializeAsposeDriver();
+
       logger.info('✅ ConversionService initialized successfully');
     } catch (error) {
       logger.error('❌ ConversionService initialization failed:', { error: (error as Error).message });
       throw error;
+    }
+  }
+
+  private async initializeAsposeDriver(): Promise<void> {
+    if (!this.isAsposeInitialized) {
+      await asposeDriver.initialize();
+      this.isAsposeInitialized = true;
+      logger.info('✅ AsposeDriverFactory initialized in ConversionService');
     }
   }
 
@@ -468,11 +484,13 @@ export class ConversionService implements BaseService {
     try {
       logger.info('Extracting effects with dynamic extensions', { filePath });
 
+      // ✅ Ensure AsposeDriverFactory is initialized
+      await this.initializeAsposeDriver();
+
       const effects: any[] = [];
 
       // Load presentation to extract effects
-      const aspose = require('/app/lib/aspose.slides.js');
-      const presentation = new aspose.Presentation(filePath);
+      const presentation = await asposeDriver.loadPresentation(filePath);
 
       try {
         const slides = presentation.getSlides();
@@ -599,11 +617,13 @@ export class ConversionService implements BaseService {
     try {
       logger.info('Extracting animations', { filePath });
 
+      // ✅ Ensure AsposeDriverFactory is initialized
+      await this.initializeAsposeDriver();
+
       const animations: any[] = [];
 
       // Load presentation to extract animations
-      const aspose = require('/app/lib/aspose.slides.js');
-      const presentation = new aspose.Presentation(filePath);
+      const presentation = await asposeDriver.loadPresentation(filePath);
 
       try {
         const slides = presentation.getSlides();
@@ -671,11 +691,13 @@ export class ConversionService implements BaseService {
     try {
       logger.info('Extracting comments', { filePath });
 
+      // ✅ Ensure AsposeDriverFactory is initialized
+      await this.initializeAsposeDriver();
+
       const comments: any[] = [];
 
       // Load presentation to extract comments
-      const aspose = require('/app/lib/aspose.slides.js');
-      const presentation = new aspose.Presentation(filePath);
+      const presentation = await asposeDriver.loadPresentation(filePath);
 
       try {
         const slides = presentation.getSlides();
@@ -743,11 +765,13 @@ export class ConversionService implements BaseService {
     try {
       logger.info('Extracting notes', { filePath });
 
+      // ✅ Ensure AsposeDriverFactory is initialized
+      await this.initializeAsposeDriver();
+
       const notes: any[] = [];
 
       // Load presentation to extract notes
-      const aspose = require('/app/lib/aspose.slides.js');
-      const presentation = new aspose.Presentation(filePath);
+      const presentation = await asposeDriver.loadPresentation(filePath);
 
       try {
         const slides = presentation.getSlides();

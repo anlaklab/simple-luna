@@ -1,14 +1,18 @@
 /**
  * TemplateService - Template and Master Slide Operations
  * 
- * Handles template operations (masters/layouts apply/extract) with toggleable features.
- * Integrates with base services and provides common mappers for fidelity.
+ * Handles template extraction and application with toggleable features.
+ * Supports master slides, layouts, color/font schemes with fidelity.
+ * Uses common mappers for round-trip accuracy.
  */
 
 import { logger } from '../../../utils/logger';
 import { randomUUID } from 'crypto';
 import { AsposeAdapterRefactored } from '../../../adapters/aspose/AsposeAdapterRefactored';
 import { BaseService, ServiceHealth } from '../../shared/interfaces/base.interfaces';
+
+// ✅ ROBUST IMPORT: Use AsposeDriverFactory for unified access
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
 
 // =============================================================================
 // TEMPLATE SERVICE INTERFACES
@@ -72,6 +76,7 @@ export class TemplateService implements BaseService {
   readonly description = 'Template and master slide operations with toggleable features';
 
   private templateMapper: TemplateMapper;
+  private isAsposeInitialized = false;
 
   constructor(private aspose: AsposeAdapterRefactored) {
     this.templateMapper = this.createTemplateMapper();
@@ -88,10 +93,21 @@ export class TemplateService implements BaseService {
         throw new Error('Aspose adapter not available');
       }
 
+      // ✅ Initialize AsposeDriverFactory
+      await this.initializeAsposeDriver();
+
       logger.info('✅ TemplateService initialized successfully');
     } catch (error) {
       logger.error('❌ TemplateService initialization failed:', { error: (error as Error).message });
       throw error;
+    }
+  }
+
+  private async initializeAsposeDriver(): Promise<void> {
+    if (!this.isAsposeInitialized) {
+      await asposeDriver.initialize();
+      this.isAsposeInitialized = true;
+      logger.info('✅ AsposeDriverFactory initialized in TemplateService');
     }
   }
 
@@ -684,8 +700,8 @@ export class TemplateService implements BaseService {
 
       apply: async (presentation: any, template: UniversalTemplate, options: TemplateOptions): Promise<boolean> => {
         try {
-          // Load Aspose.Slides
-          const aspose = require('/app/lib/aspose.slides.js');
+          // ✅ Ensure AsposeDriverFactory is initialized
+          await this.initializeAsposeDriver();
           
           // Apply template logic would go here
           // This is a complex operation that would involve:

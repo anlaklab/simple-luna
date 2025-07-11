@@ -11,6 +11,9 @@ import {
   PipelineContext 
 } from '../../../shared/interfaces/base.interfaces';
 
+// ✅ ROBUST IMPORT: Use AsposeDriverFactory for unified access
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
+
 // Types specific to this processor
 export interface PPTX2JSONInput {
   filePath: string;
@@ -50,6 +53,8 @@ export class PPTX2JSONProcessor implements ToggleableProcessor<PPTX2JSONInput, P
   name = 'pptx2json';
   version = '1.0.0';
   description = 'Converts PPTX files to Universal Schema JSON format';
+
+  private isAsposeInitialized = false;
 
   // Feature flags (toggleable functionality)
   features: FeatureFlags = {
@@ -129,8 +134,17 @@ export class PPTX2JSONProcessor implements ToggleableProcessor<PPTX2JSONInput, P
   }
 
   async initialize(): Promise<void> {
-    // Initialize Aspose adapter, cache, etc.
+    // ✅ Initialize AsposeDriverFactory
+    await this.initializeAsposeDriver();
     console.log(`🔧 Initializing ${this.name} processor`);
+  }
+
+  private async initializeAsposeDriver(): Promise<void> {
+    if (!this.isAsposeInitialized) {
+      await asposeDriver.initialize();
+      this.isAsposeInitialized = true;
+      console.log('✅ AsposeDriverFactory initialized in PPTX2JSONProcessor');
+    }
   }
 
   async cleanup(): Promise<void> {
@@ -163,9 +177,8 @@ export class PPTX2JSONProcessor implements ToggleableProcessor<PPTX2JSONInput, P
 
   isAvailable(): boolean {
     try {
-      // Check if Aspose.Slides is available
-      require('/app/lib/aspose.slides.js');
-      return true;
+      // ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
+      return asposeDriver.isInitialized();
     } catch (error) {
       return false;
     }
@@ -211,11 +224,11 @@ export class PPTX2JSONProcessor implements ToggleableProcessor<PPTX2JSONInput, P
     features: FeatureFlags
   ): Promise<any> {
     try {
-      // Load Aspose.Slides (local only)
-      const aspose = require('/app/lib/aspose.slides.js');
+      // ✅ Ensure AsposeDriverFactory is initialized
+      await this.initializeAsposeDriver();
       
-      // Load presentation
-      const presentation = new aspose.Presentation(input.filePath);
+      // Load presentation using AsposeDriverFactory
+      const presentation = await asposeDriver.loadPresentation(input.filePath);
       const slides = presentation.getSlides();
       const slideCount = slides.size();
 

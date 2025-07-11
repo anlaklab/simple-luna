@@ -14,6 +14,9 @@ import { BaseService, ServiceHealth } from '../../shared/interfaces/base.interfa
 import { ConversionOptions } from '../../../adapters/aspose/types/interfaces';
 import { NotesService } from './notes.service';
 
+// ✅ ROBUST IMPORT: Use AsposeDriverFactory for unified access
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
+
 // =============================================================================
 // SLIDE SERVICE INTERFACES
 // =============================================================================
@@ -64,6 +67,7 @@ export class SlideService implements BaseService {
 
   private extensionsRegistry = new Map<string, any>();
   private slideMapper: SlideMapper;
+  private isAsposeInitialized = false;
 
   constructor(
     private aspose: AsposeAdapterRefactored,
@@ -112,10 +116,21 @@ export class SlideService implements BaseService {
         throw new Error('Shape extractor not available');
       }
 
+      // ✅ Initialize AsposeDriverFactory
+      await this.initializeAsposeDriver();
+
       logger.info('✅ SlideService initialized successfully');
     } catch (error) {
       logger.error('❌ SlideService initialization failed:', { error: (error as Error).message });
       throw error;
+    }
+  }
+
+  private async initializeAsposeDriver(): Promise<void> {
+    if (!this.isAsposeInitialized) {
+      await asposeDriver.initialize();
+      this.isAsposeInitialized = true;
+      logger.info('✅ AsposeDriverFactory initialized in SlideService');
     }
   }
 
@@ -564,8 +579,8 @@ export class SlideService implements BaseService {
 
       reconstruct: async (json: UniversalSlide, parentPresentation: any): Promise<any> => {
         try {
-          // Load Aspose.Slides
-          const aspose = require('/app/lib/aspose.slides.js');
+          // ✅ Ensure AsposeDriverFactory is initialized
+          await this.initializeAsposeDriver();
           
           // Add new slide to presentation
           const slides = parentPresentation.getSlides();
