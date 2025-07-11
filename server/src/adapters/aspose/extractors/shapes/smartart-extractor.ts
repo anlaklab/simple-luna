@@ -9,6 +9,9 @@ import { BaseShapeExtractor, ExtractorMetadata, ExtractionResult, ExtractionCont
 import { ConversionOptions } from '../../types/interfaces';
 import { SmartArtExtractionResult } from '../base/extraction-interfaces';
 
+// ✅ ROBUST IMPORT: Use AsposeDriverFactory for unified access
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
+
 export class SmartArtExtractor extends BaseShapeExtractor {
   protected metadata: ExtractorMetadata = {
     name: 'SmartArtExtractor',
@@ -16,6 +19,8 @@ export class SmartArtExtractor extends BaseShapeExtractor {
     supportedShapeTypes: ['SmartArt', 'SmartArtShape'],
     extractorType: 'complex'
   };
+
+  private isInitialized = false;
 
   async extract(
     shape: any, 
@@ -25,6 +30,9 @@ export class SmartArtExtractor extends BaseShapeExtractor {
     const startTime = Date.now();
 
     try {
+      // ✅ Ensure driver is initialized before use
+      await this.initializeDriver();
+      
       if (!this.canHandle(shape)) {
         return this.createErrorResult('Shape is not a valid SmartArt', Date.now() - startTime);
       }
@@ -49,13 +57,22 @@ export class SmartArtExtractor extends BaseShapeExtractor {
 
   canHandle(shape: any): boolean {
     try {
-      const AsposeSlides = require('/app/lib/aspose.slides.js');
-      const ShapeType = AsposeSlides.ShapeType;
-      const shapeType = shape.getShapeType();
-      return shapeType === ShapeType.SmartArt;
+      // ✅ REFACTORED: Use AsposeDriverFactory (assuming it's already initialized)
+      if (!this.isInitialized) {
+        console.warn('AsposeDriver not initialized in SmartArtExtractor, attempting sync check');
+        return false;
+      }
+      return shape && shape.getShapeType() === asposeDriver.aspose?.ShapeType?.SmartArt;
     } catch (error) {
       this.handleError(error as Error, 'canHandle');
       return false;
+    }
+  }
+
+  private async initializeDriver(): Promise<void> {
+    if (!this.isInitialized) {
+      await asposeDriver.initialize();
+      this.isInitialized = true;
     }
   }
 

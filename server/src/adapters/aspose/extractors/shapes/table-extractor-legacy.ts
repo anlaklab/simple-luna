@@ -12,6 +12,9 @@ import { BaseShapeExtractor, ExtractorMetadata, ExtractionResult, ExtractionCont
 import { ConversionOptions } from '../../types/interfaces';
 import { TableExtractionResult, TableRow, TableColumn, TableCell } from '../base/extraction-interfaces';
 
+// ✅ ROBUST IMPORT: Use AsposeDriverFactory for unified access
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
+
 export class TableExtractor extends BaseShapeExtractor {
   protected metadata: ExtractorMetadata = {
     name: 'TableExtractor',
@@ -19,6 +22,8 @@ export class TableExtractor extends BaseShapeExtractor {
     supportedShapeTypes: ['Table', 'TableShape'],
     extractorType: 'complex'
   };
+
+  private isInitialized = false;
 
   // =============================================================================
   // MAIN EXTRACTION METHOD
@@ -32,6 +37,9 @@ export class TableExtractor extends BaseShapeExtractor {
     const startTime = Date.now();
 
     try {
+      // ✅ Ensure driver is initialized before use
+      await this.initializeDriver();
+      
       if (!this.canHandle(shape)) {
         return this.createErrorResult('Shape is not a valid table', Date.now() - startTime);
       }
@@ -59,13 +67,22 @@ export class TableExtractor extends BaseShapeExtractor {
 
   canHandle(shape: any): boolean {
     try {
-      const AsposeSlides = require('/app/lib/aspose.slides.js');
-      const ShapeType = AsposeSlides.ShapeType;
-      const shapeType = shape.getShapeType();
-      return shapeType === ShapeType.Table;
+      // ✅ REFACTORED: Use AsposeDriverFactory (assuming it's already initialized)
+      if (!this.isInitialized) {
+        console.warn('AsposeDriver not initialized in TableExtractor Legacy, attempting sync check');
+        return false;
+      }
+      return shape && shape.getShapeType() === asposeDriver.aspose?.ShapeType?.Table;
     } catch (error) {
       this.handleError(error as Error, 'canHandle');
       return false;
+    }
+  }
+
+  private async initializeDriver(): Promise<void> {
+    if (!this.isInitialized) {
+      await asposeDriver.initialize();
+      this.isInitialized = true;
     }
   }
 

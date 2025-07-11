@@ -1,10 +1,11 @@
 /**
- * Media Extractor - Unified Extractor for Media Shapes
+ * Media Extractor - Specialized Shape Extractor for Media Objects
  * 
- * Handles extraction of all media types:
- * - Picture/Image frames
- * - Video frames  
- * - Audio frames
+ * Handles comprehensive extraction of media content including:
+ * - Images and pictures with formatting
+ * - Video frames with playback settings
+ * - Audio frames with audio properties
+ * - Embedded media data and thumbnails
  * 
  * Provides common media utilities and type-specific processing.
  */
@@ -13,6 +14,9 @@ import { BaseShapeExtractor, ExtractorMetadata, ExtractionResult, ExtractionCont
 import { ConversionOptions } from '../../types/interfaces';
 import { PictureExtractionResult, VideoExtractionResult, AudioExtractionResult, MediaExtractionResult } from '../base/extraction-interfaces';
 
+// ✅ ROBUST IMPORT: Use AsposeDriverFactory for unified access
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
+
 export class MediaExtractor extends BaseShapeExtractor {
   protected metadata: ExtractorMetadata = {
     name: 'MediaExtractor',
@@ -20,6 +24,8 @@ export class MediaExtractor extends BaseShapeExtractor {
     supportedShapeTypes: ['Picture', 'VideoFrame', 'AudioFrame'],
     extractorType: 'media'
   };
+
+  private isInitialized = false;
 
   // =============================================================================
   // MAIN EXTRACTION METHOD
@@ -33,6 +39,9 @@ export class MediaExtractor extends BaseShapeExtractor {
     const startTime = Date.now();
 
     try {
+      // ✅ Ensure driver is initialized before use
+      await this.initializeDriver();
+      
       if (!this.canHandle(shape)) {
         return this.createErrorResult('Shape is not a valid media object', Date.now() - startTime);
       }
@@ -75,13 +84,17 @@ export class MediaExtractor extends BaseShapeExtractor {
 
   canHandle(shape: any): boolean {
     try {
-      const AsposeSlides = require('/app/lib/aspose.slides.js');
-      const ShapeType = AsposeSlides.ShapeType;
+      // ✅ REFACTORED: Use AsposeDriverFactory (assuming it's already initialized)
+      if (!this.isInitialized) {
+        console.warn('AsposeDriver not initialized in MediaExtractor Legacy, attempting sync check');
+        return false;
+      }
       const shapeType = shape.getShapeType();
+      const ShapeType = asposeDriver.aspose?.ShapeType;
       
-      return shapeType === ShapeType.Picture || 
-             shapeType === ShapeType.VideoFrame || 
-             shapeType === ShapeType.AudioFrame;
+      return shapeType === ShapeType?.Picture || 
+             shapeType === ShapeType?.VideoFrame || 
+             shapeType === ShapeType?.AudioFrame;
     } catch (error) {
       this.handleError(error as Error, 'canHandle');
       return false;
@@ -94,18 +107,25 @@ export class MediaExtractor extends BaseShapeExtractor {
 
   private getMediaShapeType(shape: any): string {
     try {
-      const AsposeSlides = require('/app/lib/aspose.slides.js');
-      const ShapeType = AsposeSlides.ShapeType;
+      // ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
       const shapeType = shape.getShapeType();
+      const ShapeType = asposeDriver.aspose?.ShapeType;
 
-      if (shapeType === ShapeType.Picture) return 'Picture';
-      if (shapeType === ShapeType.VideoFrame) return 'VideoFrame';
-      if (shapeType === ShapeType.AudioFrame) return 'AudioFrame';
+      if (shapeType === ShapeType?.Picture) return 'Picture';
+      if (shapeType === ShapeType?.VideoFrame) return 'VideoFrame';
+      if (shapeType === ShapeType?.AudioFrame) return 'AudioFrame';
       
       return 'Unknown';
     } catch (error) {
       this.handleError(error as Error, 'getMediaShapeType');
       return 'Unknown';
+    }
+  }
+
+  private async initializeDriver(): Promise<void> {
+    if (!this.isInitialized) {
+      await asposeDriver.initialize();
+      this.isInitialized = true;
     }
   }
 
