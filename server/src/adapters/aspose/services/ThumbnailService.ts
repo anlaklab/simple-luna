@@ -13,21 +13,15 @@ import {
   UniversalPresentation
 } from '../types/interfaces';
 
+// Import local Aspose.Slides library via license manager (singleton)
+const licenseManager = require('/app/lib/aspose-license-manager.js');
+
 export class ThumbnailService implements IThumbnailService {
   private config: AsposeConfig;
-  private aspose: any;
 
   constructor(config: AsposeConfig) {
     this.config = config;
-    try {
-      // Load Aspose.Slides library (LOCAL ONLY)
-      this.aspose = require('/app/lib/aspose.slides.js');
-      logger.info('ThumbnailService: Aspose.Slides library loaded');
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error('ThumbnailService: Failed to load Aspose.Slides library', { error: errorMessage });
-      this.aspose = null;
-    }
+    logger.info('ThumbnailService: Initialized with license manager');
   }
 
   async generateThumbnails(input: string | UniversalPresentation, options: ThumbnailOptions = {}): Promise<ThumbnailResult[]> {
@@ -35,8 +29,8 @@ export class ThumbnailService implements IThumbnailService {
     const { size = { width: 800, height: 600 }, format = 'png' } = options;
 
     try {
-      if (!this.aspose) {
-        throw new Error('Aspose.Slides library not available');
+      if (!licenseManager.Aspose) {
+        throw new Error('Aspose.Slides library not available. License not loaded.');
       }
 
       if (typeof input !== 'string') {
@@ -47,7 +41,7 @@ export class ThumbnailService implements IThumbnailService {
         throw new Error(`Input file not found: ${input}`);
       }
 
-      const presentation = new this.aspose.Presentation(input);
+      const presentation = new licenseManager.Aspose.Presentation(input);
       const slides = presentation.getSlides();
       const slideCount = slides.size(); // ✅ Usar size() en lugar de getCount()
       const thumbnails: ThumbnailResult[] = [];
@@ -118,8 +112,8 @@ export class ThumbnailService implements IThumbnailService {
     const { size = { width: 800, height: 600 }, format = 'png' } = options;
 
     try {
-      if (!this.aspose) {
-        throw new Error('Aspose.Slides library not available');
+      if (!licenseManager.Aspose) {
+        throw new Error('Aspose.Slides library not available. License not loaded.');
       }
 
       if (typeof input !== 'string') {
@@ -130,7 +124,7 @@ export class ThumbnailService implements IThumbnailService {
         throw new Error(`Input file not found: ${input}`);
       }
 
-      const presentation = new this.aspose.Presentation(input);
+      const presentation = new licenseManager.Aspose.Presentation(input);
       const slides = presentation.getSlides();
       const slideCount = slides.size(); // ✅ Usar size() en lugar de getCount()
 
@@ -190,7 +184,7 @@ export class ThumbnailService implements IThumbnailService {
 
       try {
         // Method 1: Try with Dimension
-        const Dimension = this.aspose.Dimension;
+        const Dimension = licenseManager.Aspose.Dimension;
         if (Dimension) {
           const thumbnailSize = new Dimension(size.width, size.height);
           thumbnail = slide.getThumbnail(thumbnailSize);
@@ -254,8 +248,8 @@ export class ThumbnailService implements IThumbnailService {
   private getImageFormat(format: string): any {
     try {
       // Try to get ImageFormat enum from Aspose
-      if (this.aspose.ImageFormat) {
-        const ImageFormat = this.aspose.ImageFormat;
+      if (licenseManager.Aspose.ImageFormat) {
+        const ImageFormat = licenseManager.Aspose.ImageFormat;
         
         switch (format.toLowerCase()) {
           case 'png':

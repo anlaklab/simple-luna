@@ -18,8 +18,8 @@ import {
   ExtractionMethod
 } from '../../types/asset-interfaces';
 
-// Import local Aspose.Slides library
-const aspose = require('/app/lib/aspose.slides.js');
+// Import local Aspose.Slides library via license manager (singleton)
+const licenseManager = require('/app/lib/aspose-license-manager.js');
 
 export class ImageAssetExtractor implements ImageExtractor {
   readonly name = 'ImageAssetExtractor';
@@ -36,9 +36,13 @@ export class ImageAssetExtractor implements ImageExtractor {
     const assets: AssetResult[] = [];
     
     try {
-      logger.info('Starting real image extraction with Aspose.Slides', {
-        extractorName: this.name,
-        slideCount: presentation.getSlides().getCount()
+      // Get Aspose via singleton license manager
+      const aspose = await licenseManager.getAspose();
+      
+      logger.info('Starting image extraction from presentation', {
+        includeMetadata: options.includeMetadata || false,
+        storageEnabled: options.storageEnabled || false,
+        optimization: options.optimization || 'balanced'
       });
 
       const slideCount = presentation.getSlides().getCount();
@@ -54,7 +58,7 @@ export class ImageAssetExtractor implements ImageExtractor {
           }
         }
         
-        const slideAssets = await this.extractImagesFromSlide(slide, slideIndex, options);
+        const slideAssets = await this.extractImagesFromSlide(aspose, slide, slideIndex, options);
         assets.push(...slideAssets);
         
         // Log progress for large presentations
@@ -86,6 +90,7 @@ export class ImageAssetExtractor implements ImageExtractor {
   }
 
   private async extractImagesFromSlide(
+    aspose: any,
     slide: any,
     slideIndex: number,
     options: AssetExtractionOptions
@@ -101,12 +106,12 @@ export class ImageAssetExtractor implements ImageExtractor {
         const shape = shapes.get_Item(shapeIndex);
         
         // Extract images based on shape type
-        const shapeAssets = await this.extractImagesFromShape(shape, slideIndex, options);
+        const shapeAssets = await this.extractImagesFromShape(aspose, shape, slideIndex, options);
         assets.push(...shapeAssets);
       }
 
       // Extract images from slide background
-      const backgroundAssets = await this.extractBackgroundImages(slide, slideIndex, options);
+      const backgroundAssets = await this.extractBackgroundImages(aspose, slide, slideIndex, options);
       assets.push(...backgroundAssets);
 
     } catch (error) {
@@ -120,6 +125,7 @@ export class ImageAssetExtractor implements ImageExtractor {
   }
 
   private async extractImagesFromShape(
+    aspose: any,
     shape: any,
     slideIndex: number,
     options: AssetExtractionOptions
@@ -140,25 +146,25 @@ export class ImageAssetExtractor implements ImageExtractor {
         case aspose.ShapeType.Rectangle:
         case aspose.ShapeType.Ellipse:
           // Check for image fill
-          const fillAsset = await this.extractFromShapeFill(shape, slideIndex);
+          const fillAsset = await this.extractFromShapeFill(aspose, shape, slideIndex);
           if (fillAsset) assets.push(fillAsset);
           break;
           
         case aspose.ShapeType.Chart:
           // Extract images from chart elements
-          const chartAssets = await this.extractFromChart(shape, slideIndex);
+          const chartAssets = await this.extractFromChart(aspose, shape, slideIndex);
           assets.push(...chartAssets);
           break;
           
         case aspose.ShapeType.Table:
           // Extract images from table cells
-          const tableAssets = await this.extractFromTable(shape, slideIndex);
+          const tableAssets = await this.extractFromTable(aspose, shape, slideIndex);
           assets.push(...tableAssets);
           break;
           
         case aspose.ShapeType.GroupShape:
           // Recursively extract from grouped shapes
-          const groupAssets = await this.extractFromGroupShape(shape, slideIndex, options);
+          const groupAssets = await this.extractFromGroupShape(aspose, shape, slideIndex, options);
           assets.push(...groupAssets);
           break;
       }
@@ -224,6 +230,7 @@ export class ImageAssetExtractor implements ImageExtractor {
   }
 
   private async extractFromShapeFill(
+    aspose: any,
     shape: any,
     slideIndex: number
   ): Promise<AssetResult | null> {
@@ -273,7 +280,7 @@ export class ImageAssetExtractor implements ImageExtractor {
     return null;
   }
 
-  private async extractFromChart(shape: any, slideIndex: number): Promise<AssetResult[]> {
+  private async extractFromChart(aspose: any, shape: any, slideIndex: number): Promise<AssetResult[]> {
     const assets: AssetResult[] = [];
 
     try {
@@ -283,7 +290,7 @@ export class ImageAssetExtractor implements ImageExtractor {
         // Extract chart background image if exists
         const chartFill = chart.getBackWall().getFillFormat();
         if (chartFill.getFillType() === aspose.FillType.Picture) {
-          const chartAsset = await this.extractFromShapeFill(shape, slideIndex);
+          const chartAsset = await this.extractFromShapeFill(aspose, shape, slideIndex);
           if (chartAsset) {
             chartAsset.metadata.shapeType = 'chart-background';
             assets.push(chartAsset);
@@ -309,7 +316,7 @@ export class ImageAssetExtractor implements ImageExtractor {
     return assets;
   }
 
-  private async extractFromTable(shape: any, slideIndex: number): Promise<AssetResult[]> {
+  private async extractFromTable(aspose: any, shape: any, slideIndex: number): Promise<AssetResult[]> {
     const assets: AssetResult[] = [];
 
     try {
@@ -327,7 +334,7 @@ export class ImageAssetExtractor implements ImageExtractor {
             // Check cell fill for images
             const cellFill = cell.getFillFormat();
             if (cellFill.getFillType() === aspose.FillType.Picture) {
-              const cellAsset = await this.extractCellImage(cell, slideIndex, rowIndex, cellIndex);
+              const cellAsset = await this.extractCellImage(aspose, cell, slideIndex, rowIndex, cellIndex);
               if (cellAsset) assets.push(cellAsset);
             }
           }
@@ -345,6 +352,7 @@ export class ImageAssetExtractor implements ImageExtractor {
   }
 
   private async extractCellImage(
+    aspose: any,
     cell: any,
     slideIndex: number,
     rowIndex: number,
@@ -393,6 +401,7 @@ export class ImageAssetExtractor implements ImageExtractor {
   }
 
   private async extractFromGroupShape(
+    aspose: any,
     groupShape: any,
     slideIndex: number,
     options: AssetExtractionOptions
@@ -405,7 +414,7 @@ export class ImageAssetExtractor implements ImageExtractor {
 
       for (let i = 0; i < shapeCount; i++) {
         const shape = shapes.get_Item(i);
-        const shapeAssets = await this.extractImagesFromShape(shape, slideIndex, options);
+        const shapeAssets = await this.extractImagesFromShape(aspose, shape, slideIndex, options);
         assets.push(...shapeAssets);
       }
 
@@ -420,6 +429,7 @@ export class ImageAssetExtractor implements ImageExtractor {
   }
 
   private async extractBackgroundImages(
+    aspose: any,
     slide: any,
     slideIndex: number,
     options: AssetExtractionOptions
