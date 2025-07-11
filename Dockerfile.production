@@ -82,11 +82,16 @@ WORKDIR /app
 # Copy built client
 COPY --from=client-builder /app/client/dist /var/www/html
 
-# Copy built server (only runtime files and built JS)
-COPY --from=server-builder /app/server/dist ./server/dist
+# Copy server package files and install production dependencies
 COPY --from=server-builder /app/server/package*.json ./server/
+WORKDIR /app/server
+RUN npm ci --only=production
+
+# Copy built server and other runtime files
+WORKDIR /app
+COPY --from=server-builder /app/server/dist ./server/dist
 COPY --from=server-builder /app/lib ./lib
-COPY --from=server-builder /app/node_modules ./node_modules
+COPY --from=server-builder /app/node_modules/java ./node_modules/java
 COPY --from=server-builder /app/Aspose.Slides.Product.Family.lic ./
 
 # Copy nginx configuration
