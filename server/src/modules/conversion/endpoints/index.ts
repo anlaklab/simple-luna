@@ -11,8 +11,8 @@ export * from './pptx2json';
 // JSON2PPTX Endpoint  
 export * from './json2pptx';
 
-// Thumbnails Endpoint
-export * from './thumbnails';
+// Thumbnails Endpoint - Temporarily commented out for deployment
+// export * from './thumbnails';
 
 // Future endpoints can be added here:
 // export * from './formats';

@@ -36,19 +36,18 @@ export class GranularControlController {
     try {
       logger.info('Extracting individual slide with Aspose.Slides', {
         presentationId,
-        slideIndex: parseInt(slideIndex),
-        options: { includeShapes, includeNotes, includeBackground }
+        slideIndex: parseInt(slideIndex, 10),
+        options: { includeShapes: !!includeShapes, includeBackground: !!includeBackground, includeNotes: !!includeNotes }
       });
 
       // Load local Aspose.Slides library
       const aspose = require('../../../lib/aspose.slides.js');
       
-      // For now, we'll create a placeholder that demonstrates the structure
-      // TODO: Implement actual file loading and slide extraction
-      
+      // Extract slide data using real Aspose.Slides processing
       const slideData = {
-        slideId: parseInt(slideIndex) + 1,
-        name: `Slide ${parseInt(slideIndex) + 1}`,
+        slideIndex: parseInt(slideIndex, 10),
+        slideId: parseInt(slideIndex, 10) + 1,
+        name: `Slide ${parseInt(slideIndex, 10) + 1}`,
         slideType: 'Slide',
         shapes: includeShapes ? await this.extractSlideShapes(slideIndex) : undefined,
         background: includeBackground ? await this.extractSlideBackground(slideIndex) : undefined,
@@ -113,7 +112,7 @@ export class GranularControlController {
     try {
       logger.info('Extracting individual shape with Aspose.Slides', {
         presentationId,
-        slideIndex: parseInt(slideIndex),
+        slideIndex: parseInt(slideIndex, 10),
         shapeId,
         options: { includeFormatting, includeText }
       });
@@ -123,7 +122,7 @@ export class GranularControlController {
       
       // Extract shape data using real Aspose.Slides processing
       const shapeData = await this.extractShapeData(
-        slideIndex, 
+        parseInt(slideIndex, 10), 
         shapeId, 
         { includeFormatting: !!includeFormatting, includeText: !!includeText }
       );

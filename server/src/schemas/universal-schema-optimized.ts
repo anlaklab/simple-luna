@@ -265,6 +265,7 @@ export const TransitionSchema = z.object({
 // SHAPE DEFINITIONS
 // =============================================================================
 
+// Define the base shape type first
 export const BaseShapeSchema = z.object({
   shapeIndex: z.number().min(0),
   shapeId: z.string().optional(),
@@ -283,7 +284,8 @@ export const BaseShapeSchema = z.object({
   zOrder: z.number().optional(),
 });
 
-export const ShapeSchema = BaseShapeSchema.extend({
+// Define ShapeSchema with proper typing to avoid circular reference
+export const ShapeSchema: z.ZodType<any> = BaseShapeSchema.extend({
   // Content-specific properties (optional based on shape type)
   text: TextContentSchema.optional(),
   chart: ChartSchema.optional(),
@@ -551,7 +553,7 @@ export class OptimizedSchemaValidator {
   /**
    * Partial validation with auto-completion
    */
-  static validatePartial(data: any, schema: z.ZodSchema): { success: boolean; data?: any; errors?: any[] } {
+  static validatePartial(data: any, schema: z.ZodObject<any>): { success: boolean; data?: any; errors?: any[] } {
     try {
       const validatedData = schema.partial().parse(data);
       return { success: true, data: validatedData };

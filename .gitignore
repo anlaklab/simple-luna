@@ -199,10 +199,6 @@ slideworks_*.json
 test_*.json
 request_body*.json
 
-# License files (sensitive)
-*.lic
-Aspose.Slides.Product.Family.lic
-
 # Temporary scripts
 test-*.sh
 fix-aspose-global.js

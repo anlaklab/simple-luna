@@ -6,12 +6,11 @@ export const validateRequest = (req: Request, res: Response, next: NextFunction)
   next();
 };
 
+// Alias for compatibility with routes
+export const validate = validateRequest;
+
 export const handleAsyncErrors = (fn: any) => {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
-};
-
-export const presentationController = {
-  // Placeholder controller methods
 }; 

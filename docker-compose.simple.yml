@@ -1,0 +1,54 @@
+# 🐳 Luna Development - Simplified Docker Compose
+
+services:
+  luna-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: luna-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - MAX_FILE_SIZE=62914560
+      - UPLOAD_TEMP_DIR=/app/temp/uploads
+      - ASPOSE_TEMP_DIR=/app/temp/aspose
+      - JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+      - JAVA_OPTS=-Xmx2g -Xms512m -Djava.awt.headless=true
+      - ASPOSE_LICENSE_PATH=/app/Aspose.Slides.Product.Family.lic
+      - CORS_ORIGIN=http://localhost:5173,http://localhost:3000
+    volumes:
+      - ./server/src:/app/server/src
+      - luna-uploads:/app/temp/uploads
+      - luna-logs:/app/logs
+    networks:
+      - luna-network
+
+  luna-client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.dev
+    container_name: luna-client
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:3000
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    networks:
+      - luna-network
+    depends_on:
+      - luna-server
+
+volumes:
+  luna-uploads:
+  luna-logs:
+
+networks:
+  luna-network:
+    driver: bridge 

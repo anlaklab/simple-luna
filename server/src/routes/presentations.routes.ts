@@ -7,36 +7,13 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import multer from 'multer';
-import {
-  getPresentations,
-  getPresentation,
-  createPresentation,
-  updatePresentation,
-  deletePresentation,
-  searchPresentations,
-  getAnalytics,
-  getAnalyticsSummary,
-  exportPresentation,
-  createSharingLink,
-  bulkDeletePresentations,
-  bulkUpdatePresentations,
-  getPresentationVersions,
-  createPresentationVersion,
-  restorePresentationVersion,
-  getPresentationSlide,
-  updatePresentationSlide,
-  deletePresentationSlide,
-  getPresentationShape,
-  updatePresentationShape,
-  deletePresentationShape,
-  renderSlide,
-  renderShape,
-} from '../controllers/presentations.controller';
-import { validate } from '../middleware/validate.middleware';
+import { PresentationController } from '../controllers/presentations.controller';
+import { validate, handleAsyncErrors, validateRequest } from '../middleware/validate.middleware';
 import { auth } from '../middleware/auth.middleware';
 import { rateLimit } from '../middleware/rate-limit.middleware';
 
 const router = Router();
+const presentationController = new PresentationController();
 
 // Configure multer for file uploads
 const upload = multer({

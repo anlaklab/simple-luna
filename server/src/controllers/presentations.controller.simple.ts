@@ -7,15 +7,16 @@ import { PresentationService } from '../services/presentation.service';
 
 const presentationService = new PresentationService();
 
-export const createPresentation = async (req: Request, res: Response) => {
+export const createPresentation = async (req: Request, res: Response): Promise<void> => {
   try {
     logger.info('Creating new presentation');
     
     if (!req.file) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'No file uploaded'
       });
+      return;
     }
 
     const result = await presentationService.createPresentation(req.body, req.file);
@@ -33,7 +34,7 @@ export const createPresentation = async (req: Request, res: Response) => {
   }
 };
 
-export const getPresentation = async (req: Request, res: Response) => {
+export const getPresentation = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     logger.info(`Getting presentation: ${id}`);
@@ -41,10 +42,11 @@ export const getPresentation = async (req: Request, res: Response) => {
     const result = await presentationService.getPresentation(id);
     
     if (!result) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Presentation not found'
       });
+      return;
     }
 
     res.json({

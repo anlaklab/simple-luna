@@ -11,6 +11,9 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
   next();
 };
 
+// Alias for compatibility with routes
+export const auth = authenticate;
+
 export const authorize = (roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     // For development, skip authorization

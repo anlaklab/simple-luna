@@ -16,7 +16,7 @@ import { sharedAdapters } from '../../shared/adapters/shared-adapters';
 import { getDynamicRegistry, getDynamicExtension } from '../../shared/factories/module.factory';
 import { PPTX2JSONProcessor } from '../endpoints/pptx2json/pptx2json.processor';
 import { JSON2PPTXProcessor } from '../endpoints/json2pptx/json2pptx.processor';
-import { ThumbnailsProcessor } from '../endpoints/thumbnails/thumbnails.processor';
+// import { ThumbnailsProcessor } from '../endpoints/thumbnails/thumbnails.processor';
 import { ConversionService } from '../services/conversion.service';
 import { logger } from '../../../utils/logger';
 
@@ -74,7 +74,7 @@ export class ConversionFactory {
     // Register default processors
     this.processors.set('pptx2json', () => new PPTX2JSONProcessor());
     this.processors.set('json2pptx', () => new JSON2PPTXProcessor());
-    this.processors.set('thumbnails', () => new ThumbnailsProcessor());
+    // this.processors.set('thumbnails', () => new ThumbnailsProcessor());
     
     // Register comprehensive conversion service (enhanced with dynamic support)
     this.services.set('conversion', () => this.createComprehensiveConversionService());
