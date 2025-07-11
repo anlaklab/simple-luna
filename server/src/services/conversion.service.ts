@@ -7,6 +7,7 @@
 import { logger } from '../utils/logger';
 import { AsposeAdapterRefactored } from '../adapters/aspose/AsposeAdapterRefactored';
 import { FirebaseAdapter } from '../adapters/firebase.adapter';
+import { FidelityTrackerService } from './fidelity-tracker.service';
 import { 
   UniversalPresentation,
   UniversalPresentationSchema 
@@ -50,11 +51,13 @@ export interface ConversionServiceConfig {
 export class ConversionService {
   private readonly asposeAdapter: AsposeAdapterRefactored;
   private readonly firebaseAdapter?: FirebaseAdapter;
+  private readonly fidelityTracker: FidelityTrackerService;
   private readonly config: ConversionServiceConfig;
 
   constructor(config: ConversionServiceConfig) {
     this.config = config;
     this.asposeAdapter = new AsposeAdapterRefactored(config.asposeConfig || {});
+    this.fidelityTracker = new FidelityTrackerService();
     
     if (config.firebaseConfig) {
       this.firebaseAdapter = new FirebaseAdapter(config.firebaseConfig);
@@ -63,6 +66,7 @@ export class ConversionService {
     logger.info('Conversion service initialized', {
       hasFirebase: !!this.firebaseAdapter,
       uploadToStorage: config.uploadToStorage,
+      fidelityTracking: true,
     });
   }
 
@@ -81,11 +85,15 @@ export class ConversionService {
     const startTime = Date.now();
     const requestId = this.generateRequestId();
 
+    // Start fidelity tracking
+    const fidelityTrackingId = this.fidelityTracker.startConversionTracking(originalFilename);
+
     try {
-      logger.info('Starting PPTX to JSON conversion', {
+      logger.info('Starting PPTX to JSON conversion with fidelity tracking', {
         requestId,
         filePath,
         originalFilename,
+        fidelityTrackingId,
         options,
       });
 
@@ -134,6 +142,23 @@ export class ConversionService {
         }
       }
 
+      // Update fidelity tracking with conversion results
+      this.fidelityTracker.updateConversionStage(fidelityTrackingId, 'pptx_to_json', validationResult.data);
+      
+      // Analyze each slide for fidelity
+      if (validationResult.data.slides) {
+        validationResult.data.slides.forEach((slide, index) => {
+          this.fidelityTracker.analyzeSlide(fidelityTrackingId, index, slide);
+        });
+      }
+
+      // Generate fidelity report
+      const fidelityReport = this.fidelityTracker.generateFidelityReport(
+        fidelityTrackingId,
+        originalFilename,
+        processingTime
+      );
+
       const response: Pptx2JsonResponse = {
         success: true,
         data: {
@@ -147,19 +172,25 @@ export class ConversionService {
             animationCount: result.data?.processingStats?.animationCount || 0,
             conversionTimeMs: processingTime,
           },
+          fidelityReport: fidelityReport || undefined, // Include fidelity report in response
         },
         meta: {
           timestamp: new Date().toISOString(),
           requestId,
           processingTimeMs: processingTime,
           version: '1.0',
+          fidelityScore: fidelityReport?.fidelityScore,
+          fidelityQuality: fidelityReport?.overallQuality,
         },
       };
 
-      logger.info('PPTX to JSON conversion completed successfully', {
+      logger.info('PPTX to JSON conversion completed successfully with fidelity analysis', {
         requestId,
         slideCount: result.data?.processingStats?.slideCount || 0,
         processingTimeMs: processingTime,
+        fidelityScore: fidelityReport?.fidelityScore,
+        fidelityQuality: fidelityReport?.overallQuality,
+        issueCount: fidelityReport?.issues.length || 0,
       });
 
       return response;
@@ -518,6 +549,24 @@ export class ConversionService {
         processingTime
       );
     }
+  }
+
+  // =============================================================================
+  // FIDELITY REPORTING
+  // =============================================================================
+
+  /**
+   * Get fidelity statistics for all conversions
+   */
+  getFidelityStatistics() {
+    return this.fidelityTracker.getFidelityStatistics();
+  }
+
+  /**
+   * Get conversion history with fidelity reports
+   */
+  getConversionHistory(limit: number = 50): any[] {
+    return this.fidelityTracker.getConversionHistory(limit);
   }
 
   // =============================================================================

@@ -5,11 +5,16 @@
  */
 
 import { Router } from 'express';
-import multer from 'multer';
 import { ConversionController } from '../controllers/conversion.controller';
 import { ConversionService } from '../services/conversion.service';
 import { validateRequest, validateFileUpload, validateFormOptions } from '../middleware/validation.middleware';
 import { handleAsyncErrors } from '../middleware/error.middleware';
+import { 
+  conversionUpload, 
+  largeFileUpload, 
+  validateUploadWithTiers, 
+  handleUploadError 
+} from '../middleware/upload.middleware';
 import {
   Pptx2JsonRequestSchema,
   Json2PptxRequestSchema,
@@ -24,28 +29,8 @@ import {
 const router = Router();
 
 // =============================================================================
-// MULTER CONFIGURATION
+// UPLOAD CONFIGURATION - Now using centralized middleware
 // =============================================================================
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'), // 50MB default
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedMimeTypes = [
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'application/vnd.ms-powerpoint',
-      'application/vnd.openxmlformats-officedocument.presentationml.slideshow',
-    ];
-    
-    if (allowedMimeTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`Invalid file type. Allowed types: ${allowedMimeTypes.join(', ')}`));
-    }
-  },
-});
 
 // =============================================================================
 // CONTROLLER INITIALIZATION
@@ -157,14 +142,11 @@ const conversionController = new ConversionController({
  */
 router.post(
   '/pptx2json',
-  upload.single('file'),
-  validateFileUpload({
-    required: true,
-    maxSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'),
-    fieldName: 'file',
-  }),
+  conversionUpload.single('file'),
+  validateUploadWithTiers,
   validateFormOptions(Pptx2JsonRequestSchema),
-  handleAsyncErrors(conversionController.convertPptxToJson)
+  handleAsyncErrors(conversionController.convertPptxToJson),
+  handleUploadError
 );
 
 /**
@@ -333,14 +315,11 @@ router.post(
  */
 router.post(
   '/convertformat',
-  upload.single('file'),
-  validateFileUpload({
-    required: true,
-    maxSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'),
-    fieldName: 'file',
-  }),
+  largeFileUpload.single('file'),
+  validateUploadWithTiers,
   validateFormOptions(ConvertFormatRequestSchema),
-  handleAsyncErrors(conversionController.convertFormat)
+  handleAsyncErrors(conversionController.convertFormat),
+  handleUploadError
 );
 
 /**
@@ -433,14 +412,11 @@ router.post(
  */
 router.post(
   '/thumbnails',
-  upload.single('file'),
-  validateFileUpload({
-    required: true,
-    maxSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'),
-    fieldName: 'file',
-  }),
+  conversionUpload.single('file'),
+  validateUploadWithTiers,
   validateFormOptions(ThumbnailsRequestSchema),
-  handleAsyncErrors(conversionController.generateThumbnails)
+  handleAsyncErrors(conversionController.generateThumbnails),
+  handleUploadError
 );
 
 /**

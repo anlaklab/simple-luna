@@ -7,7 +7,7 @@
 // Import from existing schema - will be resolved during implementation
 
 // =============================================================================
-// PLACEHOLDER TYPES (to be replaced with actual imports)
+// TYPE DEFINITIONS FOR ASPOSE ADAPTER SERVICES
 // =============================================================================
 
 export interface UniversalPresentation {
@@ -112,6 +112,8 @@ export interface ThumbnailResult {
   id?: string; // For backward compatibility
   metadata?: Record<string, any>; // For backward compatibility
   createdAt?: Date; // For backward compatibility
+  error?: string; // Added for error handling
+  filePath?: string; // Added for file reference
 }
 
 export interface IThumbnailService {

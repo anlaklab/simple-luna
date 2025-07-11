@@ -57,6 +57,46 @@ export const FileInfoSchema = z.object({
   metadata: z.record(z.string(), z.any()).optional(),
 });
 
+// =============================================================================
+// FIDELITY TRACKING SCHEMAS
+// =============================================================================
+
+export const FidelityIssueSchema = z.object({
+  type: z.enum(['missing_property', 'unsupported_element', 'conversion_loss', 'format_mismatch']),
+  severity: z.enum(['low', 'medium', 'high', 'critical']),
+  description: z.string(),
+  location: z.string(),
+  originalValue: z.any().optional(),
+  convertedValue: z.any().optional(),
+  suggestion: z.string().optional(),
+});
+
+export const FidelityReportSchema = z.object({
+  reportId: z.string().uuid(),
+  timestamp: z.string().datetime(),
+  conversionId: z.string().uuid(),
+  originalFile: z.string(),
+  fidelityScore: z.number().min(0).max(100),
+  overallQuality: z.enum(['excellent', 'good', 'fair', 'poor']),
+  metrics: z.object({
+    slidesProcessed: z.number().min(0),
+    shapesProcessed: z.number().min(0),
+    textElementsProcessed: z.number().min(0),
+    imagesProcessed: z.number().min(0),
+    animationsProcessed: z.number().min(0),
+    elementsSupported: z.number().min(0),
+    elementsPartialSupport: z.number().min(0),
+    elementsUnsupported: z.number().min(0),
+    propertiesPreserved: z.number().min(0),
+    propertiesLost: z.number().min(0),
+    propertiesModified: z.number().min(0),
+  }),
+  issues: z.array(FidelityIssueSchema),
+  recommendations: z.array(z.string()),
+  processingTime: z.number().min(0),
+  memoryUsage: z.number().min(0).optional(),
+});
+
 export const AssetMetadataSchema = z.object({
   type: z.enum(['image', 'video', 'audio', 'document', 'excel', 'word', 'pdf', 'ole', 'other']),
   filename: z.string(),
@@ -131,8 +171,12 @@ export const Pptx2JsonResponseSchema = z.object({
       animationCount: z.number().min(0),
       conversionTimeMs: z.number().min(0),
     }),
+    fidelityReport: FidelityReportSchema.optional(),
   }),
-  meta: SuccessMetaSchema,
+  meta: SuccessMetaSchema.extend({
+    fidelityScore: z.number().min(0).max(100).optional(),
+    fidelityQuality: z.enum(['excellent', 'good', 'fair', 'poor']).optional(),
+  }),
 });
 
 /**

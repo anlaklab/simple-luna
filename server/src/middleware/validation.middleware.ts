@@ -261,27 +261,43 @@ export function validateFormOptions<T>(schema: ZodSchema<T>) {
     let options = {};
     
     if (req.body.options) {
-      try {
-        options = JSON.parse(req.body.options);
-      } catch (error) {
-        logger.warn('Invalid JSON in options field', {
-          requestId,
-          options: req.body.options,
-          error,
-        });
-
-        return res.status(400).json({
-          success: false,
-          error: {
-            type: 'validation_error',
-            code: 'INVALID_OPTIONS_JSON',
-            message: 'Options parameter must be valid JSON',
-          },
-          meta: {
-            timestamp: new Date().toISOString(),
+      // If options is already an object (parsed by multer), use it directly
+      if (typeof req.body.options === 'object' && req.body.options !== null) {
+        options = req.body.options;
+      } else if (typeof req.body.options === 'string') {
+        // Handle empty string
+        if (req.body.options.trim() === '') {
+          options = {};
+        } else if (req.body.options === '[object Object]' || req.body.options.startsWith('[object')) {
+          // Handle object string representation - use empty object
+          logger.warn('Received object string representation in options, using empty object', {
             requestId,
-          },
+            options: req.body.options,
+          });
+          options = {};
+        } else {
+          // Try to parse as JSON
+          try {
+            options = JSON.parse(req.body.options);
+          } catch (error) {
+            logger.warn('Invalid JSON in options field, using empty object', {
+              requestId,
+              options: req.body.options,
+              error,
+            });
+            
+            // Use empty object instead of failing - be more forgiving
+            options = {};
+          }
+        }
+      } else {
+        // For any other type, use empty object
+        logger.warn('Unexpected options type, using empty object', {
+          requestId,
+          optionsType: typeof req.body.options,
+          options: req.body.options,
         });
+        options = {};
       }
     }
 

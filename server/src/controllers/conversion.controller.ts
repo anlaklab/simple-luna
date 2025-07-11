@@ -7,6 +7,7 @@
 import { Request, Response } from 'express';
 import { logger } from '../utils/logger';
 import { ConversionService } from '../services/conversion.service';
+import { HealthCheckService } from '../services/health-check.service';
 import { processUploadedFile, createTempFile, cleanupTempFiles } from '../utils/helpers';
 import {
   Pptx2JsonRequestSchema,
@@ -27,10 +28,12 @@ export interface ConversionControllerConfig {
 
 export class ConversionController {
   private readonly conversionService: ConversionService;
+  private readonly healthCheckService: HealthCheckService;
   private readonly config: ConversionControllerConfig;
 
   constructor(config: ConversionControllerConfig) {
     this.conversionService = config.conversionService;
+    this.healthCheckService = new HealthCheckService();
     this.config = {
       maxFileSize: 50 * 1024 * 1024, // 50MB
       allowedMimeTypes: [
@@ -577,30 +580,61 @@ export class ConversionController {
   // =============================================================================
 
   /**
-   * GET /health - Health check endpoint
+   * GET /health - Comprehensive health check endpoint
    */
   healthCheck = async (req: Request, res: Response): Promise<void> => {
     const startTime = Date.now();
     const requestId = this.generateRequestId();
 
     try {
-      const health = await this.conversionService.healthCheck();
+      logger.info('Health check requested', { requestId });
+
+      // Use cached health if available and recent (less than 1 minute old)
+      const cachedHealth = this.healthCheckService.getCachedHealth();
+      const useCache = cachedHealth && 
+        (Date.now() - new Date(cachedHealth.timestamp).getTime()) < 60000;
+
+      let systemHealth;
+      if (useCache) {
+        systemHealth = cachedHealth;
+        logger.debug('Using cached health check results', { requestId });
+      } else {
+        logger.debug('Performing fresh health check', { requestId });
+        systemHealth = await this.healthCheckService.performHealthCheck();
+      }
+
       const processingTime = Date.now() - startTime;
 
-      const status = health.overall ? 'healthy' : 'unhealthy';
-      const statusCode = health.overall ? 200 : 503;
+      // Determine HTTP status code based on overall health
+      let statusCode = 200;
+      if (systemHealth.overall === 'unhealthy') {
+        statusCode = 503;
+      } else if (systemHealth.overall === 'degraded') {
+        statusCode = 200; // Still operational but with warnings
+      }
 
       const response = {
         success: true,
         data: {
-          status,
-          timestamp: new Date().toISOString(),
-          uptime: process.uptime(),
-          version: '1.0',
-          services: {
-            conversion: health.conversion ? 'healthy' : 'unhealthy',
-            aspose: health.aspose ? 'healthy' : 'unhealthy',
-            firebase: health.firebase ? 'healthy' : 'unhealthy',
+          status: systemHealth.overall,
+          timestamp: systemHealth.timestamp,
+          uptime: systemHealth.uptime,
+          version: systemHealth.version,
+          services: systemHealth.services,
+          performance: {
+            memoryUsage: {
+              used: Math.round(systemHealth.performance.memoryUsage.heapUsed / 1024 / 1024),
+              total: Math.round(systemHealth.performance.memoryUsage.heapTotal / 1024 / 1024),
+              external: Math.round(systemHealth.performance.memoryUsage.external / 1024 / 1024),
+              rss: Math.round(systemHealth.performance.memoryUsage.rss / 1024 / 1024),
+            },
+            nodeVersion: process.version,
+            platform: process.platform,
+          },
+          checkDetails: {
+            cached: useCache,
+            checkTime: processingTime,
+            periodicChecksActive: true,
           },
         },
         meta: {
@@ -610,6 +644,13 @@ export class ConversionController {
           version: '1.0',
         },
       };
+
+      logger.info('Health check completed', {
+        requestId,
+        status: systemHealth.overall,
+        processingTime,
+        cached: useCache,
+      });
 
       res.status(statusCode).json(response);
 

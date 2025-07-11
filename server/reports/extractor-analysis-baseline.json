@@ -1,0 +1,334 @@
+{
+  "timestamp": "2025-07-10T16:53:09.831Z",
+  "summary": {
+    "filesAnalyzed": 14,
+    "totalLines": 3470,
+    "averageLinesPerFile": 248,
+    "criticalFiles": 4,
+    "warningFiles": 3,
+    "longMethods": 21
+  },
+  "files": [
+    {
+      "fileName": "shape-extractor.ts",
+      "filePath": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/shape-extractor.ts",
+      "totalLines": 730,
+      "codeLines": 555,
+      "severity": "CRITICAL",
+      "longMethods": [
+        {
+          "name": "processShape",
+          "startLine": 28,
+          "endLine": 92,
+          "lineCount": 65,
+          "severity": "WARNING"
+        },
+        {
+          "name": "extractTypeSpecificProperties",
+          "startLine": 157,
+          "endLine": 227,
+          "lineCount": 71,
+          "severity": "WARNING"
+        },
+        {
+          "name": "extractChartData",
+          "startLine": 285,
+          "endLine": 348,
+          "lineCount": 64,
+          "severity": "WARNING"
+        },
+        {
+          "name": "extractTableData",
+          "startLine": 353,
+          "endLine": 416,
+          "lineCount": 64,
+          "severity": "WARNING"
+        },
+        {
+          "name": "extractVideoProperties",
+          "startLine": 421,
+          "endLine": 475,
+          "lineCount": 55,
+          "severity": "WARNING"
+        },
+        {
+          "name": "extractAudioProperties",
+          "startLine": 480,
+          "endLine": 534,
+          "lineCount": 55,
+          "severity": "WARNING"
+        },
+        {
+          "name": "extractSmartArtProperties",
+          "startLine": 539,
+          "endLine": 604,
+          "lineCount": 66,
+          "severity": "WARNING"
+        },
+        {
+          "name": "extractOleObjectProperties",
+          "startLine": 609,
+          "endLine": 664,
+          "lineCount": 56,
+          "severity": "WARNING"
+        },
+        {
+          "name": "extractConnectorProperties",
+          "startLine": 669,
+          "endLine": 729,
+          "lineCount": 61,
+          "severity": "WARNING"
+        }
+      ],
+      "suggestions": [
+        "🚨 CRITICAL: Split shape-extractor.ts into multiple files (730 lines)",
+        "⚠️ METHOD: processShape() should be refactored (65 lines)",
+        "⚠️ METHOD: extractTypeSpecificProperties() should be refactored (71 lines)",
+        "⚠️ METHOD: extractChartData() should be refactored (64 lines)",
+        "⚠️ METHOD: extractTableData() should be refactored (64 lines)",
+        "⚠️ METHOD: extractVideoProperties() should be refactored (55 lines)",
+        "⚠️ METHOD: extractAudioProperties() should be refactored (55 lines)",
+        "⚠️ METHOD: extractSmartArtProperties() should be refactored (66 lines)",
+        "⚠️ METHOD: extractOleObjectProperties() should be refactored (56 lines)",
+        "⚠️ METHOD: extractConnectorProperties() should be refactored (61 lines)",
+        "🎯 SHAPE EXTRACTOR: Break into separate extractors by shape type (Chart, Table, Media, etc.)"
+      ]
+    },
+    {
+      "fileName": "ConversionService.ts",
+      "filePath": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/services/ConversionService.ts",
+      "totalLines": 606,
+      "codeLines": 461,
+      "severity": "CRITICAL",
+      "longMethods": [
+        {
+          "name": "performPptxToJsonConversion",
+          "startLine": 74,
+          "endLine": 140,
+          "lineCount": 67,
+          "severity": "WARNING"
+        },
+        {
+          "name": "processSlide",
+          "startLine": 222,
+          "endLine": 311,
+          "lineCount": 90,
+          "severity": "WARNING"
+        },
+        {
+          "name": "processShape",
+          "startLine": 317,
+          "endLine": 381,
+          "lineCount": 65,
+          "severity": "WARNING"
+        },
+        {
+          "name": "extractShapeText",
+          "startLine": 387,
+          "endLine": 455,
+          "lineCount": 69,
+          "severity": "WARNING"
+        }
+      ],
+      "suggestions": [
+        "🚨 CRITICAL: Split ConversionService.ts into multiple files (606 lines)",
+        "⚠️ METHOD: performPptxToJsonConversion() should be refactored (67 lines)",
+        "⚠️ METHOD: processSlide() should be refactored (90 lines)",
+        "⚠️ METHOD: processShape() should be refactored (65 lines)",
+        "⚠️ METHOD: extractShapeText() should be refactored (69 lines)"
+      ]
+    },
+    {
+      "fileName": "AsposeAdapterRefactored.ts",
+      "filePath": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/AsposeAdapterRefactored.ts",
+      "totalLines": 426,
+      "codeLines": 275,
+      "severity": "CRITICAL",
+      "longMethods": [
+        {
+          "name": "if",
+          "startLine": 256,
+          "endLine": 314,
+          "lineCount": 59,
+          "severity": "WARNING"
+        }
+      ],
+      "suggestions": [
+        "🚨 CRITICAL: Split AsposeAdapterRefactored.ts into multiple files (426 lines)",
+        "⚠️ METHOD: if() should be refactored (59 lines)"
+      ]
+    },
+    {
+      "fileName": "asposeUtils.ts",
+      "filePath": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/utils/asposeUtils.ts",
+      "totalLines": 364,
+      "codeLines": 263,
+      "severity": "CRITICAL",
+      "longMethods": [],
+      "suggestions": [
+        "🚨 CRITICAL: Split asposeUtils.ts into multiple files (364 lines)"
+      ]
+    },
+    {
+      "fileName": "interfaces.ts",
+      "filePath": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/types/interfaces.ts",
+      "totalLines": 297,
+      "codeLines": 230,
+      "severity": "WARNING",
+      "longMethods": [
+        {
+          "name": "generateThumbnails",
+          "startLine": 120,
+          "endLine": 219,
+          "lineCount": 100,
+          "severity": "WARNING"
+        }
+      ],
+      "suggestions": [
+        "⚠️ WARNING: Consider refactoring interfaces.ts (297 lines)",
+        "⚠️ METHOD: generateThumbnails() should be refactored (100 lines)"
+      ]
+    },
+    {
+      "fileName": "ThumbnailService.ts",
+      "filePath": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/services/ThumbnailService.ts",
+      "totalLines": 284,
+      "codeLines": 225,
+      "severity": "WARNING",
+      "longMethods": [
+        {
+          "name": "generateThumbnails",
+          "startLine": 33,
+          "endLine": 115,
+          "lineCount": 83,
+          "severity": "WARNING"
+        },
+        {
+          "name": "generateSingleThumbnail",
+          "startLine": 117,
+          "endLine": 173,
+          "lineCount": 57,
+          "severity": "WARNING"
+        }
+      ],
+      "suggestions": [
+        "⚠️ WARNING: Consider refactoring ThumbnailService.ts (284 lines)",
+        "⚠️ METHOD: generateThumbnails() should be refactored (83 lines)",
+        "⚠️ METHOD: generateSingleThumbnail() should be refactored (57 lines)"
+      ]
+    },
+    {
+      "fileName": "slide-extractor.ts",
+      "filePath": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/slide-extractor.ts",
+      "totalLines": 238,
+      "codeLines": 189,
+      "severity": "WARNING",
+      "longMethods": [
+        {
+          "name": "processSlide",
+          "startLine": 25,
+          "endLine": 166,
+          "lineCount": 142,
+          "severity": "CRITICAL"
+        }
+      ],
+      "suggestions": [
+        "⚠️ WARNING: Consider refactoring slide-extractor.ts (238 lines)",
+        "🚨 METHOD: processSlide() is too long (142 lines) - break into smaller methods"
+      ]
+    },
+    {
+      "fileName": "fill-extractor.ts",
+      "filePath": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/fill-extractor.ts",
+      "totalLines": 135,
+      "codeLines": 102,
+      "severity": "OK",
+      "longMethods": [
+        {
+          "name": "extractFillFormat",
+          "startLine": 18,
+          "endLine": 80,
+          "lineCount": 63,
+          "severity": "WARNING"
+        }
+      ],
+      "suggestions": [
+        "⚠️ METHOD: extractFillFormat() should be refactored (63 lines)"
+      ]
+    },
+    {
+      "fileName": "effect-extractor.ts",
+      "filePath": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/effect-extractor.ts",
+      "totalLines": 120,
+      "codeLines": 90,
+      "severity": "OK",
+      "longMethods": [
+        {
+          "name": "extractThreeDFormat",
+          "startLine": 69,
+          "endLine": 119,
+          "lineCount": 51,
+          "severity": "WARNING"
+        }
+      ],
+      "suggestions": [
+        "⚠️ METHOD: extractThreeDFormat() should be refactored (51 lines)"
+      ]
+    },
+    {
+      "fileName": "text-extractor.ts",
+      "filePath": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/text-extractor.ts",
+      "totalLines": 115,
+      "codeLines": 88,
+      "severity": "OK",
+      "longMethods": [
+        {
+          "name": "extractTextParagraphs",
+          "startLine": 44,
+          "endLine": 96,
+          "lineCount": 53,
+          "severity": "WARNING"
+        }
+      ],
+      "suggestions": [
+        "⚠️ METHOD: extractTextParagraphs() should be refactored (53 lines)"
+      ]
+    },
+    {
+      "fileName": "MetadataService.ts",
+      "filePath": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/services/MetadataService.ts",
+      "totalLines": 50,
+      "codeLines": 41,
+      "severity": "OK",
+      "longMethods": [],
+      "suggestions": []
+    },
+    {
+      "fileName": "AssetService.ts",
+      "filePath": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/services/AssetService.ts",
+      "totalLines": 39,
+      "codeLines": 29,
+      "severity": "OK",
+      "longMethods": [],
+      "suggestions": []
+    },
+    {
+      "fileName": "color-utils.ts",
+      "filePath": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/color-utils.ts",
+      "totalLines": 34,
+      "codeLines": 21,
+      "severity": "OK",
+      "longMethods": [],
+      "suggestions": []
+    },
+    {
+      "fileName": "geometry-extractor.ts",
+      "filePath": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/geometry-extractor.ts",
+      "totalLines": 32,
+      "codeLines": 24,
+      "severity": "OK",
+      "longMethods": [],
+      "suggestions": []
+    }
+  ]
+}

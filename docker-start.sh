@@ -1,18 +1,19 @@
 #!/bin/bash
 
 # 🐳 Luna Project - Docker Startup Script
-# Node.js 18 + Aspose.Slides Local Library
+# Node.js 18 + Aspose.Slides Local Library + Dynamic Extensions
 
 set -e
 
-echo "🌙 Luna Project - Docker Setup"
-echo "================================"
+echo "🌙 Luna Project - Docker Setup with Dynamic Extensions"
+echo "======================================================"
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
 # Function to print colored output
@@ -30,6 +31,10 @@ print_warning() {
 
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+print_extension() {
+    echo -e "${PURPLE}[EXTENSION]${NC} $1"
 }
 
 # Check if Docker is running
@@ -71,7 +76,7 @@ docker-compose up -d
 
 # Wait for services to be healthy
 print_status "Waiting for services to be ready..."
-sleep 10
+sleep 15
 
 # Check service health
 print_status "Checking service health..."
@@ -94,21 +99,36 @@ fi
 print_status "Running containers:"
 docker-compose ps
 
-# Show logs command
 echo ""
-print_status "Useful commands:"
-echo "  📋 View logs:           docker-compose logs -f"
-echo "  📋 View server logs:    docker-compose logs -f luna-server"
-echo "  📋 View client logs:    docker-compose logs -f luna-client"
-echo "  🛑 Stop services:       docker-compose down"
-echo "  🔄 Restart services:    docker-compose restart"
-echo "  🧹 Clean up:            docker-compose down -v --rmi all"
+print_extension "Testing Dynamic Extension System..."
 
-echo ""
-print_success "Luna Project is running!"
-print_status "🌐 Frontend: http://localhost:5173"
-print_status "🔧 Backend:  http://localhost:3000"
-print_status "📋 API Docs: http://localhost:3000/api/docs"
+# Test Dynamic Extensions functionality
+if curl -f http://localhost:3000/api/dynamic-extensions/health > /dev/null 2>&1; then
+    print_success "Dynamic Extensions system is healthy"
+    
+    # Get extension statistics
+    print_extension "Checking loaded extensions..."
+    EXTENSIONS_RESPONSE=$(curl -s http://localhost:3000/api/dynamic-extensions 2>/dev/null)
+    
+    if [ $? -eq 0 ] && [ ! -z "$EXTENSIONS_RESPONSE" ]; then
+        EXTENSION_COUNT=$(echo "$EXTENSIONS_RESPONSE" | grep -o '"totalExtensions":[0-9]*' | cut -d':' -f2)
+        if [ ! -z "$EXTENSION_COUNT" ] && [ "$EXTENSION_COUNT" -gt 0 ]; then
+            print_success "Found $EXTENSION_COUNT dynamic extensions loaded"
+            
+            # Show loaded extension types
+            EXTENSION_TYPES=$(echo "$EXTENSIONS_RESPONSE" | grep -o '"loadedTypes":\[[^]]*\]' | sed 's/"loadedTypes":\[//g' | sed 's/\]//g' | tr -d '"')
+            if [ ! -z "$EXTENSION_TYPES" ]; then
+                print_extension "Loaded extensions: $EXTENSION_TYPES"
+            fi
+        else
+            print_warning "No dynamic extensions loaded"
+        fi
+    else
+        print_warning "Could not retrieve extension information"
+    fi
+else
+    print_error "Dynamic Extensions system is not responding"
+fi
 
 # Test Aspose.Slides functionality
 echo ""
@@ -129,5 +149,32 @@ else
     print_status "Check logs with: docker-compose logs luna-server"
 fi
 
+# Show useful commands
 echo ""
-print_status "🎉 Setup complete! Luna is ready for REAL PowerPoint processing." 
+print_status "Useful commands:"
+echo "  📋 View logs:           docker-compose logs -f"
+echo "  📋 View server logs:    docker-compose logs -f luna-server"
+echo "  📋 View client logs:    docker-compose logs -f luna-client"
+echo "  🛑 Stop services:       docker-compose down"
+echo "  🔄 Restart services:    docker-compose restart"
+echo "  🧹 Clean up:            docker-compose down -v --rmi all"
+
+echo ""
+print_extension "Dynamic Extension Management Commands:"
+echo "  🔍 List extensions:     curl http://localhost:3000/api/dynamic-extensions"
+echo "  📊 Extension stats:     curl http://localhost:3000/api/dynamic-extensions/stats"
+echo "  🏥 Health check:        curl http://localhost:3000/api/dynamic-extensions/health"
+echo "  🧪 Test all:            curl -X POST http://localhost:3000/api/dynamic-extensions/test-all"
+echo "  🔄 Reload extensions:   curl -X POST http://localhost:3000/api/dynamic-extensions/reload"
+echo "  ✅ Enable extension:    curl -X POST http://localhost:3000/api/dynamic-extensions/{type}/enable"
+echo "  ❌ Disable extension:   curl -X POST http://localhost:3000/api/dynamic-extensions/{type}/disable"
+
+echo ""
+print_success "Luna Project with Dynamic Extensions is running!"
+print_status "🌐 Frontend: http://localhost:5173"
+print_status "🔧 Backend:  http://localhost:3000"
+print_status "📋 API Docs: http://localhost:3000/api/docs"
+print_extension "🚀 Dynamic Extensions: http://localhost:3000/api/dynamic-extensions"
+
+echo ""
+print_status "🎉 Setup complete! Luna is ready for REAL PowerPoint processing with Dynamic Extensions." 

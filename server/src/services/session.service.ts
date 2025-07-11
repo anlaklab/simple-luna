@@ -725,11 +725,62 @@ export class SessionService {
    */
   private async getSessionCount(query: SessionListQuery): Promise<number> {
     try {
-      // This would typically be a count query
-      // For now, return a reasonable estimate
-      return 0;
+      const {
+        userId,
+        status,
+        archived,
+        bookmarked,
+        tags,
+        dateFrom,
+        dateTo,
+      } = query;
+
+      // Build filters for Firebase count query (same as listSessions)
+      const filters: Array<{ field: string; operator: any; value: any }> = [];
+      
+      if (userId) {
+        filters.push({ field: 'userId', operator: '==', value: userId });
+      }
+      if (status) {
+        filters.push({ field: 'status', operator: '==', value: status });
+      }
+      if (archived !== undefined) {
+        filters.push({ field: 'metadata.archived', operator: '==', value: archived });
+      }
+      if (bookmarked !== undefined) {
+        filters.push({ field: 'metadata.bookmarked', operator: '==', value: bookmarked });
+      }
+      if (tags && tags.length > 0) {
+        filters.push({ field: 'metadata.tags', operator: 'array-contains-any', value: tags });
+      }
+      if (dateFrom) {
+        filters.push({ field: 'createdAt', operator: '>=', value: dateFrom });
+      }
+      if (dateTo) {
+        filters.push({ field: 'createdAt', operator: '<=', value: dateTo });
+      }
+
+      // Execute count query using Firebase
+      const sessions = await this.firebase.queryDocuments<ChatSession>(
+        this.collectionName,
+        filters,
+        999999 // Large limit to get all matching documents for counting
+      );
+
+      const count = sessions.length;
+      logger.info('Session count fetched', { 
+        count, 
+        userId, 
+        status, 
+        archived, 
+        bookmarked,
+        filtersApplied: filters.length 
+      });
+      
+      return count;
     } catch (error) {
       logger.error('Failed to get session count', { error, query });
+      // Return 0 as fallback instead of throwing
       return 0;
     }
   }

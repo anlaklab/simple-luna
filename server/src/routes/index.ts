@@ -8,10 +8,22 @@ import { Router, Request, Response } from 'express';
 import { timeoutHandler } from '../middleware/error.middleware';
 import conversionRoutes from './conversion.routes';
 import aiRoutes from './ai.routes';
+import analysisRoutes from './analysis.routes';
+import extractionRoutes from './extraction.routes';
 import swaggerRoutes from './swagger.routes';
 import adminRoutes from './admin.routes';
 import conversationRoutes from './conversation.routes';
 import sessionsRoutes from './sessions.routes';
+import { createAsyncExtractionRoutes } from './async-extraction.routes';
+import { AsyncExtractionController } from '../controllers/async-extraction.controller';
+import { AsyncExtractionService } from '../services/async-extraction.service';
+import { JobsService } from '../services/jobs.service';
+import { AsposeAdapterRefactored } from '../adapters/aspose/AsposeAdapterRefactored';
+import { FirebaseAdapter } from '../adapters/firebase.adapter';
+import { createEnhancedAIRoutes } from './enhanced-ai.routes';
+import { createGranularControlRoutes } from './granular-control.routes';
+import enhancedSwaggerRoutes from './enhanced-swagger.routes';
+import dynamicExtensionsRoutes from './dynamic-extensions.routes';
 // import batchRoutes from './batch.routes'; // Temporarily disabled due to Firebase config issue
 
 // =============================================================================
@@ -34,6 +46,90 @@ router.use((req: Request, res: Response, next) => {
 });
 
 // =============================================================================
+// ASYNC EXTRACTION SERVICES INITIALIZATION
+// =============================================================================
+
+// Initialize services for async extraction
+let asyncExtractionRoutes: Router | null = null;
+
+try {
+  // Initialize Firebase adapter if configured
+  let firebaseAdapter: FirebaseAdapter | undefined;
+  if (process.env.FIREBASE_PROJECT_ID && 
+      process.env.FIREBASE_PRIVATE_KEY && 
+      process.env.FIREBASE_CLIENT_EMAIL && 
+      process.env.FIREBASE_STORAGE_BUCKET) {
+    firebaseAdapter = new FirebaseAdapter({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    });
+  }
+
+  // Initialize AsposeAdapter  
+  const asposeAdapter = new AsposeAdapterRefactored({
+    licenseFilePath: process.env.ASPOSE_LICENSE_PATH || './Aspose.Slides.Product.Family.lic',
+    tempDirectory: process.env.ASPOSE_TEMP_DIR || './temp/aspose',
+    maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'),
+  });
+
+  // Initialize JobsService
+  const jobsService = new JobsService({
+    firebaseConfig: firebaseAdapter ? {
+      projectId: process.env.FIREBASE_PROJECT_ID!,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY!,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET!,
+    } : undefined,
+  });
+
+  // Initialize AsyncExtractionService
+  const asyncExtractionService = new AsyncExtractionService({
+    jobsService,
+    firebaseAdapter,
+    asposeAdapter,
+    defaultTimeout: 5 * 60 * 1000, // 5 minutes
+    maxConcurrentJobs: 3,
+  });
+
+  // Initialize AsyncExtractionController
+  const asyncExtractionController = new AsyncExtractionController(
+    asyncExtractionService,
+    jobsService
+  );
+
+  // Create async extraction routes
+  asyncExtractionRoutes = createAsyncExtractionRoutes(asyncExtractionController);
+
+} catch (error) {
+  console.warn('Failed to initialize async extraction services:', error);
+  // Continue without async extraction functionality
+}
+
+// Initialize Enhanced AI routes
+let enhancedAIRoutes: Router | null = null;
+
+try {
+  // Create enhanced AI routes (they handle their own OpenAI initialization)
+  enhancedAIRoutes = createEnhancedAIRoutes();
+} catch (error) {
+  console.warn('Failed to initialize enhanced AI services:', error);
+  // Continue without enhanced AI functionality
+}
+
+// Initialize Granular Control routes
+let granularControlRoutes: Router | null = null;
+
+try {
+  // Create granular control routes for individual slide/shape operations
+  granularControlRoutes = createGranularControlRoutes();
+} catch (error) {
+  console.warn('Failed to initialize granular control services:', error);
+  // Continue without granular control functionality
+}
+
+// =============================================================================
 // ROUTE MOUNTING
 // =============================================================================
 
@@ -45,9 +141,51 @@ router.use('/', conversionRoutes);
 
 /**
  * Mount AI-powered routes  
- * Handles translation, analysis, asset extraction, metadata extraction
+ * Handles translation and chat functionality
  */
 router.use('/', aiRoutes);
+
+/**
+ * Mount analysis routes
+ * Handles AI-powered presentation analysis (sentiment, accessibility, etc.)
+ */
+router.use('/', analysisRoutes);
+
+/**
+ * Mount extraction routes
+ * Handles asset and metadata extraction from presentations
+ */
+router.use('/', extractionRoutes);
+
+/**
+ * Mount async extraction routes
+ * Handles background asset and metadata extraction with job tracking
+ */
+if (asyncExtractionRoutes) {
+  router.use('/', asyncExtractionRoutes);
+}
+
+/**
+ * Mount enhanced AI routes
+ * Handles schema-aware AI analysis, translation, and suggestions
+ */
+if (enhancedAIRoutes) {
+  router.use('/', enhancedAIRoutes);
+}
+
+/**
+ * Mount granular control routes
+ * Handles individual slide/shape operations and raw rendering
+ */
+if (granularControlRoutes) {
+  router.use('/', granularControlRoutes);
+}
+
+/**
+ * Mount dynamic extensions routes
+ * Handles dynamic extension management and execution
+ */
+router.use('/dynamic-extensions', dynamicExtensionsRoutes);
 
 /**
  * Mount admin routes
@@ -78,6 +216,12 @@ router.use('/sessions', sessionsRoutes);
  * Handles Swagger/OpenAPI documentation
  */
 router.use('/', swaggerRoutes);
+
+/**
+ * Mount enhanced documentation routes
+ * Handles enhanced OpenAPI 3.0 documentation with examples
+ */
+router.use('/', enhancedSwaggerRoutes);
 
 // =============================================================================
 // API DOCUMENTATION ROUTE
@@ -192,6 +336,50 @@ router.get('/docs', (req: Request, res: Response) => {
               }),
             },
           },
+          'POST /chat': {
+            description: 'AI-powered chat with Luna assistant',
+            contentType: 'application/json',
+            parameters: {
+              message: 'Your message or question for Luna (required)',
+              sessionId: 'Optional session ID to maintain conversation context',
+              context: 'Additional context for the conversation',
+            },
+          },
+          'POST /extract-assets-async': {
+            description: 'Queue async asset extraction job (for large files)',
+            contentType: 'multipart/form-data',
+            parameters: {
+              file: 'PPTX file (required)',
+              assetTypes: 'Array of asset types: images, videos, audio (optional)',
+              generateThumbnails: 'Boolean to generate thumbnails (optional)',
+              timeoutMs: 'Custom timeout in milliseconds (optional, max 5 minutes)',
+              userId: 'User identifier for tracking (optional)',
+            },
+            response: {
+              jobId: 'Job ID for polling status',
+              pollUrl: 'URL to check job status',
+              estimatedDurationMs: 'Estimated processing time',
+            },
+          },
+          'POST /extract-metadata-async': {
+            description: 'Queue async metadata extraction job (for large files)',
+            contentType: 'multipart/form-data',
+            parameters: {
+              file: 'PPTX file (required)',
+              includeSystemProperties: 'Include system metadata (default: true)',
+              includeCustomProperties: 'Include custom properties (default: true)',
+              includeDocumentStatistics: 'Include document statistics (default: true)',
+              includeRevisionHistory: 'Include revision history (default: false)',
+              timeoutMs: 'Custom timeout in milliseconds (optional, max 5 minutes)',
+              userId: 'User identifier for tracking (optional)',
+            },
+          },
+        },
+      },
+      
+      extraction: {
+        description: 'Asset and metadata extraction endpoints',
+        routes: {
           'POST /extract-assets': {
             description: 'Extract embedded assets from presentation',
             contentType: 'multipart/form-data',
@@ -215,8 +403,222 @@ router.get('/docs', (req: Request, res: Response) => {
               file: 'PPTX file (required)',
               options: 'JSON string with extraction options (optional)',
             },
+            example: {
+              file: 'presentation.pptx',
+              options: JSON.stringify({
+                includeSystemMetadata: true,
+                includeCustomProperties: true,
+                includeStatistics: true,
+              }),
+            },
+          },
+          'POST /extract-asset-metadata': {
+            description: 'Extract metadata from embedded assets (Phase 2 implementation)',
+            contentType: 'multipart/form-data',
+            parameters: {
+              file: 'PPTX file (required)',
+            },
+            note: 'Scheduled for implementation in Phase 2 of refactoring',
           },
         },
+      },
+      
+      jobs: {
+        description: 'Job management endpoints for async operations',
+        routes: {
+          'GET /jobs/:jobId': {
+            description: 'Get job status and result',
+            contentType: 'application/json',
+            parameters: {
+              jobId: 'Job identifier (required)',
+            },
+            response: {
+              status: 'Job status: pending, processing, completed, failed',
+              progress: 'Progress percentage (0-100)',
+              result: 'Job result data (when completed)',
+              estimatedRemainingMs: 'Estimated remaining time',
+            },
+          },
+          'DELETE /jobs/:jobId': {
+            description: 'Cancel a pending or processing job',
+            contentType: 'application/json',
+            parameters: {
+              jobId: 'Job identifier (required)',
+            },
+          },
+          'GET /jobs': {
+            description: 'List jobs with filtering options',
+            contentType: 'application/json',
+            parameters: {
+              userId: 'Filter by user ID (optional)',
+              type: 'Filter by job type: extract-assets, extract-metadata (optional)',
+              status: 'Filter by status: pending, processing, completed, failed (optional)',
+              limit: 'Number of jobs to return (default: 20)',
+              offset: 'Number of jobs to skip (default: 0)',
+            },
+          },
+          'GET /extraction-queue': {
+            description: 'Get extraction queue status and health',
+            contentType: 'application/json',
+            parameters: {},
+            response: {
+              queue: 'Queue status with active and pending jobs',
+              health: 'Service health information',
+              performance: 'Performance metrics and utilization',
+            },
+          },
+        },
+      },
+
+      enhancedAI: {
+        description: 'Enhanced AI endpoints with Universal Schema awareness',
+        routes: {
+          'POST /analyze-enhanced': {
+            description: 'Schema-aware presentation analysis with enhanced insights',
+            contentType: 'application/json',
+            parameters: {
+              presentationData: 'Universal Schema presentation data (required)',
+              analysisTypes: 'Array of analysis types: summary, suggestions, accessibility, etc.',
+              context: 'Analysis context: targetAudience, presentationPurpose, industry',
+              enhanceWithSchemaKnowledge: 'Use schema structure for enhanced analysis (default: true)',
+              preserveSchemaStructure: 'Preserve Universal Schema structure (default: true)',
+            },
+            response: {
+              analysis: 'Enhanced analysis with schema compliance and insights',
+              schemaCompliance: 'Universal Schema compliance report',
+              universalSchemaInsights: 'Schema-specific insights and recommendations',
+            },
+          },
+          'POST /translate-enhanced': {
+            description: 'Schema-aware translation preserving Universal Schema structure',
+            contentType: 'application/json',
+            parameters: {
+              presentationData: 'Universal Schema presentation data (required)',
+              targetLanguage: 'Target language code (required)',
+              sourceLanguage: 'Source language code (optional, auto-detect)',
+              translateSchemaAware: 'Use schema-aware translation (default: true)',
+              preserveUniversalStructure: 'Preserve Universal Schema structure (default: true)',
+            },
+            response: {
+              translatedPresentation: 'Translated presentation with preserved schema',
+              schemaPreservation: 'Schema preservation validation report',
+              translationDetails: 'Translation metadata and quality metrics',
+            },
+          },
+          'POST /suggestions-enhanced': {
+            description: 'Generate schema-aware content suggestions',
+            contentType: 'application/json',
+            parameters: {
+              presentationData: 'Universal Schema presentation data (required)',
+              context: 'Context for generating suggestions (required)',
+              maxSuggestions: 'Maximum suggestions to generate (default: 10)',
+              focusAreas: 'Focus areas: structure, content, schema, accessibility',
+              includeSchemaOptimizations: 'Include Universal Schema optimizations (default: true)',
+            },
+            response: {
+              suggestions: 'Categorized and prioritized suggestions',
+              summary: 'Suggestions summary by category and priority',
+              processingMetrics: 'Processing metrics and schema analysis',
+            },
+          },
+          'GET /ai-health-enhanced': {
+            description: 'Health check for enhanced AI services',
+            contentType: 'application/json',
+            parameters: {},
+            response: {
+              services: 'OpenAI and Enhanced AI service status',
+              capabilities: 'Available AI capabilities and features',
+              overall: 'Overall health status: healthy, degraded, unhealthy',
+            },
+          },
+        },
+      },
+
+      granularControl: {
+        description: 'Granular control endpoints for individual slide/shape operations',
+        routes: {
+          'GET /presentations/{presentationId}/slides/{slideIndex}': {
+            description: 'Extract individual slide data with Universal Schema compliance',
+            contentType: 'application/json',
+            parameters: {
+              presentationId: 'Presentation identifier (required)',
+              slideIndex: 'Zero-based slide index (required)',
+              includeShapes: 'Include shape data (default: true)',
+              includeNotes: 'Include slide notes (default: true)',
+              includeBackground: 'Include background formatting (default: true)',
+            },
+            response: {
+              slide: 'Complete slide data in Universal Schema format',
+              metadata: 'Extraction metadata and processing statistics',
+            },
+          },
+          'GET /presentations/{presentationId}/slides/{slideIndex}/shapes/{shapeId}': {
+            description: 'Extract individual shape data with detailed formatting',
+            contentType: 'application/json',
+            parameters: {
+              presentationId: 'Presentation identifier (required)',
+              slideIndex: 'Zero-based slide index (required)',
+              shapeId: 'Shape identifier (required)',
+              includeFormatting: 'Include formatting details (default: true)',
+              includeText: 'Include text content (default: true)',
+            },
+            response: {
+              shape: 'Complete shape data with geometry, formatting, and content',
+            },
+          },
+          'POST /render/slide': {
+            description: 'Render slide from Universal Schema JSON to various formats',
+            contentType: 'application/json',
+            parameters: {
+              slideData: 'Universal Schema slide data (required)',
+              renderOptions: 'Rendering options: format, dimensions, quality',
+            },
+            response: {
+              renderedSlide: 'Base64 encoded result or download URL',
+              format: 'Output format used',
+              dimensions: 'Final dimensions',
+              renderingStats: 'Performance and processing statistics',
+            },
+            formats: ['json', 'pptx', 'png', 'svg'],
+          },
+          'POST /render/shape': {
+            description: 'Render individual shape from Universal Schema JSON',
+            contentType: 'application/json',
+            parameters: {
+              shapeData: 'Universal Schema shape data (required)',
+              renderOptions: 'Rendering options: format, size, background',
+            },
+            response: {
+              renderedShape: 'SVG markup or base64 encoded image',
+              format: 'Output format used',
+              bounds: 'Shape boundaries and positioning',
+            },
+            formats: ['json', 'svg', 'png'],
+          },
+          'POST /transform/slide': {
+            description: 'Apply transformations to slide data without affecting full presentation',
+            contentType: 'application/json',
+            parameters: {
+              slideData: 'Original slide data (required)',
+              transformations: 'Array of transformations: translate, resize, recolor, rotate',
+              preserveAspectRatio: 'Preserve aspect ratio during transformations (default: true)',
+            },
+            response: {
+              transformedSlide: 'Transformed slide data',
+              appliedTransformations: 'List of applied transformations',
+              transformationStats: 'Transformation statistics and metrics',
+            },
+            transformations: ['translate', 'resize', 'recolor', 'rotate', 'scale'],
+          },
+        },
+        benefits: [
+          'Surgical precision for individual slides and shapes',
+          'Real-time preview generation',
+          'Performance optimization (process only what you need)',
+          'Fine-grained control over transformations',
+          'Universal Schema compliance maintained',
+          'Multiple output formats supported',
+        ],
       },
       
       utility: {

@@ -264,3 +264,117 @@ The TypeScript server is now **FEATURE-COMPLETE** and production-ready with ente
 - **Memory Management**: PowerPoint processing can be memory-intensive, monitor resource usage
 - **Version Compatibility**: Stick to Node.js 18 for Aspose.Slides compatibility
 - **Architecture**: TypeScript server provides superior type safety and maintainability
+
+# 🚀 LUNA PROJECT - CURSOR RULES
+# PowerPoint Processing Platform with AI Capabilities
+
+## 🎯 PROJECT OVERVIEW
+You are working on Luna, a professional PowerPoint processing platform with AI capabilities. This project converts PPTX files to Universal JSON schema and provides advanced analysis through a React frontend and Node.js backend.
+
+## 🚨 CRITICAL SURGICAL RULES - NEVER VIOLATE
+
+### ❌ ULTRA CRITICAL - ENVIRONMENT & DEVELOPMENT:
+1. **NEVER TOUCH .env FILE**: NEVER modify, overwrite, or recreate the .env file - it is sacred
+2. **DOCKER ONLY DEVELOPMENT**: NEVER attempt to run anything locally, ONLY use Docker
+3. **NO LOCAL NODE.JS**: NEVER install Node.js modules locally, ONLY in Docker containers
+4. **NO LOCAL JAVA MODULE**: NEVER attempt to install java module on macOS - it will fail
+5. **SURGICAL PRECISION**: Every change must be deliberate, tested, and step-by-step
+6. **VERIFY BEFORE ACTION**: Always check current state before making any changes
+
+### 🐳 DOCKER MANDATORY RULES:
+1. **DOCKER IS THE ONLY ENVIRONMENT**: All development, testing, and debugging ONLY in Docker
+2. **NODE.JS 18 REQUIRED**: Docker must use Node.js 18 for java module compatibility
+3. **CLEAN REBUILDS**: Always rebuild Docker images when making system changes
+4. **CONTAINER LOGS**: Always check Docker logs for debugging, not local execution
+
+## 🚫 CRITICAL PROHIBITIONS - NEVER VIOLATE THESE RULES
+
+### ❌ ABSOLUTELY FORBIDDEN - NO EXCEPTIONS:
+1. **NO MOCK DATA EVER**: NEVER create mock data, test data, placeholder data, or demo data
+2. **NO TESTS OR DEMOS**: NEVER create test files, demo files, or example files
+3. **NO PLACEHOLDER CONTENT**: NEVER use placeholder text, dummy content, or fake data
+4. **NO SIMULATED RESPONSES**: NEVER simulate API responses or fake service calls
+5. **NO MOCKUPS**: NEVER create mockup presentations or sample presentations
+6. **ALWAYS USE REAL DATA**: Every file, every response, every conversion must use real data
+7. **ALWAYS USE REAL SERVICES**: Every API call must be to real services, never mocked
+
+### 🔥 ULTRA CRITICAL - NO FALLBACKS POLICY:
+1. **NO FALLBACK LOGIC EVER**: NEVER create "if X fails, use Y" logic between services
+2. **NO LEGACY COMPATIBILITY**: If there are duplicate services, DELETE the legacy one completely
+3. **FAIL FAST AND CLEAR**: If a service is not configured correctly, FAIL with explicit error
+4. **NO CONDITIONAL SERVICE SELECTION**: Never choose between services based on configuration
+5. **DETERMINISTIC ARCHITECTURE**: The system MUST work correctly or fail clearly - no middle ground
+6. **DELETE LEGACY CODE**: When refactoring, DELETE old code completely, never leave it as fallback
+7. **EXPLICIT ERROR MESSAGES**: If configuration is missing, explain EXACTLY what needs to be configured
+8. **NO GRACEFUL DEGRADATION**: Never provide "reduced functionality" - either full functionality or clear failure
+
+#### ❌ FORBIDDEN FALLBACK PATTERNS:
+```javascript
+// ❌ NEVER DO THIS - NO FALLBACKS
+if (newService) {
+  return await newService.process();
+} else {
+  return await legacyService.process(); // FORBIDDEN
+}
+
+// ❌ NEVER DO THIS - NO MOCK DATA
+if (realData) {
+  return realData;
+} else {
+  return mockData; // FORBIDDEN
+}
+
+// ❌ NEVER DO THIS - NO DEGRADED FUNCTIONALITY  
+if (configured) {
+  return fullFeatures();
+} else {
+  return limitedFeatures(); // FORBIDDEN
+}
+```
+
+#### ✅ CORRECT PATTERNS:
+```javascript
+// ✅ DETERMINISTIC ARCHITECTURE
+if (!requiredConfig) {
+  throw new Error(`CRITICAL: Missing required config: ${missing.join(', ')}`);
+}
+return await service.process(); // Always use the ONLY service
+
+// ✅ FAIL FAST AND CLEAR
+const service = createService(requiredConfig); // Must succeed or throw
+return await service.process();
+
+// ✅ DELETE LEGACY COMPLETELY
+// Old code is deleted, not commented out or used as fallback
+```
+
+### 🔧 ASPOSE.SLIDES MANDATORY REQUIREMENTS:
+1. **USE LOCAL LIBRARY ONLY**: ALWAYS use the local Aspose.Slides library at `lib/aspose.slides.js`
+2. **NEVER USE CLOUD API**: NEVER use Aspose.Slides Cloud API or any cloud service
+3. **REAL CONVERSION ONLY**: Every PPTX conversion must use the actual local library
+4. **PROCESS ALL SLIDES**: If a file has 230 slides, process ALL 230 slides, not 10 or any subset
+5. **EXTRACT REAL CONTENT**: Extract actual text, shapes, images, and formatting from files
+6. **NO SLIDE LIMITS**: Process files of any size with any number of slides
+
+### 📋 PROJECT STRUCTURE
+```
+aspose-slides-25.6-nodejs/
+├── client/                 # React Frontend (Vite + TypeScript)
+│   ├── src/
+│   │   ├── components/ui/  # shadcn/ui design system - DO NOT MODIFY
+│   │   ├── components/     # Feature components
+│   │   ├── hooks/          # React Query + API logic
+│   │   ├── pages/          # Route components
+│   │   ├── lib/            # Utilities
+│   │   └── types/          # TypeScript definitions
+├── server/                 # Node.js Backend (Express + TypeScript)
+│   ├── src/
+│   │   ├── adapters/       # External service integrations
+│   │   ├── services/       # Business logic
+│   │   ├── controllers/    # Request/response handling
+│   │   ├── routes/         # API route definitions
+│   │   └── middleware/     # Express middleware
+└── lib/                    # Aspose.Slides library (LOCAL ONLY)
+    ├── aspose.slides.js    # Main library file
+    └── aspose.slides.d.ts  # TypeScript definitions
+```

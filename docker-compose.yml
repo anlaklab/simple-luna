@@ -29,6 +29,12 @@ services:
       # Aspose.Slides Configuration (LOCAL LIBRARY)
       - ASPOSE_LICENSE_PATH=${ASPOSE_LICENSE_PATH:-/app/Aspose.Slides.Product.Family.lic}
       
+      # Dynamic Extensions Configuration
+      - DYNAMIC_EXTENSIONS_ENABLED=true
+      - DYNAMIC_EXTENSIONS_DIR=/app/server/src/modules/shared/extensions
+      - DYNAMIC_EXTENSIONS_MAX=20
+      - DYNAMIC_EXTENSIONS_DEFAULT=chart,table,video
+      
       # Firebase Configuration (Firestore + Storage only)
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
       - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
@@ -49,9 +55,13 @@ services:
       - luna-conversions:/app/temp/conversions
       - luna-logs:/app/logs
       
+      # Dynamic Extensions storage (persistent across container restarts)
+      - luna-extensions:/app/server/src/modules/shared/extensions
+      
       # Development: Mount source code for hot reload (comment out for production)
       # - ./server:/app/server
       # - ./lib:/app/lib
+      # - ./server/src/modules/shared/extensions:/app/server/src/modules/shared/extensions
       
     networks:
       - luna-network
@@ -98,6 +108,8 @@ volumes:
   luna-conversions:
     driver: local
   luna-logs:
+    driver: local
+  luna-extensions:
     driver: local
 
 # =============================================================================

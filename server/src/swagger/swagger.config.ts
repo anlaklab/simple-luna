@@ -6,6 +6,52 @@
 
 import swaggerJsdoc from 'swagger-jsdoc';
 import { Request } from 'express';
+import path from 'path';
+import fs from 'fs';
+
+// =============================================================================
+// DYNAMIC PATH RESOLUTION
+// =============================================================================
+
+/**
+ * Dynamically resolve paths to TypeScript source files
+ * swagger-jsdoc needs the actual .ts files with JSDoc comments, not compiled .js files
+ */
+function resolveSourcePaths(): string[] {
+  const possibleBasePaths = [
+    // If running from compiled dist/ directory
+    path.resolve(__dirname, '../../src'),
+    // If running from src/ directory directly
+    path.resolve(__dirname, '../'),
+    // If running from server/ directory
+    path.resolve(process.cwd(), 'src'),
+    // If running from project root
+    path.resolve(process.cwd(), 'server/src'),
+  ];
+
+  // Find the first valid base path that contains the routes directory
+  let sourcePath: string | null = null;
+  for (const basePath of possibleBasePaths) {
+    const routesPath = path.join(basePath, 'routes');
+    if (fs.existsSync(routesPath)) {
+      sourcePath = basePath;
+      break;
+    }
+  }
+
+  if (!sourcePath) {
+    console.warn('⚠️  Swagger: Could not find source files for JSDoc documentation');
+    return [];
+  }
+
+  const apiPaths = [
+    path.join(sourcePath, 'routes/*.ts'),
+    path.join(sourcePath, 'controllers/*.ts'),
+  ];
+
+  console.log('📖 Swagger: Using source paths for JSDoc documentation:', apiPaths);
+  return apiPaths;
+}
 
 // =============================================================================
 // SWAGGER OPTIONS CONFIGURATION
@@ -80,8 +126,32 @@ All conversions use a standardized JSON schema that preserves:
         description: 'AI-powered features - translation, analysis, insights',
       },
       {
+        name: 'Enhanced AI',
+        description: 'Advanced AI operations with Universal Schema awareness',
+      },
+      {
         name: 'Extraction',
         description: 'Data extraction - assets, metadata, content analysis',
+      },
+      {
+        name: 'Dynamic Extensions',
+        description: 'Runtime extension management - load, test, enable/disable extensions dynamically',
+      },
+      {
+        name: 'Async Operations',
+        description: 'Background processing with job tracking and queuing',
+      },
+      {
+        name: 'Batch Operations',
+        description: 'High-performance bulk operations with concurrency control',
+      },
+      {
+        name: 'Sessions',
+        description: 'Session management and conversation tracking',
+      },
+      {
+        name: 'Granular Control',
+        description: 'Individual slide/shape operations and raw rendering capabilities',
       },
       {
         name: 'Utility',
@@ -552,10 +622,8 @@ All conversions use a standardized JSON schema that preserves:
       },
     },
   },
-  apis: [
-    './src/routes/*.ts', // Include route files for automatic endpoint documentation
-    './src/controllers/*.ts', // Include controllers for JSDoc comments
-  ],
+  // Dynamically resolve paths to TypeScript source files with JSDoc comments
+  apis: resolveSourcePaths(),
 };
 
 // =============================================================================

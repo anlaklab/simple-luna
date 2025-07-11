@@ -1,14 +1,28 @@
 /**
- * API Layer - Screaming Architecture Frontend
- * 🎯 RESPONSIBILITY: Centralized API communication
- * 📋 SCOPE: All /api/v1/* endpoints, error handling, typing
- * ⚠️  NEVER call localhost:8080 directly - always via /api/v1/*
+ * Unified API Layer - Enhanced with Configuration and Error Handling
+ * 🎯 RESPONSIBILITY: Centralized API communication with robust error handling
+ * 📋 SCOPE: All /api/v1/* endpoints, error handling, typing, retry logic
+ * ⚡ FEATURES: Auto-retry, caching, monitoring, type safety
  */
 
 import { UniversalPresentation } from '@/types/universal-json';
+import { 
+  API_CONFIG, 
+  buildApiUrl, 
+  buildQueryString, 
+  getRequestConfig, 
+  createApiError, 
+  isRetryableError, 
+  calculateRetryDelay, 
+  delay,
+  apiMonitor,
+  type ApiError,
+  type RequestMetrics 
+} from '@/lib/config/api.config';
 
-// Base API configuration
-const API_BASE = '/api/v1';
+// =============================================================================
+// TYPE DEFINITIONS
+// =============================================================================
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -16,6 +30,11 @@ export interface ApiResponse<T = any> {
   error?: string;
   message?: string;
   timestamp: string;
+  meta?: {
+    requestId?: string;
+    processingTime?: number;
+    version?: string;
+  };
 }
 
 export interface PaginatedResponse<T = any> extends ApiResponse<T[]> {
@@ -23,67 +42,225 @@ export interface PaginatedResponse<T = any> extends ApiResponse<T[]> {
     page: number;
     limit: number;
     total: number;
-    pages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
   };
 }
 
-// Generic API call wrapper
-async function apiCall<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<ApiResponse<T>> {
-  try {
-    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-      ...options,
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || `API Error: ${response.status}`);
-    }
-
-    return data;
-  } catch (error) {
-    console.error('API Call Error:', { endpoint, error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'API call failed',
-      timestamp: new Date().toISOString(),
-    };
-  }
+export interface UploadProgress {
+  loaded: number;
+  total: number;
+  percentage: number;
 }
 
-// Generic multipart/form-data wrapper for file uploads
+export interface ApiCallOptions extends RequestInit {
+  timeout?: number;
+  retries?: number;
+  onProgress?: (progress: UploadProgress) => void;
+  skipRetry?: boolean;
+}
+
+// =============================================================================
+// CORE API FUNCTIONS
+// =============================================================================
+
+/**
+ * Enhanced API call wrapper with retry logic and monitoring
+ */
+async function apiCall<T>(
+  endpoint: string,
+  options: ApiCallOptions = {}
+): Promise<ApiResponse<T>> {
+  const startTime = Date.now();
+  const { retries = API_CONFIG.retry.attempts, skipRetry = false, ...requestOptions } = options;
+  
+  let lastError: any;
+  let attempt = 0;
+
+  while (attempt < retries) {
+    attempt++;
+    
+    try {
+      const url = buildApiUrl(endpoint);
+      const config = getRequestConfig(requestOptions);
+      
+      const response = await fetch(url, config);
+      const data = await response.json();
+      
+      const duration = Date.now() - startTime;
+      const metrics: RequestMetrics = {
+        url,
+        method: config.method || 'GET',
+        duration,
+        status: response.status,
+        success: response.ok,
+        timestamp: new Date().toISOString(),
+        retryCount: attempt - 1,
+      };
+
+      if (!response.ok) {
+        const error = createApiError(
+          data.error || `HTTP ${response.status}: ${response.statusText}`,
+          response.status,
+          data.code,
+          data.details
+        );
+        
+        metrics.error = error.message;
+        apiMonitor.recordRequest(metrics);
+        
+        // Check if we should retry
+        if (!skipRetry && attempt < retries && isRetryableError({ status: response.status })) {
+          const retryDelay = calculateRetryDelay(attempt);
+          await delay(retryDelay);
+          continue;
+        }
+        
+        return {
+          success: false,
+          error: error.message,
+          timestamp: error.timestamp,
+          meta: {
+            requestId: data.meta?.requestId,
+          },
+        };
+      }
+
+      apiMonitor.recordRequest(metrics);
+      return data;
+
+    } catch (error) {
+      lastError = error;
+      const duration = Date.now() - startTime;
+      
+      const metrics: RequestMetrics = {
+        url: buildApiUrl(endpoint),
+        method: requestOptions.method || 'GET',
+        duration,
+        status: 0,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString(),
+        retryCount: attempt - 1,
+      };
+      
+      apiMonitor.recordRequest(metrics);
+      
+      // Check if we should retry
+      if (!skipRetry && attempt < retries && isRetryableError(error)) {
+        const retryDelay = calculateRetryDelay(attempt);
+        await delay(retryDelay);
+        continue;
+      }
+      
+      break;
+    }
+  }
+
+  // All retries exhausted
+  const finalError = createApiError(
+    lastError instanceof Error ? lastError.message : 'API call failed after retries',
+    undefined,
+    'NETWORK_ERROR'
+  );
+
+  return {
+    success: false,
+    error: finalError.message,
+    timestamp: finalError.timestamp,
+  };
+}
+
+/**
+ * Enhanced file upload with progress tracking
+ */
 async function apiUpload<T>(
   endpoint: string,
-  formData: FormData
+  formData: FormData,
+  options: ApiCallOptions = {}
 ): Promise<ApiResponse<T>> {
+  const { onProgress, ...otherOptions } = options;
+  
   try {
-    const url = `${API_BASE}${endpoint}`;
+    const url = buildApiUrl(endpoint);
     
-    const response = await fetch(url, {
+    // Create XMLHttpRequest for progress tracking
+    if (onProgress) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const progress: UploadProgress = {
+              loaded: event.loaded,
+              total: event.total,
+              percentage: Math.round((event.loaded / event.total) * 100),
+            };
+            onProgress(progress);
+          }
+        });
+        
+        xhr.addEventListener('load', async () => {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(data);
+            } else {
+              resolve({
+                success: false,
+                error: data.error || `Upload failed: ${xhr.status}`,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          } catch (error) {
+            resolve({
+              success: false,
+              error: 'Failed to parse upload response',
+              timestamp: new Date().toISOString(),
+            });
+          }
+        });
+        
+        xhr.addEventListener('error', () => {
+          resolve({
+            success: false,
+            error: 'Upload failed',
+            timestamp: new Date().toISOString(),
+          });
+        });
+        
+        xhr.open('POST', url);
+        xhr.send(formData);
+      });
+    }
+    
+    // Fall back to regular fetch for uploads without progress
+    const config = getRequestConfig({
       method: 'POST',
       body: formData,
-    });
-
+      ...otherOptions,
+    }, 'upload');
+    
+    // Remove Content-Type header for FormData
+    if (config.headers && 'Content-Type' in config.headers) {
+      delete (config.headers as any)['Content-Type'];
+    }
+    
+    const response = await fetch(url, config);
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || `Upload Error: ${response.status}`);
+      return {
+        success: false,
+        error: data.error || `Upload Error: ${response.status}`,
+        timestamp: new Date().toISOString(),
+      };
     }
 
     return data;
+
   } catch (error) {
-    console.error('API Upload Error:', { endpoint, error });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Upload failed',
@@ -92,9 +269,11 @@ async function apiUpload<T>(
   }
 }
 
-// 🔥 HEALTH & SYSTEM
+// =============================================================================
+// HEALTH & SYSTEM API
+// =============================================================================
+
 export const healthApi = {
-  // Get system health
   getHealth: () => apiCall<{
     status: 'healthy' | 'degraded' | 'unhealthy';
     services: Array<{
@@ -102,91 +281,225 @@ export const healthApi = {
       status: 'up' | 'down' | 'degraded';
       responseTime?: number;
       lastCheck: string;
+      details?: any;
     }>;
     uptime: number;
     version: string;
+    environment: string;
   }>('/health'),
 
-  // Get API documentation
   getApiInfo: () => apiCall<{
     name: string;
     version: string;
     description: string;
     baseUrl: string;
+    environment: string;
     endpoints: Record<string, any>;
+    features: Record<string, boolean>;
   }>('/'),
+
+  getStats: () => apiCall<{
+    requests: {
+      total: number;
+      successful: number;
+      failed: number;
+      avgResponseTime: number;
+    };
+    system: {
+      uptime: number;
+      memory: {
+        used: number;
+        total: number;
+        percentage: number;
+      };
+      cpu: {
+        usage: number;
+      };
+    };
+    services: Record<string, any>;
+  }>('/stats'),
 };
 
-// 📄 PRESENTATIONS
+// =============================================================================
+// ENHANCED PRESENTATIONS API
+// =============================================================================
+
 export const presentationsApi = {
-  // List presentations
+  // List presentations with advanced filtering
   list: (params?: { 
     page?: number; 
     limit?: number; 
     sortBy?: string; 
-    sortOrder?: 'asc' | 'desc' 
+    sortOrder?: 'asc' | 'desc';
+    author?: string;
+    company?: string;
+    status?: string;
+    minSlideCount?: number;
+    maxSlideCount?: number;
+    tags?: string[];
+    dateFrom?: string;
+    dateTo?: string;
   }) => {
-    const query = new URLSearchParams();
-    if (params?.page) query.set('page', params.page.toString());
-    if (params?.limit) query.set('limit', params.limit.toString());
-    if (params?.sortBy) query.set('sortBy', params.sortBy);
-    if (params?.sortOrder) query.set('sortOrder', params.sortOrder);
-    
-    return apiCall<PaginatedResponse<any>>(`/presentations?${query.toString()}`);
+    const queryString = buildQueryString(params || {});
+    return apiCall<PaginatedResponse<any>>(`/presentations${queryString}`);
   },
 
-  // Get presentation metadata
-  get: (id: string) => apiCall<any>(`/presentations/${id}`),
+  // Get presentation with optional includes
+  get: (id: string, options?: {
+    includeVersions?: boolean;
+    includeAnalytics?: boolean;
+  }) => {
+    const queryString = buildQueryString(options || {});
+    return apiCall<any>(`/presentations/${id}${queryString}`);
+  },
 
-  // Get presentation versions
-  getVersions: (id: string) => apiCall<{
-    presentationId: string;
-    versions: Array<{
-      id: string;
-      version: string;
-      createdAt: string;
-      author?: string;
-      comment?: string;
-    }>;
-    currentVersion: string;
-  }>(`/presentations/${id}/versions`),
+  // Create new presentation
+  create: (formData: FormData, onProgress?: (progress: UploadProgress) => void) => 
+    apiUpload<any>('/presentations', formData, { onProgress }),
+
+  // Update presentation metadata
+  update: (id: string, data: {
+    title?: string;
+    description?: string;
+    tags?: string[];
+    category?: string;
+    isPublic?: boolean;
+    allowDownload?: boolean;
+  }) => apiCall<any>(`/presentations/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+
+  // Delete presentation
+  delete: (id: string, options?: {
+    deleteVersions?: boolean;
+    deleteThumbnails?: boolean;
+  }) => {
+    const queryString = buildQueryString(options || {});
+    return apiCall<{ message: string }>(`/presentations/${id}${queryString}`, {
+      method: 'DELETE',
+    });
+  },
 
   // Search presentations
   search: (params: {
     q: string;
     page?: number;
     limit?: number;
-    author?: string;
-    dateFrom?: string;
-    dateTo?: string;
+    searchIn?: string[];
   }) => {
-    const query = new URLSearchParams();
-    query.set('q', params.q);
-    if (params.page) query.set('page', params.page.toString());
-    if (params.limit) query.set('limit', params.limit.toString());
-    if (params.author) query.set('author', params.author);
-    if (params.dateFrom) query.set('dateFrom', params.dateFrom);
-    if (params.dateTo) query.set('dateTo', params.dateTo);
-    
-    return apiCall<PaginatedResponse<any>>(`/presentations/search?${query.toString()}`);
+    const queryString = buildQueryString(params);
+    return apiCall<PaginatedResponse<any>>(`/presentations/search${queryString}`);
   },
+
+  // Get presentation versions
+  getVersions: (id: string) => apiCall<{
+    presentationId: string;
+    versions: Array<{
+      version: number;
+      createdAt: string;
+      createdBy: string;
+      changes: string;
+      filePath: string;
+      fileSize: number;
+    }>;
+    currentVersion: number;
+  }>(`/presentations/${id}/versions`),
+
+  // Create new version
+  createVersion: (id: string, formData: FormData) => 
+    apiUpload<any>(`/presentations/${id}/versions`, formData),
+
+  // Restore version
+  restoreVersion: (id: string, version: number) => 
+    apiCall<any>(`/presentations/${id}/versions/${version}/restore`, {
+      method: 'POST',
+    }),
+
+  // Get analytics
+  getAnalytics: (id: string) => apiCall<any>(`/presentations/${id}/analytics`),
+
+  // Get analytics summary
+  getAnalyticsSummary: () => apiCall<any>('/presentations/analytics/summary'),
+
+  // Export presentation
+  export: (id: string, options: {
+    format: 'pdf' | 'pptx' | 'json' | 'html';
+    quality?: 'high' | 'medium' | 'low';
+    includeNotes?: boolean;
+    slideRange?: { start: number; end: number };
+  }) => apiCall<{
+    exportId: string;
+    downloadUrl: string;
+    filename: string;
+    format: string;
+    size: number;
+    expiresAt: string;
+  }>(`/presentations/${id}/export`, {
+    method: 'POST',
+    body: JSON.stringify(options),
+  }),
+
+  // Create sharing link
+  createSharingLink: (id: string, options: {
+    expiresIn?: string;
+    allowDownload?: boolean;
+    requirePassword?: boolean;
+    password?: string;
+  }) => apiCall<{
+    shareId: string;
+    shareUrl: string;
+    expiresAt: string;
+    permissions: any;
+  }>(`/presentations/${id}/share`, {
+    method: 'POST',
+    body: JSON.stringify(options),
+  }),
+
+  // Bulk operations
+  bulkDelete: (presentationIds: string[]) => 
+    apiCall<{
+      successful: string[];
+      failed: Array<{ id: string; error: string }>;
+    }>('/presentations/bulk/delete', {
+      method: 'POST',
+      body: JSON.stringify({ presentationIds }),
+    }),
+
+  bulkUpdate: (presentationIds: string[], updates: any) => 
+    apiCall<{
+      successful: string[];
+      failed: Array<{ id: string; error: string }>;
+    }>('/presentations/bulk/update', {
+      method: 'POST',
+      body: JSON.stringify({ presentationIds, updates }),
+    }),
 };
 
-// 🔄 CONVERSION
+// =============================================================================
+// CONVERSION API (Enhanced)
+// =============================================================================
+
 export const conversionApi = {
   // Convert PPTX to Universal JSON
-  pptxToJson: (file: File, options?: {
-    includeAssets?: boolean;
-    includeHidden?: boolean;
-  }) => {
+  pptxToJson: (
+    file: File, 
+    options?: {
+      includeAssets?: boolean;
+      includeHidden?: boolean;
+      includeNotes?: boolean;
+      generateThumbnails?: boolean;
+    },
+    onProgress?: (progress: UploadProgress) => void
+  ) => {
     const formData = new FormData();
     formData.append('file', file);
-    if (options?.includeAssets !== undefined) {
-      formData.append('includeAssets', options.includeAssets.toString());
-    }
-    if (options?.includeHidden !== undefined) {
-      formData.append('includeHidden', options.includeHidden.toString());
-    }
+    
+    Object.entries(options || {}).forEach(([key, value]) => {
+      if (value !== undefined) {
+        formData.append(key, value.toString());
+      }
+    });
 
     return apiUpload<{
       inputFormat: string;
@@ -194,28 +507,59 @@ export const conversionApi = {
       inputSize: number;
       conversionTime: number;
       presentation: UniversalPresentation;
-    }>('/pptx2json', formData);
+      metadata: {
+        slideCount: number;
+        shapeCount: number;
+        imageCount: number;
+        chartCount: number;
+        tableCount: number;
+      };
+      thumbnails?: any[];
+    }>('/pptx2json', formData, { onProgress });
   },
 
   // Convert Universal JSON to PPTX
-  jsonToPptx: (presentation: UniversalPresentation, outputFilename?: string) => 
-    apiCall<{
-      inputFormat: string;
-      outputFormat: string;
-      outputSize: number;
-      conversionTime: number;
-      downloadUrl: string;
-      filename: string;
-    }>('/json2pptx', {
-      method: 'POST',
-      body: JSON.stringify({ presentationData: presentation, outputFilename }),
+  jsonToPptx: (presentation: UniversalPresentation, options?: {
+    outputFilename?: string;
+    template?: string;
+    quality?: 'high' | 'medium' | 'low';
+  }) => apiCall<{
+    inputFormat: string;
+    outputFormat: string;
+    outputSize: number;
+    conversionTime: number;
+    downloadUrl: string;
+    filename: string;
+    expiresAt: string;
+  }>('/json2pptx', {
+    method: 'POST',
+    body: JSON.stringify({ 
+      presentationData: presentation, 
+      ...options 
     }),
+  }),
 
-  // Export PPTX to PDF
-  pptxToPdf: (file: File, quality?: 'high' | 'medium' | 'low') => {
+  // Convert to various formats
+  convertFormat: (
+    file: File, 
+    targetFormat: 'pdf' | 'html' | 'images',
+    options?: {
+      quality?: 'high' | 'medium' | 'low';
+      includeNotes?: boolean;
+      imageFormat?: 'png' | 'jpg' | 'svg';
+      resolution?: number;
+    },
+    onProgress?: (progress: UploadProgress) => void
+  ) => {
     const formData = new FormData();
     formData.append('file', file);
-    if (quality) formData.append('quality', quality);
+    formData.append('format', targetFormat);
+    
+    Object.entries(options || {}).forEach(([key, value]) => {
+      if (value !== undefined) {
+        formData.append(key, value.toString());
+      }
+    });
 
     return apiUpload<{
       inputFormat: string;
@@ -225,21 +569,34 @@ export const conversionApi = {
       conversionTime: number;
       downloadUrl: string;
       filename: string;
-    }>('/convertformat', formData);
+      files?: Array<{
+        name: string;
+        url: string;
+        size: number;
+      }>;
+    }>('/convertformat', formData, { onProgress });
   },
 
   // Generate thumbnails
-  generateThumbnails: (file: File, options?: {
-    formats?: string[];
-    sizes?: Array<{ width: number; height: number; name: string }>;
-  }) => {
+  generateThumbnails: (
+    file: File, 
+    options?: {
+      formats?: ('png' | 'jpg' | 'webp')[];
+      sizes?: Array<{ width: number; height: number; name: string }>;
+      quality?: number;
+      slideIndices?: number[];
+    },
+    onProgress?: (progress: UploadProgress) => void
+  ) => {
     const formData = new FormData();
     formData.append('file', file);
-    if (options?.formats) {
-      formData.append('formats', JSON.stringify(options.formats));
-    }
-    if (options?.sizes) {
-      formData.append('sizes', JSON.stringify(options.sizes));
+    
+    if (options) {
+      Object.entries(options).forEach(([key, value]) => {
+        if (value !== undefined) {
+          formData.append(key, JSON.stringify(value));
+        }
+      });
     }
 
     return apiUpload<{
@@ -247,227 +604,252 @@ export const conversionApi = {
       outputFormat: string;
       inputSize: number;
       conversionTime: number;
-      thumbnails: any[];
+      thumbnails: Array<{
+        slideIndex: number;
+        format: string;
+        width: number;
+        height: number;
+        url: string;
+        size: number;
+      }>;
       downloadUrl: string;
-    }>('/thumbnails', formData);
+      totalCount: number;
+    }>('/thumbnails', formData, { onProgress });
   },
 };
 
-// 🧠 JSON UNIVERSAL
-export const jsonApi = {
-  // Get full Universal JSON
-  getFull: (id: string) => apiCall<UniversalPresentation>(`/json/${id}`),
+// =============================================================================
+// AI API (Enhanced)
+// =============================================================================
 
-  // Get specific slide
-  getSlide: (id: string, slideIndex: number) => 
-    apiCall<any>(`/json/${id}/slide/${slideIndex}`),
-
-  // Get specific shape
-  getShape: (id: string, slideIndex: number, shapeIndex: number) => 
-    apiCall<any>(`/json/${id}/slide/${slideIndex}/shape/${shapeIndex}`),
-
-  // Get only metadata
-  getMetadata: (id: string) => apiCall<any>(`/json/${id}/metadata`),
-
-  // Get structure without visual content
-  getStructure: (id: string) => apiCall<{
-    presentationId: string;
-    slideCount: number;
-    structure: Array<{
-      slideIndex: number;
-      title?: string;
-      shapeCount: number;
-      hasImages: boolean;
-      hasCharts: boolean;
-      hasTables: boolean;
-      hasVideos: boolean;
-      hasAudio: boolean;
-    }>;
-  }>(`/json/${id}/structure`),
-};
-
-// 🖼️ ASSETS
-export const assetsApi = {
-  // Get all assets from presentation
-  getAll: (id: string) => apiCall<{
-    presentationId: string;
-    totalAssets: number;
-    assetsByType: Record<string, number>;
-    assets: any[];
-  }>(`/assets/${id}`),
-
-  // Get only images
-  getImages: (id: string) => apiCall<any[]>(`/assets/${id}/images`),
-
-  // Get only audio
-  getAudio: (id: string) => apiCall<any[]>(`/assets/${id}/audio`),
-
-  // Get only OLE objects
-  getOle: (id: string) => apiCall<any[]>(`/assets/${id}/ole`),
-
-  // Get global assets list
-  listGlobal: (params?: {
-    page?: number;
-    limit?: number;
-    type?: string;
-    presentationId?: string;
-  }) => {
-    const query = new URLSearchParams();
-    if (params?.page) query.set('page', params.page.toString());
-    if (params?.limit) query.set('limit', params.limit.toString());
-    if (params?.type) query.set('type', params.type);
-    if (params?.presentationId) query.set('presentationId', params.presentationId);
-    
-    return apiCall<PaginatedResponse<any>>(`/assets?${query.toString()}`);
-  },
-};
-
-// 💬 AI & OPENAI
 export const aiApi = {
+  // Enhanced AI analysis
+  analyzePresentation: (id: string, analysisTypes?: string[]) => 
+    apiCall<{
+      presentationId: string;
+      analysis: {
+        summary?: any;
+        sentiment?: any;
+        accessibility?: any;
+        suggestions?: any[];
+        tags?: string[];
+        topics?: string[];
+        readability?: any;
+      };
+      tokensUsed: number;
+      analysisTime: number;
+    }>('/ai/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ presentationId: id, analysisTypes }),
+    }),
+
+  // Chat with presentation
+  chat: (id: string, message: string, sessionId?: string) => 
+    apiCall<{
+      response: string;
+      sessionId: string;
+      tokensUsed: number;
+      responseTime: number;
+      suggestions?: string[];
+      actions?: any[];
+    }>('/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify({ presentationId: id, message, sessionId }),
+    }),
+
   // Generate presentation from prompt
-  generatePresentation: (params: {
-    description: string;
-    slides?: number;
-    style?: string;
+  generate: (prompt: string, options?: {
+    slideCount?: number;
     template?: string;
+    style?: string;
+    audience?: string;
   }) => apiCall<{
     presentationId: string;
     prompt: string;
     tokensUsed: number;
     generationTime: number;
     slideCount: number;
-    downloadUrl?: string;
-    previewUrl?: string;
-  }>('/ai/generate-presentation', {
+    presentation: UniversalPresentation;
+  }>('/ai/generate', {
     method: 'POST',
-    body: JSON.stringify(params),
+    body: JSON.stringify({ prompt, ...options }),
   }),
 
-  // Get semantic digest
-  getSemanticDigest: (id: string) => apiCall<{
-    presentationId: string;
-    summary: {
-      title: string;
-      mainTopics: string[];
-      keyPoints: string[];
-      slideStructure: {
-        introduction: number[];
-        mainContent: number[];
-        conclusion: number[];
-      };
-      complexity: 'simple' | 'moderate' | 'complex';
-      audience: 'general' | 'technical' | 'executive' | 'academic';
-      narrative: {
-        flow: 'linear' | 'modular' | 'mixed';
-        coherence: number;
-        engagement: number;
-      };
-    };
-    analysisTime: number;
-  }>(`/ai/semantic-digest/${id}`),
-
   // Enhance presentation
-  enhancePresentation: (id: string, params: {
-    enhancementType?: string;
+  enhance: (id: string, options: {
+    type: 'style' | 'content' | 'structure' | 'accessibility';
     targetAudience?: string;
-    improvementAreas?: string[];
+    preferences?: any;
   }) => apiCall<{
     presentationId: string;
     enhancementType: string;
     tokensUsed: number;
     enhancementTime: number;
-    suggestions: any[];
-    enhancedSlides: any[];
-  }>(`/ai/enhance-presentation/${id}`, {
+    changes: any[];
+    enhancedPresentation: UniversalPresentation;
+  }>('/ai/enhance', {
     method: 'POST',
-    body: JSON.stringify(params),
-  }),
-
-  // Generate slide content
-  generateSlideContent: (params: {
-    topic: string;
-    slideType?: string;
-    context?: string;
-    targetLength?: number;
-  }) => apiCall<{
-    topic: string;
-    slideType: string;
-    tokensUsed: number;
-    generationTime: number;
-    content: any;
-    suggestions: any[];
-  }>('/ai/generate-slide-content', {
-    method: 'POST',
-    body: JSON.stringify(params),
-  }),
-
-  // Chat with presentation
-  chatWithPresentation: (id: string, params: {
-    message: string;
-    conversationHistory?: any[];
-  }) => apiCall<{
-    presentationId: string;
-    userMessage: string;
-    aiResponse: string;
-    tokensUsed: number;
-    responseTime: number;
-    conversationId: string;
-  }>(`/ai/chat/${id}`, {
-    method: 'POST',
-    body: JSON.stringify(params),
+    body: JSON.stringify({ presentationId: id, ...options }),
   }),
 };
 
-// 📦 DOWNLOADS
+// =============================================================================
+// GRANULAR CONTROL API (NEW)
+// =============================================================================
+
+export const granularApi = {
+  // Individual slide operations
+  getSlide: (presentationId: string, slideIndex: number) => 
+    apiCall<any>(`/presentations/${presentationId}/slides/${slideIndex}`),
+
+  updateSlide: (presentationId: string, slideIndex: number, slideData: any) => 
+    apiCall<any>(`/presentations/${presentationId}/slides/${slideIndex}`, {
+      method: 'PUT',
+      body: JSON.stringify(slideData),
+    }),
+
+  deleteSlide: (presentationId: string, slideIndex: number) => 
+    apiCall<any>(`/presentations/${presentationId}/slides/${slideIndex}`, {
+      method: 'DELETE',
+    }),
+
+  // Individual shape operations
+  getShape: (presentationId: string, slideIndex: number, shapeId: string) => 
+    apiCall<any>(`/presentations/${presentationId}/slides/${slideIndex}/shapes/${shapeId}`),
+
+  updateShape: (presentationId: string, slideIndex: number, shapeId: string, shapeData: any) => 
+    apiCall<any>(`/presentations/${presentationId}/slides/${slideIndex}/shapes/${shapeId}`, {
+      method: 'PUT',
+      body: JSON.stringify(shapeData),
+    }),
+
+  deleteShape: (presentationId: string, slideIndex: number, shapeId: string) => 
+    apiCall<any>(`/presentations/${presentationId}/slides/${slideIndex}/shapes/${shapeId}`, {
+      method: 'DELETE',
+    }),
+
+  // Render operations
+  renderSlide: (slideData: any, options?: { format?: 'png' | 'svg'; quality?: number }) => 
+    apiCall<{
+      imageUrl: string;
+      format: string;
+      width: number;
+      height: number;
+      size: number;
+    }>('/render/slide', {
+      method: 'POST',
+      body: JSON.stringify({ slideData, options }),
+    }),
+
+  renderShape: (shapeData: any, options?: { format?: 'png' | 'svg'; quality?: number }) => 
+    apiCall<{
+      imageUrl: string;
+      format: string;
+      width: number;
+      height: number;
+      size: number;
+    }>('/render/shape', {
+      method: 'POST',
+      body: JSON.stringify({ shapeData, options }),
+    }),
+};
+
+// =============================================================================
+// DOWNLOADS API
+// =============================================================================
+
 export const downloadsApi = {
-  // Download PPTX
-  getPptx: (id: string) => apiCall<{
-    downloadUrl: string;
-    filename: string;
-    size: number;
-    mimeType: string;
-    expiresAt: string;
-    format: string;
-  }>(`/download/${id}/pptx`),
+  getThumbnails: (presentationId: string) => 
+    apiCall<{
+      thumbnails: Array<{
+        slideIndex: number;
+        url: string;
+        width: number;
+        height: number;
+        format: string;
+      }>;
+    }>(`/presentations/${presentationId}/thumbnails`),
 
-  // Download PDF
-  getPdf: (id: string) => apiCall<{
-    downloadUrl: string;
-    filename: string;
-    size: number;
-    mimeType: string;
-    expiresAt: string;
-    format: string;
-  }>(`/download/${id}/pdf`),
-
-  // Download JSON
-  getJson: (id: string) => apiCall<{
-    downloadUrl: string;
-    filename: string;
-    size: number;
-    mimeType: string;
-    expiresAt: string;
-    format: string;
-  }>(`/download/${id}/json`),
-
-  // Download thumbnails ZIP
-  getThumbnails: (id: string) => apiCall<{
-    downloadUrl: string;
-    filename: string;
-    size: number;
-    mimeType: string;
-    expiresAt: string;
-    format: string;
-  }>(`/download/${id}/thumbnails`),
+  getAssets: (presentationId: string) => 
+    apiCall<{
+      assets: Array<{
+        id: string;
+        type: string;
+        url: string;
+        filename: string;
+        size: number;
+      }>;
+    }>(`/presentations/${presentationId}/assets`),
 };
 
-// Export all APIs
+// =============================================================================
+// ASSETS API
+// =============================================================================
+
+export const assetsApi = {
+  getAll: (presentationId: string) => 
+    apiCall<{
+      assets: Array<{
+        id: string;
+        type: string;
+        url: string;
+        filename: string;
+        size: number;
+        slideIndex: number;
+        shapeId: string;
+      }>;
+    }>(`/presentations/${presentationId}/assets`),
+
+  get: (presentationId: string, assetId: string) => 
+    apiCall<{
+      id: string;
+      type: string;
+      url: string;
+      filename: string;
+      size: number;
+      slideIndex: number;
+      shapeId: string;
+      metadata: any;
+    }>(`/presentations/${presentationId}/assets/${assetId}`),
+};
+
+// =============================================================================
+// ENHANCED AI API
+// =============================================================================
+
+export const enhancedAiApi = {
+  ...aiApi,
+  
+  getSemanticDigest: (presentationId: string) => 
+    apiCall<{
+      digest: {
+        summary: string;
+        keyTopics: string[];
+        mainThemes: string[];
+        targetAudience: string[];
+        tone: string;
+        complexity: 'low' | 'medium' | 'high';
+        readingTime: number;
+        keyInsights: string[];
+        actionItems: string[];
+        questions: string[];
+      };
+      confidence: number;
+      tokensUsed: number;
+      processingTime: number;
+    }>(`/ai/presentations/${presentationId}/digest`),
+};
+
+// =============================================================================
+// EXPORT ALL APIS
+// =============================================================================
+
 export const api = {
   health: healthApi,
   presentations: presentationsApi,
   conversion: conversionApi,
-  json: jsonApi,
-  assets: assetsApi,
-  ai: aiApi,
+  ai: enhancedAiApi,
+  granular: granularApi,
   downloads: downloadsApi,
+  assets: assetsApi,
 }; 

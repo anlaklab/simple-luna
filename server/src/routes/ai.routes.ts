@@ -5,11 +5,16 @@
  */
 
 import { Router, Request, Response } from 'express';
-import multer from 'multer';
 import { OpenAIAdapter } from '../adapters/openai.adapter';
 import { AsposeAdapterRefactored } from '../adapters/aspose/AsposeAdapterRefactored';
-import { validateRequest, validateFileUpload, validateFormOptions } from '../middleware/validation.middleware';
+import { validateRequest, validateFormOptions } from '../middleware/validation.middleware';
 import { handleAsyncErrors } from '../middleware/error.middleware';
+import { 
+  conversionUpload, 
+  largeFileUpload, 
+  validateUploadWithTiers, 
+  handleUploadError 
+} from '../middleware/upload.middleware';
 import { logger } from '../utils/logger';
 import {
   AiTranslateRequestSchema,
@@ -17,6 +22,14 @@ import {
   ExtractAssetsRequestSchema,
   ExtractMetadataRequestSchema,
 } from '../schemas/api-request.schema';
+import {
+  AnalyzeOptions,
+  ExtractAssetsOptions,
+  ExtractMetadataOptions,
+  AnalysisResult,
+  AssetExtractionResult,
+  ExtractedMetadata,
+} from '../types/ai.types';
 
 // =============================================================================
 // ROUTER SETUP
@@ -25,28 +38,8 @@ import {
 const router = Router();
 
 // =============================================================================
-// MULTER CONFIGURATION
+// UPLOAD CONFIGURATION - Now using centralized middleware
 // =============================================================================
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'), // 50MB default
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedMimeTypes = [
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'application/vnd.ms-powerpoint',
-      'application/vnd.openxmlformats-officedocument.presentationml.slideshow',
-    ];
-    
-    if (allowedMimeTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`Invalid file type. Allowed types: ${allowedMimeTypes.join(', ')}`));
-    }
-  },
-});
 
 // =============================================================================
 // SERVICE INITIALIZATION
@@ -229,7 +222,8 @@ const analyzeController = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    const options = req.body.options ? JSON.parse(req.body.options) : {};
+    // Options are already safely parsed by validateFormOptions middleware
+    const options = req.body.options as AnalyzeOptions;
     
     // Save uploaded file temporarily
     const fs = require('fs/promises');
@@ -380,7 +374,8 @@ const extractAssetsController = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const options = req.body.options ? JSON.parse(req.body.options) : {};
+    // Options are already safely parsed by validateFormOptions middleware
+    const options = req.body.options as ExtractAssetsOptions;
     
     // Save uploaded file temporarily
     const fs = require('fs/promises');
@@ -583,7 +578,8 @@ const extractMetadataController = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    const options = req.body.options ? JSON.parse(req.body.options) : {};
+    // Options are already safely parsed by validateFormOptions middleware
+    const options = req.body.options as ExtractMetadataOptions;
     
     // Save uploaded file temporarily
     const fs = require('fs/promises');
@@ -695,11 +691,524 @@ const extractAssetMetadataController = async (req: Request, res: Response): Prom
 // ROUTE DEFINITIONS - Using real implementations
 // =============================================================================
 
+/**
+ * @swagger
+ * /chat:
+ *   post:
+ *     tags:
+ *       - AI Features
+ *     summary: AI Chat with Luna Assistant
+ *     description: |
+ *       Chat with Luna, an AI assistant specialized in presentation creation and analysis.
+ *       Get advice on presentation content, structure, design, and optimization.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               message:
+ *                 type: string
+ *                 description: Your message or question for Luna
+ *                 example: "How can I make my presentation more engaging?"
+ *               sessionId:
+ *                 type: string
+ *                 description: Optional session ID to maintain conversation context
+ *                 example: "session_abc123"
+ *               context:
+ *                 type: object
+ *                 description: Additional context for the conversation
+ *                 example: { "presentationType": "business", "audience": "executives" }
+ *             required:
+ *               - message
+ *     responses:
+ *       200:
+ *         description: AI response generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     response:
+ *                       type: string
+ *                       example: "To make your presentation more engaging, consider adding interactive elements like polls or Q&A sessions..."
+ *                     model:
+ *                       type: string
+ *                       example: "gpt-4-turbo-preview"
+ *                     sessionId:
+ *                       type: string
+ *                       example: "session_abc123"
+ *                 meta:
+ *                   $ref: '#/components/schemas/SuccessMeta'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       503:
+ *         description: AI service unavailable
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
 router.post('/chat', handleAsyncErrors(chatController));
+
+/**
+ * @swagger
+ * /aitranslate:
+ *   post:
+ *     tags:
+ *       - AI Features
+ *     summary: AI-powered presentation translation
+ *     description: |
+ *       Translate presentation content to different languages using advanced AI.
+ *       Preserves formatting and structure while providing accurate translations.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               presentationData:
+ *                 $ref: '#/components/schemas/UniversalPresentation'
+ *               sourceLanguage:
+ *                 type: string
+ *                 description: Source language code (optional, auto-detect if not provided)
+ *                 example: "en"
+ *               targetLanguage:
+ *                 type: string
+ *                 description: Target language code
+ *                 example: "es"
+ *               translationMethod:
+ *                 type: string
+ *                 enum: [openai, aspose-ai, hybrid]
+ *                 default: openai
+ *                 description: Translation method to use
+ *               preserveFormatting:
+ *                 type: boolean
+ *                 default: true
+ *                 description: Preserve original formatting
+ *               translateComments:
+ *                 type: boolean
+ *                 default: true
+ *                 description: Translate comments and notes
+ *               translateMetadata:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Translate metadata fields
+ *             required:
+ *               - presentationData
+ *               - targetLanguage
+ *     responses:
+ *       200:
+ *         description: Translation completed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     translatedPresentation:
+ *                       $ref: '#/components/schemas/UniversalPresentation'
+ *                     translationStats:
+ *                       type: object
+ *                       properties:
+ *                         sourceLanguage:
+ *                           type: string
+ *                           example: "en"
+ *                         targetLanguage:
+ *                           type: string
+ *                           example: "es"
+ *                         translatedSlides:
+ *                           type: number
+ *                           example: 10
+ *                         translatedShapes:
+ *                           type: number
+ *                           example: 45
+ *                         translationMethod:
+ *                           type: string
+ *                           example: "openai"
+ *                 meta:
+ *                   $ref: '#/components/schemas/SuccessMeta'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       503:
+ *         description: AI service unavailable
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
 router.post('/aitranslate', validateRequest(AiTranslateRequestSchema, 'body'), handleAsyncErrors(translateController));
-router.post('/analyze', upload.single('file'), validateFileUpload({ required: true, maxSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'), fieldName: 'file' }), validateFormOptions(AnalyzeRequestSchema), handleAsyncErrors(analyzeController));
-router.post('/extract-assets', upload.single('file'), validateFileUpload({ required: true, maxSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'), fieldName: 'file' }), validateFormOptions(ExtractAssetsRequestSchema), handleAsyncErrors(extractAssetsController));
-router.post('/extract-metadata', upload.single('file'), validateFileUpload({ required: true, maxSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'), fieldName: 'file' }), validateFormOptions(ExtractMetadataRequestSchema), handleAsyncErrors(extractMetadataController));
-router.post('/extract-asset-metadata', upload.single('file'), validateFileUpload({ required: true, maxSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'), fieldName: 'file' }), handleAsyncErrors(extractAssetMetadataController));
+
+/**
+ * @swagger
+ * /analyze:
+ *   post:
+ *     tags:
+ *       - AI Features
+ *     summary: AI-powered presentation analysis
+ *     description: |
+ *       Analyze presentation content for insights including sentiment analysis,
+ *       accessibility checks, readability assessment, and design recommendations.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: PPTX file to analyze
+ *               options:
+ *                 type: string
+ *                 description: JSON string with analysis options
+ *                 example: '{"includeSentiment":true,"includeAccessibility":true,"includeDesignCritique":true}'
+ *             required:
+ *               - file
+ *     responses:
+ *       200:
+ *         description: Analysis completed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     analysis:
+ *                       type: object
+ *                       properties:
+ *                         overview:
+ *                           type: object
+ *                           properties:
+ *                             slideCount:
+ *                               type: number
+ *                               example: 10
+ *                             wordCount:
+ *                               type: number
+ *                               example: 245
+ *                             characterCount:
+ *                               type: number
+ *                               example: 1520
+ *                             readingLevel:
+ *                               type: string
+ *                               example: "Intermediate"
+ *                             estimatedDuration:
+ *                               type: string
+ *                               example: "5 minutes"
+ *                         sentiment:
+ *                           type: object
+ *                           properties:
+ *                             overall:
+ *                               type: string
+ *                               enum: [positive, negative, neutral]
+ *                               example: "positive"
+ *                             confidence:
+ *                               type: number
+ *                               example: 0.85
+ *                         accessibility:
+ *                           type: object
+ *                           properties:
+ *                             score:
+ *                               type: number
+ *                               example: 75
+ *                             issues:
+ *                               type: array
+ *                               items:
+ *                                 type: object
+ *                                 properties:
+ *                                   type:
+ *                                     type: string
+ *                                   severity:
+ *                                     type: string
+ *                                     enum: [low, medium, high]
+ *                                   description:
+ *                                     type: string
+ *                                   slideIndex:
+ *                                     type: number
+ *                         content:
+ *                           type: object
+ *                           properties:
+ *                             hasImages:
+ *                               type: boolean
+ *                             hasCharts:
+ *                               type: boolean
+ *                             hasTables:
+ *                               type: boolean
+ *                 meta:
+ *                   $ref: '#/components/schemas/SuccessMeta'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.post('/analyze', largeFileUpload.single('file'), validateUploadWithTiers, validateFormOptions(AnalyzeRequestSchema), handleAsyncErrors(analyzeController), handleUploadError);
+
+/**
+ * @swagger
+ * /extract-assets:
+ *   post:
+ *     tags:
+ *       - Extraction
+ *     summary: Extract embedded assets from presentation
+ *     description: |
+ *       Extract embedded assets (images, videos, audio files) from a PowerPoint presentation.
+ *       Supports various output formats and can generate thumbnails for media files.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: PPTX file to extract assets from
+ *               options:
+ *                 type: string
+ *                 description: JSON string with extraction options
+ *                 example: '{"assetTypes":["images","videos"],"returnFormat":"urls","generateThumbnails":true}'
+ *             required:
+ *               - file
+ *     responses:
+ *       200:
+ *         description: Assets extracted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     assets:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             example: "asset_001"
+ *                           type:
+ *                             type: string
+ *                             enum: [image, video, audio, document]
+ *                             example: "image"
+ *                           filename:
+ *                             type: string
+ *                             example: "chart.png"
+ *                           size:
+ *                             type: number
+ *                             example: 1048576
+ *                           url:
+ *                             type: string
+ *                             example: "https://storage.googleapis.com/bucket/assets/chart.png"
+ *                           thumbnailUrl:
+ *                             type: string
+ *                             example: "https://storage.googleapis.com/bucket/thumbnails/chart_thumb.png"
+ *                     summary:
+ *                       type: object
+ *                       properties:
+ *                         totalAssets:
+ *                           type: number
+ *                           example: 5
+ *                         byType:
+ *                           type: object
+ *                           properties:
+ *                             images:
+ *                               type: number
+ *                               example: 3
+ *                             videos:
+ *                               type: number
+ *                               example: 1
+ *                             audio:
+ *                               type: number
+ *                               example: 1
+ *                         totalSize:
+ *                           type: number
+ *                           example: 5242880
+ *                 meta:
+ *                   $ref: '#/components/schemas/SuccessMeta'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.post('/extract-assets', largeFileUpload.single('file'), validateUploadWithTiers, validateFormOptions(ExtractAssetsRequestSchema), handleAsyncErrors(extractAssetsController), handleUploadError);
+
+/**
+ * @swagger
+ * /extract-metadata:
+ *   post:
+ *     tags:
+ *       - Extraction
+ *     summary: Extract comprehensive document metadata
+ *     description: |
+ *       Extract detailed metadata from PowerPoint presentations including basic properties,
+ *       system information, document statistics, and custom properties.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: PPTX file to extract metadata from
+ *               options:
+ *                 type: string
+ *                 description: JSON string with extraction options
+ *                 example: '{"includeSystemMetadata":true,"includeCustomProperties":true,"includeStatistics":true}'
+ *             required:
+ *               - file
+ *     responses:
+ *       200:
+ *         description: Metadata extracted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     metadata:
+ *                       type: object
+ *                       properties:
+ *                         basic:
+ *                           type: object
+ *                           properties:
+ *                             title:
+ *                               type: string
+ *                               example: "Q4 Business Review"
+ *                             author:
+ *                               type: string
+ *                               example: "John Smith"
+ *                             subject:
+ *                               type: string
+ *                               example: "Quarterly Results"
+ *                             category:
+ *                               type: string
+ *                               example: "Business"
+ *                             keywords:
+ *                               type: string
+ *                               example: "quarterly, results, business"
+ *                             comments:
+ *                               type: string
+ *                               example: "Final version for executive review"
+ *                         system:
+ *                           type: object
+ *                           properties:
+ *                             created:
+ *                               type: string
+ *                               format: date-time
+ *                               example: "2024-01-15T10:00:00.000Z"
+ *                             modified:
+ *                               type: string
+ *                               format: date-time
+ *                               example: "2024-01-15T15:30:00.000Z"
+ *                             createdBy:
+ *                               type: string
+ *                               example: "John Smith"
+ *                             lastModifiedBy:
+ *                               type: string
+ *                               example: "Jane Doe"
+ *                             applicationName:
+ *                               type: string
+ *                               example: "Microsoft PowerPoint"
+ *                         statistics:
+ *                           type: object
+ *                           properties:
+ *                             slideCount:
+ *                               type: number
+ *                               example: 15
+ *                             shapeCount:
+ *                               type: number
+ *                               example: 85
+ *                             wordCount:
+ *                               type: number
+ *                               example: 1250
+ *                             fileSize:
+ *                               type: number
+ *                               example: 2048576
+ *                             imageCount:
+ *                               type: number
+ *                               example: 8
+ *                             chartCount:
+ *                               type: number
+ *                               example: 3
+ *                             tableCount:
+ *                               type: number
+ *                               example: 2
+ *                         customProperties:
+ *                           type: object
+ *                           description: Custom document properties
+ *                 meta:
+ *                   $ref: '#/components/schemas/SuccessMeta'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.post('/extract-metadata', largeFileUpload.single('file'), validateUploadWithTiers, validateFormOptions(ExtractMetadataRequestSchema), handleAsyncErrors(extractMetadataController), handleUploadError);
+
+/**
+ * @swagger
+ * /extract-asset-metadata:
+ *   post:
+ *     tags:
+ *       - Extraction
+ *     summary: Extract metadata from embedded assets
+ *     description: |
+ *       Extract detailed metadata from embedded assets within presentations.
+ *       Currently not implemented - use /extract-assets for basic asset extraction.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: PPTX file to process
+ *             required:
+ *               - file
+ *     responses:
+ *       501:
+ *         description: Feature not yet implemented
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.post('/extract-asset-metadata', largeFileUpload.single('file'), validateUploadWithTiers, handleAsyncErrors(extractAssetMetadataController), handleUploadError);
 
 export default router; 

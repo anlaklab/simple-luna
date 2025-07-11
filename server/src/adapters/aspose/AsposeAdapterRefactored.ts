@@ -276,11 +276,12 @@ export class AsposeAdapterRefactored {
           const buffer = fs.readFileSync(outputPath);
           
           // Get processing stats
-          const slideCount = presentation.getSlides().getCount();
+          // Get basic presentation info
+          const slideCount = presentation.getSlides().size(); // ✅ Usar size() en lugar de getCount()
           let shapeCount = 0;
           for (let i = 0; i < slideCount; i++) {
             const slide = presentation.getSlides().get_Item(i);
-            shapeCount += slide.getShapes().getCount();
+            shapeCount += slide.getShapes().size(); // ✅ Usar size() en lugar de getCount()
           }
           
           // Clean up temp file
