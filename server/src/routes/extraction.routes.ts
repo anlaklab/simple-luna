@@ -520,18 +520,18 @@ const extractAssetMetadataController = async (req: Request, res: Response): Prom
   } catch (error) {
     logger.error('Asset metadata extraction failed', { error, requestId });
     res.status(500).json({
-      success: false,
-      error: {
+    success: false,
+    error: {
         type: 'extraction_error',
         code: 'ASSET_METADATA_EXTRACTION_FAILED',
         message: error instanceof Error ? error.message : 'Asset metadata extraction failed',
-      },
-      meta: {
-        timestamp: new Date().toISOString(),
-        requestId,
-        processingTimeMs: Date.now() - startTime,
-      },
-    });
+    },
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId,
+      processingTimeMs: Date.now() - startTime,
+    },
+  });
   }
 };
 
