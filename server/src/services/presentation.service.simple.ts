@@ -20,7 +20,16 @@ export class PresentationService {
   private conversionService: ConversionService;
 
   constructor() {
-    this.conversionService = new ConversionService();
+    // Provide minimal config for ConversionService
+    this.conversionService = new ConversionService({
+      asposeConfig: {
+        licenseFilePath: './Aspose.Slides.Product.Family.lic',
+        tempDirectory: './temp/aspose',
+        maxFileSize: 62914560,
+      },
+      uploadToStorage: false,
+      cleanupTempFiles: true,
+    });
     logger.info('PresentationService initialized');
   }
 
@@ -31,18 +40,30 @@ export class PresentationService {
       const presentationId = this.generateId();
       
       // Convert PPTX to JSON using Aspose.Slides
-      const conversionResult = await this.conversionService.convertPptxToJson(file.path);
+      const conversionResult = await this.conversionService.convertPptxToJson(
+        file.path,
+        file.originalname,
+        {
+          includeAssets: true,
+          includeMetadata: true,
+          includeAnimations: false,
+          includeComments: false,
+          extractImages: true,
+        }
+      );
       
       const presentation: PresentationData = {
         id: presentationId,
         name: data.name || file.originalname,
         filename: file.originalname,
         size: file.size,
-        slideCount: conversionResult.slideCount || 0,
+        slideCount: 'success' in conversionResult && conversionResult.success ? 
+          (conversionResult.data?.processingStats?.slideCount || 0) : 0,
         createdAt: new Date(),
         updatedAt: new Date(),
         status: 'completed',
-        jsonData: conversionResult.data
+        jsonData: 'success' in conversionResult && conversionResult.success ? 
+          conversionResult.data?.presentation : null
       };
 
       // TODO: Save to Firebase/database

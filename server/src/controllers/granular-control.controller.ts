@@ -44,14 +44,15 @@ export class GranularControlController {
       const aspose = require('../../../lib/aspose.slides.js');
       
       // Extract slide data using real Aspose.Slides processing
+      const slideIndexNum = parseInt(slideIndex, 10);
       const slideData = {
-        slideIndex: parseInt(slideIndex, 10),
-        slideId: parseInt(slideIndex, 10) + 1,
-        name: `Slide ${parseInt(slideIndex, 10) + 1}`,
+        slideIndex: slideIndexNum,
+        slideId: slideIndexNum + 1,
+        name: `Slide ${slideIndexNum + 1}`,
         slideType: 'Slide',
-        shapes: includeShapes ? await this.extractSlideShapes(slideIndex) : undefined,
-        background: includeBackground ? await this.extractSlideBackground(slideIndex) : undefined,
-        notes: includeNotes ? await this.extractSlideNotes(slideIndex) : undefined,
+        shapes: includeShapes ? await this.extractSlideShapes(slideIndexNum) : undefined,
+        background: includeBackground ? await this.extractSlideBackground(slideIndexNum) : undefined,
+        notes: includeNotes ? await this.extractSlideNotes(slideIndexNum) : undefined,
         animations: [],
         transition: null,
         hidden: false

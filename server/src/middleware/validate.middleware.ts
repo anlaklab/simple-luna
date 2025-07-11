@@ -1,9 +1,12 @@
 // 🔧 Validate Middleware - Export stub for presentations routes
 import { Request, Response, NextFunction } from 'express';
 
-export const validateRequest = (req: Request, res: Response, next: NextFunction) => {
-  // TODO: Implement request validation
-  next();
+export const validateRequest = (schema?: any) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    // TODO: Implement request validation with schema
+    // For now, just pass through
+    next();
+  };
 };
 
 // Alias for compatibility with routes

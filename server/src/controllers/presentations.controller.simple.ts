@@ -3,7 +3,7 @@
 
 import { Request, Response } from 'express';
 import { logger } from '../utils/logger';
-import { PresentationService } from '../services/presentation.service';
+import { PresentationService } from '../services/presentation.service.simple';
 
 const presentationService = new PresentationService();
 
@@ -62,7 +62,7 @@ export const getPresentation = async (req: Request, res: Response): Promise<void
   }
 };
 
-export const getPresentations = async (req: Request, res: Response) => {
+export const getPresentations = async (req: Request, res: Response): Promise<void> => {
   try {
     logger.info('Getting presentations list');
     
@@ -81,7 +81,7 @@ export const getPresentations = async (req: Request, res: Response) => {
   }
 };
 
-export const updatePresentation = async (req: Request, res: Response) => {
+export const updatePresentation = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     logger.info(`Updating presentation: ${id}`);
@@ -101,7 +101,7 @@ export const updatePresentation = async (req: Request, res: Response) => {
   }
 };
 
-export const deletePresentation = async (req: Request, res: Response) => {
+export const deletePresentation = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     logger.info(`Deleting presentation: ${id}`);
