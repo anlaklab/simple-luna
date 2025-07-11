@@ -1,12 +1,13 @@
 # 🐳 Luna Production - Full Stack Dockerfile for Coolify
 # Single container with built client and server
+# FORCE REBUILD: 2025-01-11-21:04 - Add lodash dependency
 
 # Stage 1: Build Client
 FROM node:18-alpine AS client-builder
 
-# Cache buster to force rebuild  
-ARG BUILD_TIME=default
-RUN echo "Build time: $BUILD_TIME"
+# FORCE CACHE BUST - Unique timestamp 
+ARG CACHEBUST=2025-01-11-21:04
+RUN echo "Cache bust: $CACHEBUST - Forcing fresh build"
 
 WORKDIR /app/client
 COPY client/package*.json ./
@@ -17,6 +18,10 @@ RUN npm run build
 
 # Stage 2: Build Server
 FROM node:18-bullseye AS server-builder
+
+# FORCE CACHE BUST - Unique timestamp 
+ARG CACHEBUST=2025-01-11-21:04
+RUN echo "Server cache bust: $CACHEBUST - Forcing fresh server build"
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
