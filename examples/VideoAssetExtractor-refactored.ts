@@ -1,8 +1,8 @@
 /**
- * Video Asset Extractor - Real Aspose.Slides Implementation
+ * Video Asset Extractor - Refactored to use AsposeDriverFactory
  * 
- * Extracts real video files from PowerPoint presentations using the local Aspose.Slides library.
- * Processes embedded videos, linked videos, and video frames.
+ * This is an example of how files should look after refactoring.
+ * All direct imports of aspose.slides.js are replaced with AsposeDriverFactory usage.
  */
 
 import { v4 as uuidv4 } from 'uuid';
@@ -17,8 +17,8 @@ import {
   ExtractionMethod
 } from '../../types/asset-interfaces';
 
-// ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
-const asposeDriver = require('../../../../../lib/AsposeDriverFactory');
+// ✅ CORRECT: Use AsposeDriverFactory instead of direct import
+const asposeDriver = require('../../../../lib/AsposeDriverFactory');
 
 export class VideoAssetExtractor implements VideoExtractor {
   readonly name = 'VideoAssetExtractor';
@@ -35,10 +35,10 @@ export class VideoAssetExtractor implements VideoExtractor {
     const assets: AssetResult[] = [];
     
     try {
-      // ✅ REFACTORED: Initialize AsposeDriver before use
+      // ✅ CORRECT: Initialize AsposeDriver before use
       await asposeDriver.initialize();
-
-      logger.info('Starting real video extraction with Aspose.Slides', {
+      
+      logger.info('Starting real video extraction with AsposeDriver', {
         extractorName: this.name,
         slideCount: presentation.getSlides().getCount()
       });
@@ -102,13 +102,13 @@ export class VideoAssetExtractor implements VideoExtractor {
       for (let shapeIndex = 0; shapeIndex < shapeCount; shapeIndex++) {
         const shape = shapes.get_Item(shapeIndex);
         
-        // ✅ REFACTORED: Use AsposeDriver for shape type checking
+        // ✅ CORRECT: Use AsposeDriver for shape type checking
         if (await this.isVideoFrame(shape)) {
           const videoAsset = await this.extractFromVideoFrame(shape, slideIndex);
           if (videoAsset) assets.push(videoAsset);
         }
         
-        // ✅ REFACTORED: Use AsposeDriver for GroupShape detection
+        // ✅ CORRECT: Use AsposeDriver for GroupShape detection
         if (await asposeDriver.isGroupShape(shape)) {
           const groupAssets = await this.extractFromGroupShape(shape, slideIndex, options);
           assets.push(...groupAssets);
@@ -127,7 +127,7 @@ export class VideoAssetExtractor implements VideoExtractor {
 
   async extractFromVideoFrame(videoFrame: any, slideIndex: number): Promise<AssetResult | null> {
     try {
-      // ✅ REFACTORED: Use AsposeDriver for video frame checking
+      // ✅ CORRECT: Use AsposeDriver for video frame checking
       if (!(await this.isVideoFrame(videoFrame))) {
         return null;
       }
@@ -188,7 +188,6 @@ export class VideoAssetExtractor implements VideoExtractor {
       };
 
       // Try to extract basic video properties
-      // Note: For advanced video analysis, you'd use ffprobe or similar
       const format = this.detectVideoFormat(videoData);
       metadata.quality!.compression = format;
 
@@ -205,7 +204,6 @@ export class VideoAssetExtractor implements VideoExtractor {
   async generatePreview(videoData: Buffer): Promise<Buffer> {
     try {
       // For now, return a placeholder or the first few bytes
-      // In a real implementation, you'd use ffmpeg to extract a frame
       return videoData.slice(0, Math.min(1024, videoData.length));
     } catch (error) {
       logger.warn('Failed to generate video preview', { 
@@ -217,8 +215,8 @@ export class VideoAssetExtractor implements VideoExtractor {
 
   validateAsset(asset: any): boolean {
     try {
-      return this.getVideoData(asset) &&
-             this.getVideoData(asset).length > 0;
+      // ✅ CORRECT: This would need async handling in real implementation
+      return this.getVideoData(asset) && this.getVideoData(asset).length > 0;
     } catch {
       return false;
     }
@@ -233,8 +231,8 @@ export class VideoAssetExtractor implements VideoExtractor {
     };
   }
 
-  // ✅ REFACTORED: Use AsposeDriver for video frame detection
-  private async isVideoFrame(shape: any): Promise<boolean> {
+  // ✅ CORRECT: Use AsposeDriver for shape type checking
+  private async isVideoFrame(shape: any): boolean {
     try {
       // Use AsposeDriver's built-in video frame detection
       return await asposeDriver.isVideoFrame(shape);
@@ -261,7 +259,6 @@ export class VideoAssetExtractor implements VideoExtractor {
         }
       }
 
-      // Alternative method for getting video binary data
       if (videoFrame.getBinaryData) {
         return videoFrame.getBinaryData();
       }
@@ -276,7 +273,6 @@ export class VideoAssetExtractor implements VideoExtractor {
 
   private getVideoName(videoFrame: any): string | null {
     try {
-      // Try to get the original video name
       if (videoFrame.getName) {
         return videoFrame.getName();
       }
@@ -309,13 +305,13 @@ export class VideoAssetExtractor implements VideoExtractor {
       for (let i = 0; i < shapeCount; i++) {
         const shape = shapes.get_Item(i);
         
-        // ✅ REFACTORED: Use AsposeDriver for shape type checking
+        // ✅ CORRECT: Use AsposeDriver for shape type checking
         if (await this.isVideoFrame(shape)) {
           const videoAsset = await this.extractFromVideoFrame(shape, slideIndex);
           if (videoAsset) assets.push(videoAsset);
         }
         
-        // ✅ REFACTORED: Use AsposeDriver for nested group checking
+        // ✅ CORRECT: Use AsposeDriver for nested group checking
         if (await asposeDriver.isGroupShape(shape)) {
           const nestedAssets = await this.extractFromGroupShape(shape, slideIndex, options);
           assets.push(...nestedAssets);
@@ -341,7 +337,6 @@ export class VideoAssetExtractor implements VideoExtractor {
     const startTime = Date.now();
     
     try {
-      // Basic metadata
       const metadata: AssetMetadata = {
         extractedAt: new Date().toISOString(),
         extractionMethod: method,
@@ -369,13 +364,9 @@ export class VideoAssetExtractor implements VideoExtractor {
         }
       }
 
-      // Extract MIME type from video data
       metadata.mimeType = this.getMimeTypeFromBuffer(videoBuffer);
       
-      // Add video-specific metadata
       try {
-        // Try to extract video duration and other properties
-        // This would require video analysis libraries in a real implementation
         metadata.duration = this.estimateVideoDuration(videoBuffer);
         metadata.quality = {
           compression: this.detectVideoFormat(videoBuffer),
@@ -410,22 +401,13 @@ export class VideoAssetExtractor implements VideoExtractor {
     
     const signature = buffer.toString('hex', 0, 12).toUpperCase();
     
-    // MP4 signatures
     if (signature.includes('66747970') || signature.includes('6D6F6F76')) return 'mp4';
-    
-    // AVI signature
     if (signature.startsWith('52494646') && signature.includes('41564920')) return 'avi';
-    
-    // MOV/QuickTime signature
     if (signature.includes('6D6F6F76') || signature.includes('6D646174')) return 'mov';
-    
-    // WMV signature
     if (signature.startsWith('3026B275')) return 'wmv';
-    
-    // WebM signature
     if (signature.startsWith('1A45DFA3')) return 'webm';
     
-    return 'mp4'; // Default fallback
+    return 'mp4';
   }
 
   private getMimeTypeFromBuffer(buffer: Buffer): string {
@@ -445,9 +427,7 @@ export class VideoAssetExtractor implements VideoExtractor {
   }
 
   private estimateVideoDuration(buffer: Buffer): number {
-    // Basic duration estimation (would need proper video parsing in real implementation)
-    // For now, return a placeholder based on file size
     const sizeInMB = buffer.length / (1024 * 1024);
-    return Math.max(1, Math.round(sizeInMB * 10)); // Rough estimate: 10 seconds per MB
+    return Math.max(1, Math.round(sizeInMB * 10));
   }
 } 
