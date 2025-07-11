@@ -1,0 +1,59 @@
+# 🐳 Luna Production - Docker Compose for Coolify
+
+services:
+  luna-production:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: luna-production
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      # Node.js Configuration
+      - NODE_ENV=production
+      - PORT=3000
+      
+      # File Processing
+      - MAX_FILE_SIZE=62914560
+      - UPLOAD_TEMP_DIR=/app/temp/uploads
+      - ASPOSE_TEMP_DIR=/app/temp/aspose
+      
+      # Java Configuration
+      - JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+      - JAVA_OPTS=-Xmx2g -Xms512m -Djava.awt.headless=true
+      
+      # Aspose Configuration
+      - ASPOSE_LICENSE_PATH=/app/Aspose.Slides.Product.Family.lic
+      
+      # Firebase Configuration (from Coolify environment)
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
+      - FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}
+      
+      # OpenAI Configuration
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=gpt-4-turbo-preview
+      
+      # Security
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      
+    volumes:
+      - luna-uploads:/app/temp/uploads
+      - luna-aspose:/app/temp/aspose
+      - luna-conversions:/app/temp/conversions
+      - luna-logs:/app/logs
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  luna-uploads:
+  luna-aspose:
+  luna-conversions:
+  luna-logs: 
