@@ -5,6 +5,9 @@
 import { logger } from '../../utils/logger';
 import { ColorUtils } from './color-utils';
 
+// ✅ ROBUST IMPORT: Use AsposeDriverFactory for unified access
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
+
 export class FillExtractor {
   private colorUtils: ColorUtils;
 
@@ -15,12 +18,13 @@ export class FillExtractor {
   /**
    * Extract fill format properties from shape
    */
-  extractFillFormat(fillFormat: any): any | null {
+  async extractFillFormat(fillFormat: any): Promise<any | null> {
     try {
       if (!fillFormat) return null;
 
-      const AsposeSlides = require('../../../../lib/aspose.slides.js');
-      const FillType = AsposeSlides.FillType;
+      // ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
+      await asposeDriver.initialize();
+      const FillType = await asposeDriver.getFillTypes();
       const fillType = fillFormat.getFillType();
 
       const result: any = {

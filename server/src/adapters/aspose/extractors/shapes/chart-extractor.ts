@@ -8,6 +8,9 @@ import { ChartSeriesExtractor } from './chart/chart-series-extractor';
 import { ChartAxesExtractor } from './chart/chart-axes-extractor';
 import { ChartMetadataExtractor } from './chart/chart-metadata-extractor';
 
+// ✅ ROBUST IMPORT: Use AsposeDriverFactory for unified access
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
+
 export class ChartExtractor extends BaseShapeExtractor {
   protected metadata: ExtractorMetadata = {
     name: 'ChartExtractor', version: '2.0.0',
@@ -23,7 +26,7 @@ export class ChartExtractor extends BaseShapeExtractor {
   async extract(shape: any, options: ConversionOptions, context?: ExtractionContext): Promise<ExtractionResult> {
     const startTime = Date.now();
     try {
-      if (!this.canHandle(shape)) {
+      if (!(await this.canHandle(shape))) {
         return this.createErrorResult('Shape is not a valid chart', Date.now() - startTime);
       }
 
@@ -40,10 +43,11 @@ export class ChartExtractor extends BaseShapeExtractor {
     }
   }
 
-  canHandle(shape: any): boolean {
+  async canHandle(shape: any): Promise<boolean> {
     try {
-      const AsposeSlides = require('/app/lib/aspose.slides.js');
-      const ShapeType = AsposeSlides.ShapeType;
+      // ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
+      await asposeDriver.initialize();
+      const ShapeType = await asposeDriver.getShapeTypes();
       return shape.getShapeType() === ShapeType.Chart;
     } catch (error) {
       this.handleError(error as Error, 'canHandle');

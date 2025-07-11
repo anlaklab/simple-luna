@@ -230,7 +230,7 @@ export class AsposeSharedAdapter implements BaseAdapter<AsposeConfig> {
   readonly type = 'library' as const;
   
   private config?: AsposeConfig;
-  private aspose: any;
+  private asposeDriver: any;
   private connected = false;
 
   async initialize(config: AsposeConfig = {}): Promise<void> {
@@ -242,17 +242,18 @@ export class AsposeSharedAdapter implements BaseAdapter<AsposeConfig> {
         ...config
       };
       
-      // Load Aspose.Slides library (LOCAL ONLY)
-      this.aspose = require('/app/lib/aspose.slides.js');
+      // ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
+      this.asposeDriver = require('/app/lib/AsposeDriverFactory');
+      await this.asposeDriver.initialize();
       
       // Test basic functionality
-      const testPresentation = new this.aspose.Presentation();
+      const testPresentation = await this.asposeDriver.createPresentation();
       if (testPresentation && testPresentation.dispose) {
         testPresentation.dispose();
       }
       
       this.connected = true;
-      console.log('✅ Aspose Shared Adapter initialized');
+      console.log('✅ Aspose Shared Adapter initialized with AsposeDriverFactory');
     } catch (error) {
       console.error('❌ Aspose Shared Adapter initialization failed:', (error as Error).message);
       this.connected = false;
@@ -261,7 +262,7 @@ export class AsposeSharedAdapter implements BaseAdapter<AsposeConfig> {
   }
 
   isConnected(): boolean {
-    return this.connected && !!this.aspose;
+    return this.connected && !!this.asposeDriver;
   }
 
   async healthCheck(): Promise<ServiceHealth> {
@@ -270,12 +271,12 @@ export class AsposeSharedAdapter implements BaseAdapter<AsposeConfig> {
         return {
           status: 'unhealthy',
           lastCheck: new Date(),
-          errors: ['Aspose.Slides library not loaded']
+          errors: ['AsposeDriverFactory not loaded']
         };
       }
 
-      // Test library functionality
-      const testPresentation = new this.aspose.Presentation();
+      // Test library functionality using AsposeDriverFactory
+      const testPresentation = await this.asposeDriver.createPresentation();
       const isWorking = !!testPresentation;
       
       if (testPresentation && testPresentation.dispose) {
@@ -286,7 +287,7 @@ export class AsposeSharedAdapter implements BaseAdapter<AsposeConfig> {
         status: isWorking ? 'healthy' : 'degraded',
         lastCheck: new Date(),
         details: {
-          libraryPath: '/app/lib/aspose.slides.js',
+          driverPath: '/app/lib/AsposeDriverFactory',
           licenseFile: this.config?.licenseFilePath,
           tempDirectory: this.config?.tempDirectory
         }
@@ -301,11 +302,11 @@ export class AsposeSharedAdapter implements BaseAdapter<AsposeConfig> {
   }
 
   // Public interface methods for modules to use
-  getAspose() {
-    if (!this.aspose) {
-      throw new Error('Aspose.Slides library not initialized');
+  getAsposeDriver() {
+    if (!this.asposeDriver) {
+      throw new Error('AsposeDriverFactory not initialized');
     }
-    return this.aspose;
+    return this.asposeDriver;
   }
 
   getConfig() {
@@ -315,9 +316,9 @@ export class AsposeSharedAdapter implements BaseAdapter<AsposeConfig> {
     return this.config;
   }
 
-  createPresentation(filePath?: string) {
-    const aspose = this.getAspose();
-    return filePath ? new aspose.Presentation(filePath) : new aspose.Presentation();
+  async createPresentation(filePath?: string) {
+    const driver = this.getAsposeDriver();
+    return filePath ? await driver.loadPresentation(filePath) : await driver.createPresentation();
   }
 }
 

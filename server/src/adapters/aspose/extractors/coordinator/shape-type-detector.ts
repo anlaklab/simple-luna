@@ -7,15 +7,19 @@
 
 import { logger } from '../../../../utils/logger';
 
+// ✅ ROBUST IMPORT: Use AsposeDriverFactory for unified access
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
+
 export class ShapeTypeDetector {
   
   /**
    * Detect shape type from Aspose shape object
    */
-  detectShapeType(shape: any): string {
+  async detectShapeType(shape: any): Promise<string> {
     try {
-      const AsposeSlides = require('/app/lib/aspose.slides.js');
-      const ShapeType = AsposeSlides.ShapeType;
+      // ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
+      await asposeDriver.initialize();
+      const ShapeType = await asposeDriver.getShapeTypes();
       const shapeType = shape.getShapeType();
 
       return this.mapAsposeToUniversal(shapeType, ShapeType);

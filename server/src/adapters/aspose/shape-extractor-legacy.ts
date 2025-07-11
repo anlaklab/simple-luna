@@ -9,6 +9,9 @@ import { EffectExtractor } from './effect-extractor';
 import { TextExtractor } from './text-extractor';
 import { GeometryExtractor } from './geometry-extractor';
 
+// ✅ ROBUST IMPORT: Use AsposeDriverFactory for unified access
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
+
 export class ShapeExtractor {
   private fillExtractor: FillExtractor;
   private effectExtractor: EffectExtractor;
@@ -27,8 +30,9 @@ export class ShapeExtractor {
    */
   async processShape(shape: any, options: ConversionOptions): Promise<any | null> {
     try {
-      const AsposeSlides = require('../../../../lib/aspose.slides.js');
-      const ShapeType = AsposeSlides.ShapeType;
+      // ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
+      await asposeDriver.initialize();
+      const ShapeType = await asposeDriver.getShapeTypes();
       const shapeType = shape.getShapeType();
       
       // Extract comprehensive geometry information
@@ -42,7 +46,7 @@ export class ShapeExtractor {
       };
 
       // Extract fill format properties
-      const fillFormat = this.fillExtractor.extractFillFormat(shape.getFillFormat());
+      const fillFormat = await this.fillExtractor.extractFillFormat(shape.getFillFormat());
       if (fillFormat) {
         baseShape.fillFormat = fillFormat;
       }
@@ -82,7 +86,7 @@ export class ShapeExtractor {
       }
 
       // Process type-specific properties
-      this.extractTypeSpecificProperties(baseShape, shape, shapeType, options);
+      await this.extractTypeSpecificProperties(baseShape, shape, shapeType, options);
 
       return baseShape;
     } catch (error) {
@@ -160,8 +164,9 @@ export class ShapeExtractor {
     shapeType: any,
     options: ConversionOptions
   ): Promise<void> {
-    const AsposeSlides = require('../../../../lib/aspose.slides.js');
-    const ShapeType = AsposeSlides.ShapeType;
+    // ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
+    await asposeDriver.initialize();
+    const ShapeType = await asposeDriver.getShapeTypes();
 
     switch (shapeType) {
       case ShapeType.Picture:

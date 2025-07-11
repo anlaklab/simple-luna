@@ -6,7 +6,8 @@
 
 import { Router, Request, Response } from 'express';
 import swaggerUi from 'swagger-ui-express';
-import { generateSwaggerSpec } from '../swagger/swagger.config';
+import path from 'path';
+import fs from 'fs';
 
 // =============================================================================
 // ROUTER SETUP
@@ -41,31 +42,93 @@ const swaggerUiOptions = {
 };
 
 // =============================================================================
-// SWAGGER ROUTES (FIXED VERSION)
+// STATIC OPENAPI SPEC LOADING
 // =============================================================================
 
-// Generate spec once and cache it
-let cachedSpec: any = null;
-const getSpec = (req: Request) => {
-  if (!cachedSpec) {
-    cachedSpec = generateSwaggerSpec(req);
+/**
+ * Load pre-generated OpenAPI spec or fallback to basic spec
+ */
+function loadOpenApiSpec(): any {
+  try {
+    // ✅ Try to load pre-generated spec from build time
+    const specPath = path.join(__dirname, '../openapi.json');
+    if (fs.existsSync(specPath)) {
+      const spec = JSON.parse(fs.readFileSync(specPath, 'utf8'));
+      console.log('✅ Loaded pre-generated OpenAPI spec with', Object.keys(spec.paths || {}).length, 'endpoints');
+      return spec;
+    }
+    
+    // ✅ Fallback to basic spec if pre-generated doesn't exist
+    console.log('⚠️ Pre-generated OpenAPI spec not found, using fallback spec');
+    return {
+      openapi: '3.0.0',
+      info: {
+        title: 'Luna Server API',
+        version: '1.0.0',
+        description: 'Professional PowerPoint processing API with AI capabilities'
+      },
+      servers: [
+        { url: 'https://luna.anlaklab.com/api/v1', description: 'Production' },
+        { url: 'http://localhost:3000/api/v1', description: 'Development' }
+      ],
+      paths: {
+        '/health': {
+          get: {
+            tags: ['System'],
+            summary: 'Health Check',
+            description: 'Check API health status',
+            responses: {
+              '200': {
+                description: 'API is healthy',
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        status: { type: 'string', example: 'healthy' },
+                        timestamp: { type: 'string', format: 'date-time' }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    };
+  } catch (error) {
+    console.error('❌ Error loading OpenAPI spec:', error);
+    return {
+      openapi: '3.0.0',
+      info: {
+        title: 'Luna Server API',
+        version: '1.0.0',
+        description: 'Professional PowerPoint processing API with AI capabilities'
+      },
+      paths: {}
+    };
   }
-  return cachedSpec;
-};
+}
+
+// Load spec once at startup
+const openApiSpec = loadOpenApiSpec();
+
+// =============================================================================
+// SWAGGER ROUTES
+// =============================================================================
 
 /**
- * JSON API Routes (these must come first)
+ * JSON API Routes
  */
 router.get('/swagger.json', (req: Request, res: Response) => {
-  const spec = getSpec(req);
   res.setHeader('Content-Type', 'application/json');
-  res.json(spec);
+  res.json(openApiSpec);
 });
 
 router.get('/openapi.json', (req: Request, res: Response) => {
-  const spec = getSpec(req);
   res.setHeader('Content-Type', 'application/json');
-  res.json(spec);
+  res.json(openApiSpec);
 });
 
 /**
@@ -118,52 +181,20 @@ router.get('/docs/info', (req: Request, res: Response) => {
 });
 
 /**
- * ReDoc Documentation
- */
-router.get('/redoc', (req: Request, res: Response) => {
-  const spec = getSpec(req);
-  const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}`;
-  
-  const redocHtml = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Luna Server API Documentation - ReDoc</title>
-        <meta charset="utf-8"/>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
-        <style>
-          body { margin: 0; padding: 0; }
-        </style>
-      </head>
-      <body>
-        <redoc spec-url='${baseUrl}/swagger.json'></redoc>
-        <script src="https://cdn.jsdelivr.net/npm/redoc@2.1.2/bundles/redoc.standalone.js"></script>
-      </body>
-    </html>
-  `;
-  
-  res.setHeader('Content-Type', 'text/html');
-  res.send(redocHtml);
-});
-
-/**
  * Swagger UI Routes - Setup for both /swagger and /docs
  */
 
 // Main Swagger UI on /swagger/
 router.use('/swagger', swaggerUi.serve);
 router.get('/swagger/', (req: Request, res: Response, next) => {
-  const spec = getSpec(req);
-  const swaggerUiHandler = swaggerUi.setup(spec, swaggerUiOptions);
+  const swaggerUiHandler = swaggerUi.setup(openApiSpec, swaggerUiOptions);
   swaggerUiHandler(req, res, next);
 });
 
 // Alternative Swagger UI on /docs/
 router.use('/docs', swaggerUi.serve);
 router.get('/docs/', (req: Request, res: Response, next) => {
-  const spec = getSpec(req);
-  const swaggerUiHandler = swaggerUi.setup(spec, swaggerUiOptions);
+  const swaggerUiHandler = swaggerUi.setup(openApiSpec, swaggerUiOptions);
   swaggerUiHandler(req, res, next);
 });
 

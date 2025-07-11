@@ -31,7 +31,7 @@ export class GranularControlController {
   async getSlide(req: Request, res: Response): Promise<void> {
     const startTime = Date.now();
     const { presentationId, slideIndex } = req.params;
-    const { includeShapes = true, includeNotes = true, includeBackground = true } = req.query;
+    const { includeShapes = true, includeBackground = true, includeNotes = true } = req.query;
 
     try {
       logger.info('Extracting individual slide with Aspose.Slides', {
@@ -40,8 +40,9 @@ export class GranularControlController {
         options: { includeShapes: !!includeShapes, includeBackground: !!includeBackground, includeNotes: !!includeNotes }
       });
 
-      // Load local Aspose.Slides library
-      const aspose = require('../../../lib/aspose.slides.js');
+      // ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
+      const asposeDriver = require('/app/lib/AsposeDriverFactory');
+      await asposeDriver.initialize();
       
       // Extract slide data using real Aspose.Slides processing
       const slideIndexNum = parseInt(slideIndex, 10);
@@ -118,8 +119,9 @@ export class GranularControlController {
         options: { includeFormatting, includeText }
       });
 
-      // Load local Aspose.Slides library
-      const aspose = require('../../../lib/aspose.slides.js');
+      // ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
+      const asposeDriver = require('/app/lib/AsposeDriverFactory');
+      await asposeDriver.initialize();
       
       // Extract shape data using real Aspose.Slides processing
       const shapeData = await this.extractShapeData(
@@ -189,8 +191,9 @@ export class GranularControlController {
         }
       });
 
-      // Load local Aspose.Slides library
-      const aspose = require('../../../lib/aspose.slides.js');
+      // ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
+      const asposeDriver = require('/app/lib/AsposeDriverFactory');
+      await asposeDriver.initialize();
       
       // Create presentation and slide from JSON
       const renderedResult = await this.performSlideRendering(slideData, renderOptions);
@@ -256,8 +259,9 @@ export class GranularControlController {
         hasGeometry: !!shapeData.geometry
       });
 
-      // Load local Aspose.Slides library
-      const aspose = require('../../../lib/aspose.slides.js');
+      // ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
+      const asposeDriver = require('/app/lib/AsposeDriverFactory');
+      await asposeDriver.initialize();
       
       // Render shape to specified format
       const renderedResult = await this.performShapeRendering(shapeData, renderOptions);
