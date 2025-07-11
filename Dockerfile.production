@@ -4,6 +4,10 @@
 # Stage 1: Build Client
 FROM node:18-alpine AS client-builder
 
+# Cache buster to force rebuild  
+ARG BUILD_TIME=default
+RUN echo "Build time: $BUILD_TIME"
+
 WORKDIR /app/client
 COPY client/package*.json ./
 RUN npm ci
