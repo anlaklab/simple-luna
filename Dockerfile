@@ -31,7 +31,7 @@ RUN apt-get update && apt-get install -y \
     && fc-cache -f \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Java environment variables with proper headless configuration  
+# Set Java environment variables with proper headless configuration
 ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
 ENV PATH="$JAVA_HOME/bin:${PATH}"
 ENV JAVA_TOOL_OPTIONS="-Djava.awt.headless=true -Dfile.encoding=UTF-8 -Djava.util.prefs.systemRoot=/tmp -Dprism.order=sw"
