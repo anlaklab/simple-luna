@@ -1,5 +1,7 @@
 # 🌙 Luna - AI-Powered PowerPoint Processing Platform
 
+Versión 0.01
+
 Luna is a professional PowerPoint processing platform with AI capabilities that converts PPTX files to Universal JSON schema and provides advanced analysis through a React frontend and Node.js backend.
 
 ## ✨ Features
