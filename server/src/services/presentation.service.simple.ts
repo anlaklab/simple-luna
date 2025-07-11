@@ -49,6 +49,7 @@ export class PresentationService {
           includeAnimations: false,
           includeComments: false,
           extractImages: true,
+          optimizeForSize: false,
         }
       );
       
