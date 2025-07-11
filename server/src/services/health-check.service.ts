@@ -164,18 +164,20 @@ export class HealthCheckService {
         maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'),
       };
 
-      // Try to load the Aspose library to verify it's working
-      const aspose = require('../../../lib/aspose.slides.js');
-      if (!aspose || !aspose.Presentation) {
-        throw new Error('Aspose.Slides library not found or invalid');
-      }
+      // ✅ REFACTORED: Use AsposeDriverFactory to verify it's working
+      const asposeDriver = require('/app/lib/AsposeDriverFactory');
+      await asposeDriver.initialize();
+      
+      // Test if we can create a basic presentation
+      const testPresentation = await asposeDriver.createPresentation();
+      testPresentation.dispose();
       
       const responseTime = Date.now() - startTime;
       
       return {
         status: 'healthy',
         responseTime,
-        details: 'Aspose.Slides library loaded and functional',
+        details: 'Aspose.Slides library loaded and functional via AsposeDriverFactory',
         lastChecked: new Date().toISOString(),
       };
       

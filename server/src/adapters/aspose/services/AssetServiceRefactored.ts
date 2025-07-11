@@ -29,8 +29,8 @@ import { AssetMetadataServiceImpl } from './AssetMetadataService';
 import { AssetStorageServiceImpl } from './AssetStorageService';
 import { AssetMetadataRepositoryImpl } from './AssetMetadataRepository';
 
-// Import local Aspose.Slides library
-const aspose = require('../../../../lib/aspose.slides.js');
+// ✅ ROBUST IMPORT: Use AsposeDriverFactory for unified access
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
 
 export class AssetServiceRefactored implements IAssetService {
   private config: AssetServiceConfig;
@@ -89,8 +89,9 @@ export class AssetServiceRefactored implements IAssetService {
         options: extractionOptions
       });
 
-      // Load presentation using local Aspose.Slides library
-      const presentation = new aspose.Presentation(filePath);
+      // ✅ REFACTORED: Load presentation using AsposeDriverFactory
+      await asposeDriver.initialize();
+      const presentation = await asposeDriver.loadPresentation(filePath);
       const slideCount = presentation.getSlides().getCount();
       
       logger.info('Presentation loaded successfully', {
@@ -518,9 +519,10 @@ export class AssetServiceRefactored implements IAssetService {
         return false;
       }
 
-      // Validate Aspose.Slides library
+      // ✅ REFACTORED: Validate Aspose.Slides library using AsposeDriverFactory
       try {
-        const testPresentation = new aspose.Presentation();
+        await asposeDriver.initialize();
+        const testPresentation = await asposeDriver.createPresentation();
         testPresentation.dispose();
       } catch (error) {
         logger.error('Aspose.Slides library validation failed', {
@@ -536,12 +538,7 @@ export class AssetServiceRefactored implements IAssetService {
         return false;
       }
 
-      logger.info('Asset service configuration validated successfully', {
-        firebaseHealth: firebaseHealth.overall,
-        extractorCount,
-        asposeLibrary: 'OK'
-      });
-
+      logger.info('Asset Service configuration validated successfully');
       return true;
 
     } catch (error) {

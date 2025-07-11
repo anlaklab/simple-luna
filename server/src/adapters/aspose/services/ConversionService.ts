@@ -84,13 +84,13 @@ export class ConversionService implements IConversionService {
         options 
       });
 
-      // Step 2: Load Aspose.Slides
-      const aspose = require('../../../../lib/aspose.slides.js');
-      const Presentation = aspose.Presentation;
+      // Step 2: Load AsposeDriverFactory and initialize
+      const asposeDriver = require('/app/lib/AsposeDriverFactory');
+      await asposeDriver.initialize();
 
       // Step 3: Load presentation with robust error handling
       try {
-        presentation = new Presentation(filePath);
+        presentation = await asposeDriver.createPresentation(filePath);
         logger.info('Presentation loaded successfully');
       } catch (error) {
         throw new ConversionError('Failed to load presentation file', error as Error);

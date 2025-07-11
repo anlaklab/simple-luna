@@ -17,8 +17,8 @@ import {
   ExtractionMethod
 } from '../../types/asset-interfaces';
 
-// Import local Aspose.Slides library
-const aspose = require('/app/lib/aspose.slides.js');
+// ✅ ROBUST IMPORT: Use absolute import from app root - works in Docker
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
 
 export class AudioAssetExtractor implements AudioExtractor {
   readonly name = 'AudioAssetExtractor';
@@ -35,6 +35,9 @@ export class AudioAssetExtractor implements AudioExtractor {
     const assets: AssetResult[] = [];
     
     try {
+      // ✅ REFACTORED: Initialize AsposeDriver before use
+      await asposeDriver.initialize();
+
       logger.info('Starting real audio extraction with Aspose.Slides', {
         extractorName: this.name,
         slideCount: presentation.getSlides().getCount()
@@ -99,14 +102,14 @@ export class AudioAssetExtractor implements AudioExtractor {
       for (let shapeIndex = 0; shapeIndex < shapeCount; shapeIndex++) {
         const shape = shapes.get_Item(shapeIndex);
         
-        // Check if shape is an audio frame
-        if (this.isAudioFrame(shape)) {
+        // ✅ REFACTORED: Use AsposeDriver for audio frame detection
+        if (await this.isAudioFrame(shape)) {
           const audioAsset = await this.extractFromAudioFrame(shape, slideIndex);
           if (audioAsset) assets.push(audioAsset);
         }
         
-        // Check for grouped shapes that might contain audio
-        if (shape.getShapeType() === aspose.ShapeType.GroupShape) {
+        // ✅ REFACTORED: Use AsposeDriver for GroupShape detection
+        if (await asposeDriver.isGroupShape(shape)) {
           const groupAssets = await this.extractFromGroupShape(shape, slideIndex, options);
           assets.push(...groupAssets);
         }
@@ -132,8 +135,8 @@ export class AudioAssetExtractor implements AudioExtractor {
 
   async extractFromAudioFrame(audioFrame: any, slideIndex: number): Promise<AssetResult | null> {
     try {
-      // Check if this is actually an audio frame
-      if (!this.isAudioFrame(audioFrame)) {
+      // ✅ REFACTORED: Use AsposeDriver for audio frame checking
+      if (!(await this.isAudioFrame(audioFrame))) {
         return null;
       }
 
@@ -213,8 +216,7 @@ export class AudioAssetExtractor implements AudioExtractor {
 
   validateAsset(asset: any): boolean {
     try {
-      return this.isAudioFrame(asset) && 
-             this.getAudioData(asset) &&
+      return this.getAudioData(asset) &&
              this.getAudioData(asset).length > 0;
     } catch {
       return false;
@@ -230,15 +232,13 @@ export class AudioAssetExtractor implements AudioExtractor {
     };
   }
 
-  private isAudioFrame(shape: any): boolean {
+  // ✅ REFACTORED: Use AsposeDriver for audio frame detection
+  private async isAudioFrame(shape: any): Promise<boolean> {
     try {
-      // Check if shape has audio properties
-      return shape && (
-        shape.getShapeType() === aspose.ShapeType.AudioFrame ||
-        (shape.hasAudio && shape.hasAudio()) ||
-        (shape.getAudioFormat && shape.getAudioFormat())
-      );
-    } catch {
+      // Use AsposeDriver's built-in audio frame detection
+      return await asposeDriver.isAudioFrame(shape);
+    } catch (error) {
+      logger.warn('Error checking audio frame', { error: (error as Error).message });
       return false;
     }
   }
@@ -308,13 +308,13 @@ export class AudioAssetExtractor implements AudioExtractor {
       for (let i = 0; i < shapeCount; i++) {
         const shape = shapes.get_Item(i);
         
-        if (this.isAudioFrame(shape)) {
+        if (await this.isAudioFrame(shape)) {
           const audioAsset = await this.extractFromAudioFrame(shape, slideIndex);
           if (audioAsset) assets.push(audioAsset);
         }
         
         // Recursively check nested group shapes
-        if (shape.getShapeType() === aspose.ShapeType.GroupShape) {
+        if (await asposeDriver.isGroupShape(shape)) {
           const nestedAssets = await this.extractFromGroupShape(shape, slideIndex, options);
           assets.push(...nestedAssets);
         }

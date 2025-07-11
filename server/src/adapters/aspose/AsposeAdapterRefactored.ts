@@ -247,28 +247,31 @@ export class AsposeAdapterRefactored {
     options: any = {}
   ): Promise<{ success: boolean; buffer?: Buffer; size?: number; error?: string; processingStats?: any }> {
     try {
-      const aspose = require('../../../lib/aspose.slides.js');
-      const Presentation = aspose.Presentation;
-      const SaveFormat = aspose.SaveFormat;
+      // ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
+      const asposeDriver = require('/app/lib/AsposeDriverFactory');
+      await asposeDriver.initialize();
+      
       const fs = require('fs');
       const path = require('path');
 
       if (format === 'pdf' || format === 'html') {
-        // Load the presentation
-        const presentation = new Presentation(filePath);
+        // Load the presentation using AsposeDriverFactory
+        const presentation = await asposeDriver.loadPresentation(filePath);
         
         try {
-                     // Generate unique output filename
-           const outputFileName = `converted_${randomUUID()}.${format}`;
-           const outputPath = path.join(this.config.tempDirectory || './temp', outputFileName);
+          // Generate unique output filename
+          const outputFileName = `converted_${randomUUID()}.${format}`;
+          const outputPath = path.join(this.config.tempDirectory || './temp', outputFileName);
           
           // Ensure temp directory exists
           await ensureDirectoryExists(path.dirname(outputPath));
           
           // Perform real conversion using Aspose.Slides
           if (format === 'pdf') {
+            const SaveFormat = await asposeDriver.getSaveFormat();
             presentation.save(outputPath, SaveFormat.Pdf);
           } else if (format === 'html') {
+            const SaveFormat = await asposeDriver.getSaveFormat();
             presentation.save(outputPath, SaveFormat.Html);
           }
           
@@ -359,12 +362,14 @@ export class AsposeAdapterRefactored {
 
   async healthCheck(): Promise<HealthCheckResult> {
     try {
-      // Test basic Aspose functionality
-      const aspose = require('../../../lib/aspose.slides.js');
+      // ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
+      const asposeDriver = require('/app/lib/AsposeDriverFactory');
+      await asposeDriver.initialize();
+      
       const tempDir = this.config.tempDirectory;
       
       const result: HealthCheckResult = {
-        isAvailable: !!aspose,
+        isAvailable: true,
         hasLicense: this.licenseApplied,
         tempDirExists: require('fs').existsSync(tempDir || './temp'),
         isHealthy: false,
@@ -372,7 +377,7 @@ export class AsposeAdapterRefactored {
 
       // Test if we can create a basic presentation
       try {
-        const presentation = new aspose.Presentation();
+        const presentation = await asposeDriver.createPresentation();
         presentation.dispose();
         result.isHealthy = true;
       } catch (error) {

@@ -13,15 +13,15 @@ import {
   UniversalPresentation
 } from '../types/interfaces';
 
-// Import local Aspose.Slides library via license manager (singleton)
-const licenseManager = require('/app/lib/aspose-license-manager.js');
+// ✅ ROBUST IMPORT: Use AsposeDriverFactory for unified access
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
 
 export class ThumbnailService implements IThumbnailService {
   private config: AsposeConfig;
 
   constructor(config: AsposeConfig) {
     this.config = config;
-    logger.info('ThumbnailService: Initialized with license manager');
+    logger.info('ThumbnailService: Initialized with AsposeDriverFactory');
   }
 
   async generateThumbnails(input: string | UniversalPresentation, options: ThumbnailOptions = {}): Promise<ThumbnailResult[]> {
@@ -29,9 +29,8 @@ export class ThumbnailService implements IThumbnailService {
     const { size = { width: 800, height: 600 }, format = 'png' } = options;
 
     try {
-      if (!licenseManager.Aspose) {
-        throw new Error('Aspose.Slides library not available. License not loaded.');
-      }
+      // ✅ REFACTORED: Initialize AsposeDriver
+      await asposeDriver.initialize();
 
       if (typeof input !== 'string') {
         throw new Error('Universal Presentation JSON input not yet supported for thumbnails');
@@ -41,7 +40,8 @@ export class ThumbnailService implements IThumbnailService {
         throw new Error(`Input file not found: ${input}`);
       }
 
-      const presentation = new licenseManager.Aspose.Presentation(input);
+      // ✅ REFACTORED: Use AsposeDriver to load presentation
+      const presentation = await asposeDriver.loadPresentation(input);
       const slides = presentation.getSlides();
       const slideCount = slides.size(); // ✅ Usar size() en lugar de getCount()
       const thumbnails: ThumbnailResult[] = [];
@@ -112,9 +112,8 @@ export class ThumbnailService implements IThumbnailService {
     const { size = { width: 800, height: 600 }, format = 'png' } = options;
 
     try {
-      if (!licenseManager.Aspose) {
-        throw new Error('Aspose.Slides library not available. License not loaded.');
-      }
+      // ✅ REFACTORED: Initialize AsposeDriver
+      await asposeDriver.initialize();
 
       if (typeof input !== 'string') {
         throw new Error('Universal Presentation JSON input not yet supported for thumbnails');
@@ -124,7 +123,8 @@ export class ThumbnailService implements IThumbnailService {
         throw new Error(`Input file not found: ${input}`);
       }
 
-      const presentation = new licenseManager.Aspose.Presentation(input);
+      // ✅ REFACTORED: Use AsposeDriver to load presentation
+      const presentation = await asposeDriver.loadPresentation(input);
       const slides = presentation.getSlides();
       const slideCount = slides.size(); // ✅ Usar size() en lugar de getCount()
 
@@ -177,14 +177,13 @@ export class ThumbnailService implements IThumbnailService {
       const filename = `slide_${slideIndex}.${format}`;
       const outputPath = path.join(outputDir, filename);
 
-      // Create thumbnail using Aspose.Slides
-      // Try different approaches based on available methods
+      // Create thumbnail using AsposeDriver
       let thumbnail: any;
       let thumbnailBase64 = '';
 
       try {
-        // Method 1: Try with Dimension
-        const Dimension = licenseManager.Aspose.Dimension;
+        // ✅ REFACTORED: Use AsposeDriver to get classes
+        const Dimension = await asposeDriver.getClass('Dimension');
         if (Dimension) {
           const thumbnailSize = new Dimension(size.width, size.height);
           thumbnail = slide.getThumbnail(thumbnailSize);
@@ -196,7 +195,7 @@ export class ThumbnailService implements IThumbnailService {
         if (thumbnail) {
           // Try to save the thumbnail
           if (thumbnail.save) {
-            thumbnail.save(outputPath, this.getImageFormat(format));
+            thumbnail.save(outputPath, await this.getImageFormat(format));
           }
 
           // Read the file if it was saved
@@ -245,12 +244,12 @@ export class ThumbnailService implements IThumbnailService {
     }
   }
 
-  private getImageFormat(format: string): any {
+  private async getImageFormat(format: string): Promise<any> {
     try {
-      // Try to get ImageFormat enum from Aspose
-      if (licenseManager.Aspose.ImageFormat) {
-        const ImageFormat = licenseManager.Aspose.ImageFormat;
-        
+      // ✅ REFACTORED: Use AsposeDriver to get ImageFormat
+      const ImageFormat = await asposeDriver.getClass('ImageFormat');
+      
+      if (ImageFormat) {
         switch (format.toLowerCase()) {
           case 'png':
             return ImageFormat.Png || 'png';

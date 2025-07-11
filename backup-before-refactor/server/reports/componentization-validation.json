@@ -1,0 +1,369 @@
+{
+  "timestamp": "2025-07-10T17:27:23.394Z",
+  "summary": {
+    "passed": 17,
+    "failed": 18,
+    "warnings": 0,
+    "successRate": 49
+  },
+  "validations": [
+    {
+      "name": "Directory Structure",
+      "passed": true
+    },
+    {
+      "name": "Extractor Files",
+      "passed": true
+    },
+    {
+      "name": "Line Counts",
+      "passed": false
+    },
+    {
+      "name": "Original File Reduction",
+      "passed": true
+    },
+    {
+      "name": "Test Files",
+      "passed": true
+    },
+    {
+      "name": "Baseline Comparison",
+      "passed": true
+    }
+  ],
+  "details": [
+    {
+      "type": "PASS",
+      "message": "Directory exists: base",
+      "details": {
+        "path": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/extractors/base"
+      },
+      "timestamp": "2025-07-10T17:27:23.389Z"
+    },
+    {
+      "type": "PASS",
+      "message": "Directory exists: shapes",
+      "details": {
+        "path": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/extractors/shapes"
+      },
+      "timestamp": "2025-07-10T17:27:23.390Z"
+    },
+    {
+      "type": "PASS",
+      "message": "Directory exists: utils",
+      "details": {
+        "path": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/extractors/utils"
+      },
+      "timestamp": "2025-07-10T17:27:23.391Z"
+    },
+    {
+      "type": "PASS",
+      "message": "Base file exists: base-shape-extractor.ts",
+      "details": {
+        "lines": 271,
+        "path": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/extractors/base/base-shape-extractor.ts"
+      },
+      "timestamp": "2025-07-10T17:27:23.391Z"
+    },
+    {
+      "type": "PASS",
+      "message": "Base file exists: extraction-interfaces.ts",
+      "details": {
+        "lines": 417,
+        "path": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/extractors/base/extraction-interfaces.ts"
+      },
+      "timestamp": "2025-07-10T17:27:23.391Z"
+    },
+    {
+      "type": "PASS",
+      "message": "Shape extractor exists: chart-extractor.ts",
+      "details": {
+        "lines": 82,
+        "path": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/extractors/shapes/chart-extractor.ts"
+      },
+      "timestamp": "2025-07-10T17:27:23.391Z"
+    },
+    {
+      "type": "PASS",
+      "message": "Shape extractor exists: table-extractor.ts",
+      "details": {
+        "lines": 78,
+        "path": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/extractors/shapes/table-extractor.ts"
+      },
+      "timestamp": "2025-07-10T17:27:23.391Z"
+    },
+    {
+      "type": "PASS",
+      "message": "Shape extractor exists: media-extractor.ts",
+      "details": {
+        "lines": 78,
+        "path": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/extractors/shapes/media-extractor.ts"
+      },
+      "timestamp": "2025-07-10T17:27:23.391Z"
+    },
+    {
+      "type": "PASS",
+      "message": "Shape extractor exists: shape-extractor-coordinator.ts",
+      "details": {
+        "lines": 80,
+        "path": "/Users/miguelsuredasuau/Downloads/aspose-slides-25.6-nodejs/server/src/adapters/aspose/extractors/shapes/shape-extractor-coordinator.ts"
+      },
+      "timestamp": "2025-07-10T17:27:23.391Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: base/base-shape-extractor.ts",
+      "details": {
+        "lines": 271,
+        "target": 100,
+        "excess": 171
+      },
+      "timestamp": "2025-07-10T17:27:23.391Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: base/extraction-interfaces.ts",
+      "details": {
+        "lines": 417,
+        "target": 100,
+        "excess": 317
+      },
+      "timestamp": "2025-07-10T17:27:23.391Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: coordinator/extractor-registry.ts",
+      "details": {
+        "lines": 157,
+        "target": 100,
+        "excess": 57
+      },
+      "timestamp": "2025-07-10T17:27:23.391Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: coordinator/shape-type-detector.ts",
+      "details": {
+        "lines": 116,
+        "target": 100,
+        "excess": 16
+      },
+      "timestamp": "2025-07-10T17:27:23.392Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: shapes/chart/chart-axes-extractor.ts",
+      "details": {
+        "lines": 142,
+        "target": 100,
+        "excess": 42
+      },
+      "timestamp": "2025-07-10T17:27:23.392Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: shapes/chart/chart-metadata-extractor.ts",
+      "details": {
+        "lines": 216,
+        "target": 100,
+        "excess": 116
+      },
+      "timestamp": "2025-07-10T17:27:23.392Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: shapes/chart/chart-series-extractor.ts",
+      "details": {
+        "lines": 214,
+        "target": 100,
+        "excess": 114
+      },
+      "timestamp": "2025-07-10T17:27:23.392Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: shapes/chart-extractor-legacy.ts",
+      "details": {
+        "lines": 496,
+        "target": 100,
+        "excess": 396
+      },
+      "timestamp": "2025-07-10T17:27:23.392Z"
+    },
+    {
+      "type": "PASS",
+      "message": "File under target: shapes/chart-extractor.ts",
+      "details": {
+        "lines": 82,
+        "target": 100
+      },
+      "timestamp": "2025-07-10T17:27:23.392Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: shapes/media/audio-extractor.ts",
+      "details": {
+        "lines": 171,
+        "target": 100,
+        "excess": 71
+      },
+      "timestamp": "2025-07-10T17:27:23.392Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: shapes/media/picture-extractor.ts",
+      "details": {
+        "lines": 165,
+        "target": 100,
+        "excess": 65
+      },
+      "timestamp": "2025-07-10T17:27:23.392Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: shapes/media/video-extractor.ts",
+      "details": {
+        "lines": 199,
+        "target": 100,
+        "excess": 99
+      },
+      "timestamp": "2025-07-10T17:27:23.392Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: shapes/media-extractor-legacy.ts",
+      "details": {
+        "lines": 508,
+        "target": 100,
+        "excess": 408
+      },
+      "timestamp": "2025-07-10T17:27:23.392Z"
+    },
+    {
+      "type": "PASS",
+      "message": "File under target: shapes/media-extractor.ts",
+      "details": {
+        "lines": 78,
+        "target": 100
+      },
+      "timestamp": "2025-07-10T17:27:23.392Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: shapes/ole-object-extractor.ts",
+      "details": {
+        "lines": 142,
+        "target": 100,
+        "excess": 42
+      },
+      "timestamp": "2025-07-10T17:27:23.392Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: shapes/shape-extractor-coordinator-legacy.ts",
+      "details": {
+        "lines": 417,
+        "target": 100,
+        "excess": 317
+      },
+      "timestamp": "2025-07-10T17:27:23.392Z"
+    },
+    {
+      "type": "PASS",
+      "message": "File under target: shapes/shape-extractor-coordinator.ts",
+      "details": {
+        "lines": 80,
+        "target": 100
+      },
+      "timestamp": "2025-07-10T17:27:23.393Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: shapes/smartart-extractor.ts",
+      "details": {
+        "lines": 131,
+        "target": 100,
+        "excess": 31
+      },
+      "timestamp": "2025-07-10T17:27:23.393Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: shapes/table/table-cells-extractor.ts",
+      "details": {
+        "lines": 284,
+        "target": 100,
+        "excess": 184
+      },
+      "timestamp": "2025-07-10T17:27:23.393Z"
+    },
+    {
+      "type": "PASS",
+      "message": "File under target: shapes/table/table-rows-extractor.ts",
+      "details": {
+        "lines": 84,
+        "target": 100
+      },
+      "timestamp": "2025-07-10T17:27:23.393Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: shapes/table/table-style-extractor.ts",
+      "details": {
+        "lines": 151,
+        "target": 100,
+        "excess": 51
+      },
+      "timestamp": "2025-07-10T17:27:23.393Z"
+    },
+    {
+      "type": "FAIL",
+      "message": "File exceeds target: shapes/table-extractor-legacy.ts",
+      "details": {
+        "lines": 492,
+        "target": 100,
+        "excess": 392
+      },
+      "timestamp": "2025-07-10T17:27:23.393Z"
+    },
+    {
+      "type": "PASS",
+      "message": "File under target: shapes/table-extractor.ts",
+      "details": {
+        "lines": 78,
+        "target": 100
+      },
+      "timestamp": "2025-07-10T17:27:23.393Z"
+    },
+    {
+      "type": "PASS",
+      "message": "Original shape-extractor.ts reduced successfully",
+      "details": {
+        "lines": 120,
+        "target": 100
+      },
+      "timestamp": "2025-07-10T17:27:23.393Z"
+    },
+    {
+      "type": "PASS",
+      "message": "Test file exists: chart-extractor.test.ts",
+      "details": {
+        "lines": 435
+      },
+      "timestamp": "2025-07-10T17:27:23.393Z"
+    },
+    {
+      "type": "PASS",
+      "message": "Componentization shows improvement",
+      "details": {
+        "baselineFiles": 14,
+        "currentFiles": 23,
+        "baselineLines": 3470,
+        "currentLines": 5091,
+        "averageLinesReduction": 26.65217391304347
+      },
+      "timestamp": "2025-07-10T17:27:23.394Z"
+    }
+  ]
+}

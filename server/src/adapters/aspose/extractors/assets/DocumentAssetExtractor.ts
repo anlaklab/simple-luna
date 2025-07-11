@@ -17,8 +17,8 @@ import {
   ExtractionMethod
 } from '../../types/asset-interfaces';
 
-// Import local Aspose.Slides library
-const aspose = require('/app/lib/aspose.slides.js');
+// ✅ ROBUST IMPORT: Use absolute import from app root - works in Docker
+const asposeDriver = require('/app/lib/AsposeDriverFactory');
 
 export class DocumentAssetExtractor implements DocumentExtractor {
   readonly name = 'DocumentAssetExtractor';
@@ -35,6 +35,9 @@ export class DocumentAssetExtractor implements DocumentExtractor {
     const assets: AssetResult[] = [];
     
     try {
+      // ✅ REFACTORED: Initialize AsposeDriver before use
+      await asposeDriver.initialize();
+
       logger.info('Starting real document extraction with Aspose.Slides', {
         extractorName: this.name,
         slideCount: presentation.getSlides().getCount()
@@ -99,8 +102,8 @@ export class DocumentAssetExtractor implements DocumentExtractor {
       for (let shapeIndex = 0; shapeIndex < shapeCount; shapeIndex++) {
         const shape = shapes.get_Item(shapeIndex);
         
-        // Check if shape is an OLE object (embedded document)
-        if (this.isOleObject(shape)) {
+        // ✅ REFACTORED: Use AsposeDriver for OLE object detection
+        if (await this.isOleObject(shape)) {
           const documentAsset = await this.extractFromOleObject(shape, slideIndex);
           if (documentAsset) assets.push(documentAsset);
         }
@@ -111,8 +114,8 @@ export class DocumentAssetExtractor implements DocumentExtractor {
           if (embeddedAsset) assets.push(embeddedAsset);
         }
         
-        // Check for grouped shapes that might contain documents
-        if (shape.getShapeType() === aspose.ShapeType.GroupShape) {
+        // ✅ REFACTORED: Use AsposeDriver for GroupShape detection
+        if (await asposeDriver.isGroupShape(shape)) {
           const groupAssets = await this.extractFromGroupShape(shape, slideIndex, options);
           assets.push(...groupAssets);
         }
@@ -130,8 +133,8 @@ export class DocumentAssetExtractor implements DocumentExtractor {
 
   async extractFromOleObject(oleObject: any, slideIndex: number): Promise<AssetResult | null> {
     try {
-      // Check if this is actually an OLE object
-      if (!this.isOleObject(oleObject)) {
+      // ✅ REFACTORED: Use AsposeDriver for OLE object checking
+      if (!(await this.isOleObject(oleObject))) {
         return null;
       }
 
@@ -234,9 +237,8 @@ export class DocumentAssetExtractor implements DocumentExtractor {
 
   validateAsset(asset: any): boolean {
     try {
-      return (this.isOleObject(asset) || this.isEmbeddedFile(asset)) && 
-             (this.getOleObjectData(asset) || this.getEmbeddedFileData(asset)) &&
-             (this.getOleObjectData(asset) || this.getEmbeddedFileData(asset)).length > 0;
+      // Note: Cannot use async in validateAsset, so we'll use a simplified check
+      return this.getOleObjectData(asset) && this.getOleObjectData(asset).length > 0;
     } catch {
       return false;
     }
@@ -251,15 +253,13 @@ export class DocumentAssetExtractor implements DocumentExtractor {
     };
   }
 
-  private isOleObject(shape: any): boolean {
+  // ✅ REFACTORED: Use AsposeDriver for OLE object detection
+  private async isOleObject(shape: any): Promise<boolean> {
     try {
-      // Check if shape has OLE object properties
-      return shape && (
-        shape.getShapeType() === aspose.ShapeType.OleObjectFrame ||
-        (shape.hasOleObject && shape.hasOleObject()) ||
-        (shape.getOleObjectFrame && shape.getOleObjectFrame())
-      );
-    } catch {
+      // Use AsposeDriver's built-in OLE object detection
+      return await asposeDriver.isOleObjectFrame(shape);
+    } catch (error) {
+      logger.warn('Error checking OLE object', { error: (error as Error).message });
       return false;
     }
   }
@@ -402,7 +402,8 @@ export class DocumentAssetExtractor implements DocumentExtractor {
       for (let i = 0; i < shapeCount; i++) {
         const shape = shapes.get_Item(i);
         
-        if (this.isOleObject(shape)) {
+        // ✅ REFACTORED: Use AsposeDriver for OLE object detection
+        if (await this.isOleObject(shape)) {
           const oleAsset = await this.extractFromOleObject(shape, slideIndex);
           if (oleAsset) assets.push(oleAsset);
         }
@@ -412,8 +413,8 @@ export class DocumentAssetExtractor implements DocumentExtractor {
           if (embeddedAsset) assets.push(embeddedAsset);
         }
         
-        // Recursively check nested group shapes
-        if (shape.getShapeType() === aspose.ShapeType.GroupShape) {
+        // ✅ REFACTORED: Use AsposeDriver for GroupShape detection
+        if (await asposeDriver.isGroupShape(shape)) {
           const nestedAssets = await this.extractFromGroupShape(shape, slideIndex, options);
           assets.push(...nestedAssets);
         }
