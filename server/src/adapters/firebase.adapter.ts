@@ -56,17 +56,48 @@ export class FirebaseAdapter {
   constructor(config: FirebaseConfig) {
     this.config = config;
 
+    // Improved private key handling for various escape scenarios
+    const processPrivateKey = (privateKey: string): string => {
+      let processedKey = privateKey;
+      
+      // Handle common escape sequence patterns
+      processedKey = processedKey
+        .replace(/\\\\n/g, '\n')  // Handle double-escaped newlines
+        .replace(/\\n/g, '\n')    // Handle escaped newlines
+        .replace(/\\\n/g, '\n');   // Handle literal backslash-newline
+      
+      // If the key doesn't start with BEGIN PRIVATE KEY, it might need further processing
+      if (!processedKey.includes('-----BEGIN PRIVATE KEY-----')) {
+        logger.warn('Private key does not appear to be in PEM format');
+      }
+      
+      // Remove any extra whitespace at the beginning and end
+      processedKey = processedKey.trim();
+      
+      return processedKey;
+    };
+
     // Initialize Firebase Admin if not already initialized
     if (!admin.apps.length) {
-      this.app = admin.initializeApp({
-        credential: admin.credential.cert({
+      try {
+        this.app = admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId: config.projectId,
+            privateKey: processPrivateKey(config.privateKey),
+            clientEmail: config.clientEmail,
+          }),
+          storageBucket: config.storageBucket,
+          databaseURL: config.databaseURL,
+        });
+      } catch (error) {
+        logger.error('Failed to initialize Firebase Admin', {
+          error: (error as Error).message,
           projectId: config.projectId,
-          privateKey: config.privateKey.replace(/\\n/g, '\n'),
-          clientEmail: config.clientEmail,
-        }),
-        storageBucket: config.storageBucket,
-        databaseURL: config.databaseURL,
-      });
+          privateKeyLength: config.privateKey.length,
+          privateKeyStart: config.privateKey.substring(0, 50) + '...'
+        });
+        throw error;
+      }
     } else {
       this.app = admin.app();
     }
