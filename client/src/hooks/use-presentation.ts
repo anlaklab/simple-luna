@@ -1,12 +1,14 @@
 /**
- * Presentation Hook - Screaming Architecture Frontend
- * 🎯 RESPONSIBILITY: Presentation data management and state
- * 📋 SCOPE: Loading, caching, Universal JSON Schema handling
+ * Enhanced Presentation Hook - Unified API Integration
+ * 🎯 RESPONSIBILITY: Presentation data management and state with unified API
+ * 📋 SCOPE: Loading, caching, Universal JSON Schema handling, analytics
+ * ⚡ FEATURES: Error handling, caching, real-time updates, progress tracking
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { UniversalPresentation, PresentationAnalytics, SlideAnalysis } from '@/types/universal-json';
-import { api } from './use-api';
+import { useToast } from '@/hooks/use-toast';
+import { UniversalPresentation, UniversalSlide, UniversalShape, PresentationAnalytics, AssetSummary } from '../types/universal-json';
+import { api, type UploadProgress } from './use-api';
 
 export interface PresentationState {
   // Core data
@@ -16,43 +18,65 @@ export interface PresentationState {
   // Loading states
   isLoading: boolean;
   isConverting: boolean;
+  isRefreshing: boolean;
+  uploadProgress: UploadProgress | null;
   error: string | null;
   
   // Processed data
   analytics: PresentationAnalytics | null;
   slideAnalyses: SlideAnalysis[];
   
-  // Thumbnails
+  // Assets and thumbnails
   thumbnails: Array<{
     slideIndex: number;
     url: string;
     filename: string;
+    format: string;
+    width: number;
+    height: number;
+  }>;
+  assets: Array<{
+    type: string;
+    count: number;
+    items: any[];
   }>;
   
   // Metadata
   lastUpdated: string | null;
   version: string | null;
+  processingStatus: 'pending' | 'processing' | 'completed' | 'failed';
+  
+  // Performance
+  loadTime: number | null;
+  cacheHit: boolean;
 }
 
 export interface UsePresentation {
   // State
   state: PresentationState;
   
-  // Actions
-  loadPresentation: (id: string) => Promise<void>;
-  convertPptx: (file: File) => Promise<string | null>;
+  // Core actions
+  loadPresentation: (id: string, options?: { forceRefresh?: boolean }) => Promise<void>;
+  convertPptx: (file: File, options?: { generateThumbnails?: boolean }) => Promise<string | null>;
   refreshPresentation: () => Promise<void>;
   
   // Universal JSON operations
   getSlide: (slideIndex: number) => Promise<any>;
-  getShape: (slideIndex: number, shapeIndex: number) => Promise<any>;
+  getShape: (slideIndex: number, shapeId: string) => Promise<any>;
+  updateSlide: (slideIndex: number, slideData: any) => Promise<boolean>;
+  deleteSlide: (slideIndex: number) => Promise<boolean>;
   
-  // Analytics
-  generateAnalytics: () => PresentationAnalytics | null;
+  // Analytics and processing
+  generateAnalytics: () => Promise<PresentationAnalytics | null>;
   analyzeSlide: (slideIndex: number) => SlideAnalysis | null;
+  regenerateThumbnails: () => Promise<boolean>;
   
-  // Clear state
+  // Export and sharing
+  exportPresentation: (format: 'pdf' | 'pptx' | 'html', options?: any) => Promise<string | null>;
+  
+  // State management
   clear: () => void;
+  resetError: () => void;
 }
 
 const initialState: PresentationState = {
@@ -60,94 +84,184 @@ const initialState: PresentationState = {
   universalJson: null,
   isLoading: false,
   isConverting: false,
+  isRefreshing: false,
+  uploadProgress: null,
   error: null,
   analytics: null,
   slideAnalyses: [],
   thumbnails: [],
+  assets: [],
   lastUpdated: null,
   version: null,
+  processingStatus: 'pending',
+  loadTime: null,
+  cacheHit: false,
 };
 
 export function usePresentation(): UsePresentation {
   const [state, setState] = useState<PresentationState>(initialState);
+  const { toast } = useToast();
 
   // Update state helper
   const updateState = useCallback((updates: Partial<PresentationState>) => {
     setState(prev => ({ ...prev, ...updates }));
   }, []);
 
-  // Load presentation by ID
-  const loadPresentation = useCallback(async (id: string) => {
+  // Load presentation by ID with enhanced error handling
+  const loadPresentation = useCallback(async (
+    id: string, 
+    options: { forceRefresh?: boolean } = {}
+  ) => {
+    const startTime = Date.now();
+    
     updateState({ 
       isLoading: true, 
       error: null, 
-      id 
+      id,
+      cacheHit: false,
     });
 
     try {
-      // Get Universal JSON from API
-      const jsonResponse = await api.json.getFull(id);
+      // Get presentation metadata first
+      const metadataResponse = await api.presentations.get(id, {
+        includeVersions: true,
+        includeAnalytics: true,
+      });
+
+      if (!metadataResponse.success) {
+        throw new Error(metadataResponse.error || 'Failed to load presentation metadata');
+      }
+
+      const metadata = metadataResponse.data;
+
+      // Get Universal JSON
+      const jsonResponse = await api.granular.getSlide(id, -1); // -1 for full presentation
       
-      if (!jsonResponse.success || !jsonResponse.data) {
-        throw new Error(jsonResponse.error || 'Failed to load presentation JSON');
+      if (!jsonResponse.success) {
+        // Fallback to regular JSON endpoint
+        const fallbackResponse = await fetch(`/api/v1/presentations/${id}/json`);
+        if (!fallbackResponse.ok) {
+          throw new Error('Failed to load presentation JSON');
+        }
+        const jsonData = await fallbackResponse.json();
+        
+        if (!jsonData.success) {
+          throw new Error(jsonData.error || 'Invalid JSON response');
+        }
+        
+        const universalJson = jsonData.data;
+        
+        updateState({
+          universalJson,
+          isLoading: false,
+          lastUpdated: metadata.updatedAt || new Date().toISOString(),
+          version: metadata.version || '1.0',
+          processingStatus: metadata.processing?.status || 'completed',
+          loadTime: Date.now() - startTime,
+        });
+        
+        return;
       }
 
       const universalJson = jsonResponse.data;
 
-      // Get thumbnails if available
-      let thumbnails: typeof state.thumbnails = [];
-      try {
-        const thumbResponse = await api.conversion.generateThumbnails(
-          new File([], `${id}.pptx`), // Mock file for now
-          {
-            formats: ['png'],
-            sizes: [
-              { width: 320, height: 240, name: 'small' },
-              { width: 640, height: 480, name: 'medium' },
-            ],
-          }
-        );
+      // Load thumbnails in parallel
+      const thumbnailsPromise = loadThumbnails(id);
+      
+      // Load assets in parallel
+      const assetsPromise = loadAssets(id);
 
-        if (thumbResponse.success && thumbResponse.data?.thumbnails) {
-          thumbnails = thumbResponse.data.thumbnails.map((thumb: any, index: number) => ({
-            slideIndex: index,
-            url: thumb.url || `/temp/thumbnails/${thumb.filename}`,
-            filename: thumb.filename,
-          }));
-        }
-      } catch (thumbError) {
-        console.warn('Failed to load thumbnails:', thumbError);
-      }
+      const [thumbnails, assets] = await Promise.allSettled([
+        thumbnailsPromise,
+        assetsPromise,
+      ]);
 
       updateState({
         universalJson,
-        thumbnails,
+        thumbnails: thumbnails.status === 'fulfilled' ? thumbnails.value : [],
+        assets: assets.status === 'fulfilled' ? assets.value : [],
         isLoading: false,
-        lastUpdated: new Date().toISOString(),
-        version: universalJson.metadata?.version || '1.0',
+        lastUpdated: metadata.updatedAt || new Date().toISOString(),
+        version: metadata.version || '1.0',
+        processingStatus: metadata.processing?.status || 'completed',
+        loadTime: Date.now() - startTime,
       });
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load presentation';
       console.error('Failed to load presentation:', error);
+      
       updateState({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to load presentation',
+        error: errorMessage,
+        loadTime: Date.now() - startTime,
+      });
+
+      toast({
+        title: "Loading Failed",
+        description: errorMessage,
+        variant: "destructive",
       });
     }
-  }, [updateState]);
+  }, [updateState, toast]);
 
-  // Convert PPTX file to Universal JSON
-  const convertPptx = useCallback(async (file: File): Promise<string | null> => {
+  // Helper: Load thumbnails
+  const loadThumbnails = async (id: string) => {
+    try {
+      const response = await fetch(`/api/v1/presentations/${id}/thumbnails`);
+      if (!response.ok) return [];
+      
+      const data = await response.json();
+      return data.data?.thumbnails?.map((thumb: any) => ({
+        slideIndex: thumb.slideIndex,
+        url: thumb.url,
+        filename: thumb.filename,
+        format: thumb.format,
+        width: thumb.width,
+        height: thumb.height,
+      })) || [];
+    } catch (error) {
+      console.warn('Failed to load thumbnails:', error);
+      return [];
+    }
+  };
+
+  // Helper: Load assets
+  const loadAssets = async (id: string) => {
+    try {
+      const response = await api.assets.getAll(id);
+      if (!response.success) return [];
+      
+      return response.data.assets || [];
+    } catch (error) {
+      console.warn('Failed to load assets:', error);
+      return [];
+    }
+  };
+
+  // Convert PPTX file with progress tracking
+  const convertPptx = useCallback(async (
+    file: File, 
+    options: { generateThumbnails?: boolean } = { generateThumbnails: true }
+  ): Promise<string | null> => {
     updateState({ 
       isConverting: true, 
-      error: null 
+      error: null,
+      uploadProgress: null,
     });
 
     try {
-      const response = await api.conversion.pptxToJson(file, {
-        includeAssets: true,
-        includeHidden: false,
-      });
+      const response = await api.conversion.pptxToJson(
+        file,
+        {
+          includeAssets: true,
+          includeHidden: false,
+          generateThumbnails: options.generateThumbnails,
+        },
+        (progress) => {
+          updateState({ uploadProgress: progress });
+        }
+      );
 
       if (!response.success || !response.data) {
         throw new Error(response.error || 'Conversion failed');
@@ -155,68 +269,205 @@ export function usePresentation(): UsePresentation {
 
       const universalJson = response.data.presentation;
       const presentationId = universalJson.id;
+      const thumbnails = response.data.thumbnails || [];
 
       updateState({
         id: presentationId,
         universalJson,
+        thumbnails: thumbnails.map((thumb: any, index: number) => ({
+          slideIndex: index,
+          url: thumb.url,
+          filename: thumb.filename || `slide-${index}.png`,
+          format: thumb.format || 'png',
+          width: thumb.width || 320,
+          height: thumb.height || 240,
+        })),
         isConverting: false,
+        uploadProgress: null,
         lastUpdated: new Date().toISOString(),
         version: '1.0',
+        processingStatus: 'completed',
+      });
+
+      toast({
+        title: "Conversion Successful",
+        description: `Converted ${universalJson.slides?.length || 0} slides successfully.`,
       });
 
       return presentationId;
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Conversion failed';
       console.error('PPTX conversion failed:', error);
+      
       updateState({
         isConverting: false,
-        error: error instanceof Error ? error.message : 'Conversion failed',
+        uploadProgress: null,
+        error: errorMessage,
       });
+
+      toast({
+        title: "Conversion Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+
       return null;
     }
-  }, [updateState]);
+  }, [updateState, toast]);
 
   // Refresh current presentation
   const refreshPresentation = useCallback(async () => {
-    if (state.id) {
-      await loadPresentation(state.id);
-    }
-  }, [state.id, loadPresentation]);
+    if (!state.id) return;
+    
+    updateState({ isRefreshing: true });
+    await loadPresentation(state.id, { forceRefresh: true });
+    updateState({ isRefreshing: false });
+  }, [state.id, loadPresentation, updateState]);
 
-  // Get specific slide data
+  // Get specific slide data with granular API
   const getSlide = useCallback(async (slideIndex: number) => {
-    if (!state.id) return null;
+    if (!state.id) {
+      throw new Error('No presentation loaded');
+    }
 
     try {
-      const response = await api.json.getSlide(state.id, slideIndex);
-      return response.success ? response.data : null;
+      const response = await api.granular.getSlide(state.id, slideIndex);
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to get slide');
+      }
+      return response.data;
     } catch (error) {
       console.error('Failed to get slide:', error);
-      return null;
+      toast({
+        title: "Failed to Load Slide",
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: "destructive",
+      });
+      throw error;
     }
-  }, [state.id]);
+  }, [state.id, toast]);
 
   // Get specific shape data
-  const getShape = useCallback(async (slideIndex: number, shapeIndex: number) => {
-    if (!state.id) return null;
+  const getShape = useCallback(async (slideIndex: number, shapeId: string) => {
+    if (!state.id) {
+      throw new Error('No presentation loaded');
+    }
 
     try {
-      const response = await api.json.getShape(state.id, slideIndex, shapeIndex);
-      return response.success ? response.data : null;
+      const response = await api.granular.getShape(state.id, slideIndex, shapeId);
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to get shape');
+      }
+      return response.data;
     } catch (error) {
       console.error('Failed to get shape:', error);
-      return null;
+      throw error;
     }
   }, [state.id]);
 
-  // Generate presentation analytics
-  const generateAnalytics = useCallback((): PresentationAnalytics | null => {
-    if (!state.universalJson) return null;
+  // Update slide data
+  const updateSlide = useCallback(async (slideIndex: number, slideData: any): Promise<boolean> => {
+    if (!state.id) return false;
 
+    try {
+      const response = await api.granular.updateSlide(state.id, slideIndex, slideData);
+      if (response.success) {
+        // Update local state
+        if (state.universalJson) {
+          const updatedSlides = [...state.universalJson.slides];
+          updatedSlides[slideIndex] = { ...updatedSlides[slideIndex], ...slideData };
+          
+          updateState({
+            universalJson: {
+              ...state.universalJson,
+              slides: updatedSlides,
+            },
+            lastUpdated: new Date().toISOString(),
+          });
+        }
+        
+        toast({
+          title: "Slide Updated",
+          description: `Slide ${slideIndex + 1} has been updated successfully.`,
+        });
+        
+        return true;
+      }
+      
+      throw new Error(response.error || 'Update failed');
+    } catch (error) {
+      console.error('Failed to update slide:', error);
+      toast({
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : 'Failed to update slide',
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, [state.id, state.universalJson, updateState, toast]);
+
+  // Delete slide
+  const deleteSlide = useCallback(async (slideIndex: number): Promise<boolean> => {
+    if (!state.id) return false;
+
+    try {
+      const response = await api.granular.deleteSlide(state.id, slideIndex);
+      if (response.success) {
+        // Update local state
+        if (state.universalJson) {
+          const updatedSlides = state.universalJson.slides.filter((_, index) => index !== slideIndex);
+          
+          updateState({
+            universalJson: {
+              ...state.universalJson,
+              slides: updatedSlides,
+            },
+            lastUpdated: new Date().toISOString(),
+          });
+        }
+        
+        toast({
+          title: "Slide Deleted",
+          description: `Slide ${slideIndex + 1} has been deleted.`,
+        });
+        
+        return true;
+      }
+      
+      throw new Error(response.error || 'Delete failed');
+    } catch (error) {
+      console.error('Failed to delete slide:', error);
+      toast({
+        title: "Delete Failed",
+        description: error instanceof Error ? error.message : 'Failed to delete slide',
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, [state.id, state.universalJson, updateState, toast]);
+
+  // Generate comprehensive analytics
+  const generateAnalytics = useCallback(async (): Promise<PresentationAnalytics | null> => {
+    if (!state.universalJson || !state.id) return null;
+
+    try {
+      // Try to get analytics from API first
+      const apiResponse = await api.presentations.getAnalytics(state.id);
+      if (apiResponse.success && apiResponse.data) {
+        const analytics = apiResponse.data;
+        updateState({ analytics });
+        return analytics;
+      }
+    } catch (error) {
+      console.warn('API analytics failed, generating locally:', error);
+    }
+
+    // Fallback to local generation
     const presentation = state.universalJson;
     const slides = presentation.slides || [];
     
-    // Count asset types
+    // Enhanced asset counting
     const assetCounts = {
       image: 0,
       video: 0,
@@ -226,33 +477,39 @@ export function usePresentation(): UsePresentation {
       ole: 0,
     };
 
-    // Analyze slide types
+    // Enhanced slide type analysis
     const slideTypes: Record<string, number> = {};
     
-    slides.forEach(slide => {
-      // Determine slide type based on content
+    slides.forEach((slide, index) => {
       const shapes = slide.shapes || [];
-      const hasTitle = shapes.some(shape => 
+      
+      // Advanced slide classification
+      const textShapes = shapes.filter(shape => shape.TextFrame);
+      const hasTitle = textShapes.some(shape => 
         shape.shapeType === 'Placeholder' || 
         (shape.TextFrame && shape.TextFrame.text.length < 100)
       );
-      const hasContent = shapes.some(shape => 
+      const hasContent = textShapes.some(shape => 
         shape.TextFrame && shape.TextFrame.text.length > 100
       );
       const hasChart = shapes.some(shape => shape.Chart);
       const hasTable = shapes.some(shape => shape.Table);
       const hasImage = shapes.some(shape => shape.Picture);
+      const hasMedia = shapes.some(shape => shape.Video || shape.Audio);
 
       let slideType = 'content';
-      if (slide.slideIndex === 0) slideType = 'title';
-      else if (hasChart) slideType = 'chart';
-      else if (hasTable) slideType = 'table';
+      if (index === 0) slideType = 'title';
+      else if (index === slides.length - 1 && !hasContent) slideType = 'conclusion';
+      else if (hasChart && !hasContent) slideType = 'chart';
+      else if (hasTable && !hasContent) slideType = 'table';
       else if (hasImage && !hasContent) slideType = 'image';
+      else if (hasMedia) slideType = 'media';
       else if (hasTitle && !hasContent) slideType = 'section';
+      else if (hasChart || hasTable || hasImage) slideType = 'mixed';
 
       slideTypes[slideType] = (slideTypes[slideType] || 0) + 1;
 
-      // Count assets
+      // Count assets with detailed analysis
       shapes.forEach(shape => {
         if (shape.Picture) assetCounts.image++;
         if (shape.Video) assetCounts.video++;
@@ -263,25 +520,43 @@ export function usePresentation(): UsePresentation {
       });
     });
 
-    // Calculate complexity
+    // Enhanced complexity calculation
     const totalAssets = Object.values(assetCounts).reduce((a, b) => a + b, 0);
     const avgAssetsPerSlide = totalAssets / Math.max(slides.length, 1);
+    const avgShapesPerSlide = slides.reduce((sum, slide) => sum + (slide.shapes?.length || 0), 0) / slides.length;
     
     let complexity: 'simple' | 'moderate' | 'complex' = 'simple';
-    if (avgAssetsPerSlide > 3 || slides.length > 20) complexity = 'complex';
-    else if (avgAssetsPerSlide > 1 || slides.length > 10) complexity = 'moderate';
+    if (avgAssetsPerSlide > 2 || avgShapesPerSlide > 8 || slides.length > 25) {
+      complexity = 'complex';
+    } else if (avgAssetsPerSlide > 0.5 || avgShapesPerSlide > 4 || slides.length > 12) {
+      complexity = 'moderate';
+    }
 
-    // Estimate reading time (rough calculation)
+    // Enhanced reading time calculation
     const totalWords = slides.reduce((total, slide) => {
       return total + (slide.shapes || []).reduce((slideWords, shape) => {
-        if (shape.TextFrame) {
-          return slideWords + (shape.TextFrame.text.split(' ').length || 0);
+        if (shape.TextFrame?.text) {
+          return slideWords + shape.TextFrame.text.split(/\s+/).length;
         }
         return slideWords;
       }, 0);
     }, 0);
     
-    const estimatedReadingTime = Math.ceil(totalWords / 200); // ~200 words per minute
+    const estimatedReadingTime = Math.max(1, Math.ceil(totalWords / 150 + slides.length * 0.5));
+
+    // Enhanced accessibility analysis
+    const accessibility = {
+      hasAltText: slides.some(slide => 
+        slide.shapes?.some(shape => shape.alternativeText)
+      ),
+      colorContrast: 'unknown', // Would need color analysis
+      fontReadability: 'unknown', // Would need font analysis
+      hasHeadings: slides.some(slide =>
+        slide.shapes?.some(shape => 
+          shape.TextFrame && shape.shapeType === 'Placeholder'
+        )
+      ),
+    };
 
     const analytics: PresentationAnalytics = {
       totalSlides: slides.length,
@@ -289,96 +564,192 @@ export function usePresentation(): UsePresentation {
       totalAssets: Object.entries(assetCounts).map(([type, count]) => ({
         type: type as any,
         count,
-        items: [], // Would need deeper analysis
+        items: [], // Detailed items would come from assets API
       })),
       complexity,
       estimatedReadingTime,
-      accessibility: {
-        hasAltText: slides.some(slide => 
-          slide.shapes?.some(shape => shape.alternativeText)
-        ),
-        colorContrast: 'good', // Would need color analysis
-        fontReadability: 'good', // Would need font analysis
+      accessibility,
+      performance: {
+        loadTime: state.loadTime || 0,
+        cacheHit: state.cacheHit,
       },
     };
 
     updateState({ analytics });
     return analytics;
-  }, [state.universalJson, updateState]);
+  }, [state.universalJson, state.id, state.loadTime, state.cacheHit, updateState]);
 
-  // Analyze individual slide
+  // Enhanced slide analysis
   const analyzeSlide = useCallback((slideIndex: number): SlideAnalysis | null => {
-    if (!state.universalJson || !state.universalJson.slides[slideIndex]) {
-      return null;
-    }
+    if (!state.universalJson?.slides[slideIndex]) return null;
 
     const slide = state.universalJson.slides[slideIndex];
     const shapes = slide.shapes || [];
 
-    // Determine slide type and extract main content
-    let type: SlideAnalysis['type'] = 'content';
-    let mainContent = '';
-    let confidence = 0.8;
-
+    // Enhanced classification
     const textShapes = shapes.filter(shape => shape.TextFrame);
-    const hasChart = shapes.some(shape => shape.Chart);
-    const hasTable = shapes.some(shape => shape.Table);
-    const hasImage = shapes.some(shape => shape.Picture);
+    const assetShapes = shapes.filter(shape => 
+      shape.Picture || shape.Chart || shape.Table || shape.Video || shape.Audio
+    );
+
+    let type: SlideAnalysis['type'] = 'content';
+    let confidence = 0.8;
 
     if (slideIndex === 0) {
       type = 'title';
       confidence = 0.95;
-    } else if (hasChart) {
-      type = 'chart';
-      confidence = 0.9;
-    } else if (hasImage && textShapes.length === 0) {
-      type = 'image';
-      confidence = 0.9;
-    } else if (textShapes.length > 2) {
+    } else if (assetShapes.length > textShapes.length) {
+      if (shapes.some(shape => shape.Chart)) {
+        type = 'chart';
+        confidence = 0.9;
+      } else if (shapes.some(shape => shape.Picture)) {
+        type = 'image';
+        confidence = 0.85;
+      } else {
+        type = 'mixed';
+        confidence = 0.7;
+      }
+    } else if (textShapes.length > 3) {
       type = 'mixed';
-      confidence = 0.7;
+      confidence = 0.75;
     }
 
-    // Extract main content
-    if (textShapes.length > 0) {
-      mainContent = textShapes
-        .map(shape => shape.TextFrame?.text || '')
-        .join(' ')
-        .substring(0, 200);
-    }
+    // Extract enhanced content
+    const mainContent = textShapes
+      .map(shape => shape.TextFrame?.text || '')
+      .filter(text => text.length > 0)
+      .join(' ')
+      .substring(0, 300);
 
-    // Determine complexity
-    const assetCount = shapes.filter(shape => 
-      shape.Picture || shape.Chart || shape.Table || shape.Video || shape.Audio
-    ).length;
+    // Enhanced complexity assessment
+    const totalElements = shapes.length;
+    const assetCount = assetShapes.length;
+    const wordCount = mainContent.split(/\s+/).length;
     
     let complexity: 'simple' | 'moderate' | 'complex' = 'simple';
-    if (assetCount > 2 || shapes.length > 8) complexity = 'complex';
-    else if (assetCount > 0 || shapes.length > 4) complexity = 'moderate';
+    if (totalElements > 8 || assetCount > 3 || wordCount > 200) {
+      complexity = 'complex';
+    } else if (totalElements > 4 || assetCount > 1 || wordCount > 100) {
+      complexity = 'moderate';
+    }
 
-    const analysis: SlideAnalysis = {
+    // Extract asset information
+    const assets = assetShapes.map(shape => ({
+      type: shape.Picture ? 'image' : 
+            shape.Chart ? 'chart' :
+            shape.Table ? 'table' :
+            shape.Video ? 'video' :
+            shape.Audio ? 'audio' : 'unknown',
+      id: shape.name || `shape-${Math.random()}`,
+      properties: {
+        width: shape.width,
+        height: shape.height,
+        x: shape.x,
+        y: shape.y,
+      },
+    }));
+
+    return {
       slideIndex,
       type,
       confidence,
       mainContent,
-      assets: [], // Would extract detailed asset info
+      assets,
       complexity,
+      wordCount,
+      elementCount: totalElements,
     };
-
-    return analysis;
   }, [state.universalJson]);
+
+  // Regenerate thumbnails
+  const regenerateThumbnails = useCallback(async (): Promise<boolean> => {
+    if (!state.id) return false;
+
+    try {
+      const response = await fetch(`/api/v1/presentations/${state.id}/thumbnails`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to regenerate thumbnails');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        // Reload thumbnails
+        const thumbnails = await loadThumbnails(state.id);
+        updateState({ thumbnails });
+        
+        toast({
+          title: "Thumbnails Generated",
+          description: "Slide thumbnails have been regenerated successfully.",
+        });
+        
+        return true;
+      }
+      
+      throw new Error(data.error || 'Generation failed');
+    } catch (error) {
+      console.error('Failed to regenerate thumbnails:', error);
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : 'Failed to generate thumbnails',
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, [state.id, updateState, toast]);
+
+  // Export presentation
+  const exportPresentation = useCallback(async (
+    format: 'pdf' | 'pptx' | 'html',
+    options: any = {}
+  ): Promise<string | null> => {
+    if (!state.id) return null;
+
+    try {
+      const response = await api.presentations.export(state.id, {
+        format,
+        ...options,
+      });
+
+      if (response.success && response.data) {
+        toast({
+          title: "Export Ready",
+          description: `Your ${format.toUpperCase()} export is ready for download.`,
+        });
+        
+        return response.data.downloadUrl;
+      }
+      
+      throw new Error(response.error || 'Export failed');
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({
+        title: "Export Failed",
+        description: error instanceof Error ? error.message : 'Export operation failed',
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [state.id, toast]);
 
   // Clear state
   const clear = useCallback(() => {
     setState(initialState);
   }, []);
 
-  // Auto-generate analytics when universalJson changes
+  // Reset error
+  const resetError = useCallback(() => {
+    updateState({ error: null });
+  }, [updateState]);
+
+  // Auto-generate analytics when presentation loads
   useEffect(() => {
-    if (state.universalJson && !state.analytics) {
+    if (state.universalJson && !state.analytics && !state.isLoading) {
       generateAnalytics();
     }
-  }, [state.universalJson, state.analytics, generateAnalytics]);
+  }, [state.universalJson, state.analytics, state.isLoading, generateAnalytics]);
 
   return {
     state,
@@ -387,8 +758,13 @@ export function usePresentation(): UsePresentation {
     refreshPresentation,
     getSlide,
     getShape,
+    updateSlide,
+    deleteSlide,
     generateAnalytics,
     analyzeSlide,
+    regenerateThumbnails,
+    exportPresentation,
     clear,
+    resetError,
   };
 } 

@@ -49,7 +49,7 @@ export class SmartArtExtractor extends BaseShapeExtractor {
 
   canHandle(shape: any): boolean {
     try {
-      const AsposeSlides = require('../../../../../lib/aspose.slides.js');
+      const AsposeSlides = require('/app/lib/aspose.slides.js');
       const ShapeType = AsposeSlides.ShapeType;
       const shapeType = shape.getShapeType();
       return shapeType === ShapeType.SmartArt;

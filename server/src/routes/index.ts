@@ -185,7 +185,7 @@ if (granularControlRoutes) {
  * Mount dynamic extensions routes
  * Handles dynamic extension management and execution
  */
-router.use('/', dynamicExtensionsRoutes);
+router.use('/dynamic-extensions', dynamicExtensionsRoutes);
 
 /**
  * Mount admin routes

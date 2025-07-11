@@ -42,7 +42,7 @@ export class ChartExtractor extends BaseShapeExtractor {
 
   canHandle(shape: any): boolean {
     try {
-      const AsposeSlides = require('../../../../../lib/aspose.slides.js');
+      const AsposeSlides = require('/app/lib/aspose.slides.js');
       const ShapeType = AsposeSlides.ShapeType;
       return shape.getShapeType() === ShapeType.Chart;
     } catch (error) {

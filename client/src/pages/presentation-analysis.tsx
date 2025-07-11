@@ -1,466 +1,390 @@
-import React, { useState, useEffect } from 'react';
-import { useRoute, useLocation } from 'wouter';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+/**
+ * Presentation Analysis - Screaming Architecture Frontend
+ * 🎯 RESPONSIBILITY: Orchestrate all analysis tabs and presentation state
+ * 📋 SCOPE: Main entry point for presentation analysis with Universal JSON
+ * 🏗️ ARCHITECTURE: Tab-based modular design with centralized state
+ */
+
+import React, { useEffect, useState } from 'react';
+import { useLocation, useRoute } from 'wouter';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, FileText, RefreshCw, Loader2, Database, Calendar, User, HardDrive, Clock, Image, Layers } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  FileText,
+  BarChart3,
+  Layers,
+  Image,
+  Brain,
+  Zap,
+  Network,
+  Edit3,
+  ArrowLeft,
+  RefreshCw,
+  AlertCircle,
+  Loader2,
+} from 'lucide-react';
+
+// Import all tab components
+import { OverviewTab } from '@/components/overview/OverviewTab';
+import { JsonTreeTab } from '@/components/json-tree/JsonTreeTab';
+import { SlidesTab } from '@/components/slides/SlidesTab';
+import { AssetsTab } from '@/components/assets/AssetsTab';
+import { AnalyticsTab } from '@/components/analytics/AnalyticsTab';
+import { ActionsTab } from '@/components/actions/ActionsTab';
+
+// Import existing JSON Flow Viewer (reuse)
 import JsonFlowViewer from '@/components/json-flow-viewer';
 
-export default function PresentationAnalysis() {
-  const [match, params] = useRoute('/presentations/:id/analysis');
-  const id = params?.id;
+// Import hooks
+import { usePresentation } from '@/hooks/use-presentation';
+import { PresentationTab } from '@/types/universal-json';
+
+interface PresentationAnalysisProps {
+  id?: string;
+}
+
+export default function PresentationAnalysis({ id }: PresentationAnalysisProps) {
   const [, setLocation] = useLocation();
+  const [activeTab, setActiveTab] = useState('overview');
   
-  // State management for Firebase data
-  const [isLoading, setIsLoading] = useState(false);
-  const [presentationData, setPresentationData] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Get presentation ID from URL params using wouter
+  const [match, params] = useRoute('/presentations/:id/analysis');
+  const [matchAnalysis, paramsAnalysis] = useRoute('/analysis/:id');
+  
+  // Extract the correct ID from route parameters
+  const presentationId = id || params?.id || paramsAnalysis?.id || '';
 
-  // Load data function - now using Firebase data
-  const loadPresentationData = async () => {
-    if (!id) return;
-    
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      console.log('🔍 Loading presentation data from Firebase for:', id);
-      
-      // Get presentation data from our Firebase endpoint
-      const response = await fetch(`http://localhost:3000/api/v1/presentations/${id}`);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch presentation: ${response.status} - ${response.statusText}`);
-      }
-      
-      const result = await response.json();
-      
-      if (result.success && result.data) {
-        setPresentationData(result.data);
-        console.log('✅ Presentation data loaded from Firebase:', result.data);
-      } else {
-        throw new Error(result.error?.message || 'Failed to load presentation data');
-      }
-      
-    } catch (err: any) {
-      console.error('❌ Error loading presentation data:', err);
-      setError(err.message || 'Failed to load presentation data');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Use central presentation hook
+  const {
+    state,
+    loadPresentation,
+    refreshPresentation,
+    generateAnalytics,
+  } = usePresentation();
 
-  // Load data on mount
+  // Load presentation on mount
   useEffect(() => {
-    loadPresentationData();
-  }, [id]);
-
-  const formatFileSize = (bytes?: number): string => {
-    if (!bytes) return "Unknown";
-    const units = ['B', 'KB', 'MB', 'GB'];
-    let size = bytes;
-    let unitIndex = 0;
-    
-    while (size >= 1024 && unitIndex < units.length - 1) {
-      size /= 1024;
-      unitIndex++;
+    if (presentationId && presentationId !== state.id) {
+      loadPresentation(presentationId);
     }
-    
-    return `${size.toFixed(1)} ${units[unitIndex]}`;
+  }, [presentationId, state.id, loadPresentation]);
+
+  // Define tabs configuration
+  const tabs: PresentationTab[] = [
+    {
+      id: 'overview',
+      name: 'Overview',
+      icon: 'FileText',
+      component: OverviewTab,
+      badge: undefined,
+    },
+    {
+      id: 'json-tree',
+      name: 'JSON Tree',
+      icon: 'Network',
+      component: JsonTreeTab,
+      badge: undefined,
+    },
+    {
+      id: 'json-flow',
+      name: 'JSON Flow',
+      icon: 'BarChart3',
+      component: JsonFlowViewer,
+      badge: undefined,
+    },
+    {
+      id: 'slides',
+      name: 'Slides',
+      icon: 'Layers',
+      component: SlidesTab,
+      badge: state.universalJson?.slides?.length,
+    },
+    {
+      id: 'assets',
+      name: 'Assets',
+      icon: 'Image',
+      component: AssetsTab,
+      badge: state.analytics?.totalAssets.reduce((total, asset) => total + asset.count, 0),
+    },
+    {
+      id: 'analytics',
+      name: 'Analytics',
+      icon: 'Brain',
+      component: AnalyticsTab,
+      badge: undefined,
+    },
+    {
+      id: 'actions',
+      name: 'Actions',
+      icon: 'Zap',
+      component: ActionsTab,
+      badge: undefined,
+    },
+  ];
+
+  // Handle refresh
+  const handleRefresh = async () => {
+    await refreshPresentation();
+    generateAnalytics();
   };
 
-  const formatDuration = (ms?: number): string => {
-    if (!ms) return "Unknown";
-    const seconds = Math.floor(ms / 1000);
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
-    const hours = Math.floor(minutes / 60);
-    return `${hours}h ${minutes % 60}m`;
-  };
-
-  if (!id) {
+  // Render loading state
+  if (state.isLoading || state.isConverting) {
     return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <p>No presentation ID provided</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md mx-4">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 text-blue-600 mx-auto mb-4 animate-spin" />
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                {state.isConverting ? 'Converting Presentation' : 'Loading Analysis'}
+              </h2>
+              <p className="text-sm text-gray-600">
+                {state.isConverting 
+                  ? 'Processing your PPTX file and extracting content...'
+                  : 'Loading presentation data and generating insights...'
+                }
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
     );
   }
 
+  // Render error state
+  if (state.error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md mx-4">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                Failed to Load Presentation
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                {state.error}
+              </p>
+              <div className="space-y-2">
+                <Button onClick={handleRefresh} className="w-full">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try Again
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setLocation('/')} 
+                  className="w-full"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Go Back
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Render empty state
+  if (!state.universalJson) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md mx-4">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                No Presentation Found
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                The presentation you're looking for doesn't exist or hasn't been processed yet.
+              </p>
+              <Button 
+                variant="outline" 
+                onClick={() => setLocation('/')} 
+                className="w-full"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Go Back
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const presentation = state.universalJson;
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setLocation('/presentations')}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Presentations
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Presentation Analysis</h1>
-            <p className="text-muted-foreground">
-              {presentationData ? (
-                <>
-                  <strong>{presentationData.title}</strong>
-                  {presentationData.originalFilename && (
-                    <> • <code>{presentationData.originalFilename}</code></>
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div className="px-4 py-4 md:px-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLocation('/')}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+              
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">
+                  {presentation.metadata.title}
+                </h1>
+                <div className="flex items-center space-x-2 mt-1">
+                  <Badge variant="outline">
+                    {presentation.slides.length} slides
+                  </Badge>
+                  {state.version && (
+                    <Badge variant="outline">
+                      v{state.version}
+                    </Badge>
                   )}
-                </>
-              ) : (
-                `ID: ${id}`
-              )}
-            </p>
+                  {state.lastUpdated && (
+                    <span className="text-xs text-gray-500">
+                      Updated {new Date(state.lastUpdated).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={state.isLoading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${state.isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              
+              {/* Quick stats */}
+              <div className="hidden md:flex items-center space-x-4 text-sm text-gray-600">
+                <span>{presentation.metadata.slideCount} slides</span>
+                <span>•</span>
+                <span>{presentation.metadata.imageCount} images</span>
+                <span>•</span>
+                <span>{state.analytics?.complexity || 'Unknown'} complexity</span>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={loadPresentationData} disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Loading...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Refresh
-              </>
-            )}
-          </Button>
-          {presentationData && (
-            <Badge variant="secondary" className="flex items-center space-x-1">
-              <Database className="w-3 h-3" />
-              <span>{presentationData.slideCount || 0} slides</span>
-            </Badge>
-          )}
-        </div>
-      </div>
-
-      {/* Error Display */}
-      {error && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <span>❌</span>
-              <span className="text-red-700">{error}</span>
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={loadPresentationData}
-              className="mt-2"
-            >
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Loading State */}
-      {isLoading && !presentationData && (
-        <Card>
-          <CardContent className="p-6 text-center">
-            <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin" />
-            <p>Loading presentation from Firebase...</p>
-          </CardContent>
-        </Card>
-      )}
+      </header>
 
       {/* Main Content */}
-      {presentationData && (
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="metadata">Metadata</TabsTrigger>
-            <TabsTrigger value="json">JSON Data</TabsTrigger>
-            <TabsTrigger value="analysis">Analysis</TabsTrigger>
-          </TabsList>
-
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center space-x-2">
-                    <FileText className="w-5 h-5" />
-                    <span>Basic Info</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <User className="w-4 h-4 text-gray-500" />
-                      <span><strong>Author:</strong> {presentationData.author}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="w-4 h-4 text-gray-500" />
-                      <span><strong>Updated:</strong> {new Date(presentationData.updatedAt).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Database className="w-4 h-4 text-gray-500" />
-                      <span><strong>Slides:</strong> {presentationData.slideCount}</span>
-                    </div>
-                    <div>
-                      <Badge variant="default" className="bg-green-100 text-green-800">
-                        {presentationData.status}
+      <main className="h-[calc(100vh-80px)]">
+        <Tabs 
+          value={activeTab} 
+          onValueChange={setActiveTab}
+          className="h-full flex flex-col"
+        >
+          {/* Tab Navigation */}
+          <div className="bg-white border-b border-gray-200">
+            <div className="px-4 md:px-6">
+              <TabsList className="h-12 w-full justify-start bg-transparent border-0 rounded-none">
+                {tabs.map((tab) => (
+                  <TabsTrigger
+                    key={tab.id}
+                    value={tab.id}
+                    className="flex items-center space-x-2 px-4 py-2 border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent rounded-none"
+                  >
+                    <TabIcon name={tab.icon} />
+                    <span>{tab.name}</span>
+                    {tab.badge !== undefined && (
+                      <Badge variant="secondary" className="ml-1 text-xs">
+                        {tab.badge}
                       </Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center space-x-2">
-                    <HardDrive className="w-5 h-5" />
-                    <span>File Details</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <HardDrive className="w-4 h-4 text-gray-500" />
-                      <span><strong>Size:</strong> {formatFileSize(presentationData.fileSize)}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-gray-500" />
-                      <span><strong>Processing:</strong> {formatDuration(presentationData.processingTime)}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <FileText className="w-4 h-4 text-gray-500" />
-                      <span><strong>Type:</strong> {presentationData.type || 'PPTX'}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center space-x-2">
-                    <Image className="w-5 h-5" />
-                    <span>Content Stats</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <Image className="w-4 h-4 text-gray-500" />
-                      <span><strong>Images:</strong> {presentationData.metadata?.imageCount || 0}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Layers className="w-4 h-4 text-gray-500" />
-                      <span><strong>Masters:</strong> {presentationData.metadata?.masterSlideCount || 0}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Database className="w-4 h-4 text-gray-500" />
-                      <span><strong>Layouts:</strong> {presentationData.metadata?.layoutSlideCount || 0}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Description */}
-            {presentationData.description && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>📝 Description</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-700">{presentationData.description}</p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          {/* Metadata Tab */}
-          <TabsContent value="metadata" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>📊 Presentation Metadata</CardTitle>
-                <CardDescription>Complete metadata from Firebase</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="font-semibold text-lg">Basic Information</h4>
-                    <div className="space-y-2 text-sm">
-                      <div><strong>Subject:</strong> {presentationData.metadata?.subject || 'Not specified'}</div>
-                      <div><strong>Category:</strong> {presentationData.metadata?.category || 'Not specified'}</div>
-                      <div><strong>Keywords:</strong> {presentationData.metadata?.keywords || 'None'}</div>
-                      <div><strong>Manager:</strong> {presentationData.metadata?.manager || 'Not specified'}</div>
-                      <div><strong>Company:</strong> {presentationData.company || 'Not specified'}</div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <h4 className="font-semibold text-lg">Technical Details</h4>
-                    <div className="space-y-2 text-sm">
-                      <div><strong>Audio Count:</strong> {presentationData.metadata?.audioCount || 0}</div>
-                      <div><strong>Revision Number:</strong> {presentationData.metadata?.revisionNumber || 0}</div>
-                      <div><strong>Last Saved:</strong> {presentationData.metadata?.lastSavedTime ? new Date(presentationData.metadata.lastSavedTime).toLocaleString() : 'Unknown'}</div>
-                      <div><strong>Thumbnail Count:</strong> {presentationData.thumbnailCount || 0}</div>
-                    </div>
-                  </div>
-                </div>
-
-                {presentationData.metadata?.comments && (
-                  <div className="mt-6 pt-6 border-t">
-                    <h4 className="font-semibold text-lg mb-2">Comments</h4>
-                    <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">
-                      {presentationData.metadata.comments}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* JSON Data Tab */}
-          <TabsContent value="json" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Complete Firebase Data
-                </CardTitle>
-                <CardDescription>
-                  Full presentation data structure from Firebase
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {presentationData.fullData ? (
-                  <JsonFlowViewer data={presentationData.fullData} />
-                ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    <p>No detailed JSON data available</p>
-                    <p className="text-sm mt-2">Basic metadata is shown in other tabs</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Analysis Tab */}
-          <TabsContent value="analysis" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>📈 Presentation Analysis</CardTitle>
-                <CardDescription>
-                  Insights and statistics about this presentation
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-semibold mb-3">Content Distribution</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>Total Slides:</span>
-                        <Badge variant="outline">{presentationData.slideCount}</Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Images:</span>
-                        <Badge variant="outline">{presentationData.metadata?.imageCount || 0}</Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Master Slides:</span>
-                        <Badge variant="outline">{presentationData.metadata?.masterSlideCount || 0}</Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Layout Templates:</span>
-                        <Badge variant="outline">{presentationData.metadata?.layoutSlideCount || 0}</Badge>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-semibold mb-3">Data Sources</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="default" className="bg-green-100 text-green-800">Firebase</Badge>
-                        <span className="text-sm">Real-time data</span>
-                      </div>
-                      {presentationData.firebaseStorageUrl && (
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="outline">Storage</Badge>
-                          <span className="text-sm">File available</span>
-                        </div>
-                      )}
-                      {presentationData.jsonDataUrl && (
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="outline">JSON</Badge>
-                          <span className="text-sm">Processed data</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Links */}
-                <div className="mt-6 pt-6 border-t">
-                  <h4 className="font-semibold mb-3">External Resources</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {presentationData.firebaseStorageUrl && (
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={presentationData.firebaseStorageUrl} target="_blank" rel="noopener noreferrer">
-                          View Original File
-                        </a>
-                      </Button>
                     )}
-                    {presentationData.jsonDataUrl && (
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={presentationData.jsonDataUrl} target="_blank" rel="noopener noreferrer">
-                          Download JSON Data
-                        </a>
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      )}
-
-      {/* Data Source Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Database className="w-5 h-5" />
-            <span>Data Source</span>
-          </CardTitle>
-          <CardDescription>Information about where this data comes from</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <strong>Firebase Connection:</strong>
-              <ul className="mt-1 space-y-1 text-muted-foreground">
-                <li>✅ Collection: <code>presentation_json_data</code></li>
-                <li>✅ Document ID: <code>{id}</code></li>
-                <li>✅ Real-time sync: Active</li>
-              </ul>
-            </div>
-            <div>
-              <strong>API Endpoints:</strong>
-              <ul className="mt-1 space-y-1 text-muted-foreground">
-                <li>✅ Individual: <code>/api/v1/presentations/{id}</code></li>
-                <li>✅ List: <code>/api/v1/presentations</code></li>
-                <li>✅ Status: <code>/api/v1/status</code></li>
-              </ul>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
             </div>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Tab Content */}
+          <div className="flex-1 overflow-hidden">
+            <TabsContent value="overview" className="h-full m-0 overflow-auto">
+              <OverviewTab 
+                presentation={presentation}
+                analytics={state.analytics}
+              />
+            </TabsContent>
+
+            <TabsContent value="json-tree" className="h-full m-0">
+              <JsonTreeTab presentation={presentation} />
+            </TabsContent>
+
+            <TabsContent value="json-flow" className="h-full m-0 p-6">
+              <JsonFlowViewer 
+                data={presentation}
+                className="h-full"
+              />
+            </TabsContent>
+
+            <TabsContent value="slides" className="h-full m-0">
+              <SlidesTab 
+                presentation={presentation}
+                thumbnails={state.thumbnails}
+              />
+            </TabsContent>
+
+            <TabsContent value="assets" className="h-full m-0">
+              <AssetsTab presentation={presentation} />
+            </TabsContent>
+
+            <TabsContent value="analytics" className="h-full m-0 overflow-auto">
+              <AnalyticsTab 
+                presentation={presentation}
+                analytics={state.analytics}
+              />
+            </TabsContent>
+
+            <TabsContent value="actions" className="h-full m-0 overflow-auto">
+              <ActionsTab 
+                presentation={presentation}
+                onRefresh={handleRefresh}
+              />
+            </TabsContent>
+          </div>
+        </Tabs>
+      </main>
     </div>
   );
+}
+
+// Tab Icon Component
+function TabIcon({ name }: { name: string }) {
+  const iconProps = { className: "w-4 h-4" };
+  
+  switch (name) {
+    case 'FileText':
+      return <FileText {...iconProps} />;
+    case 'Network':
+      return <Network {...iconProps} />;
+    case 'BarChart3':
+      return <BarChart3 {...iconProps} />;
+    case 'Layers':
+      return <Layers {...iconProps} />;
+    case 'Image':
+      return <Image {...iconProps} />;
+    case 'Brain':
+      return <Brain {...iconProps} />;
+    case 'Zap':
+      return <Zap {...iconProps} />;
+    case 'Edit3':
+      return <Edit3 {...iconProps} />;
+    default:
+      return <FileText {...iconProps} />;
+  }
 } 

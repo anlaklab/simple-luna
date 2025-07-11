@@ -40,7 +40,7 @@ export class TableExtractor extends BaseShapeExtractor {
 
   canHandle(shape: any): boolean {
     try {
-      const AsposeSlides = require('../../../../../lib/aspose.slides.js');
+      const AsposeSlides = require('/app/lib/aspose.slides.js');
       return shape.getShapeType() === AsposeSlides.ShapeType.Table;
     } catch (error) {
       this.handleError(error as Error, 'canHandle');
