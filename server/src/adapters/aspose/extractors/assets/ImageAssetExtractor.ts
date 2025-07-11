@@ -41,8 +41,8 @@ export class ImageAssetExtractor implements ImageExtractor {
       
       logger.info('Starting image extraction from presentation', {
         includeMetadata: options.includeMetadata || false,
-        storageEnabled: options.storageEnabled || false,
-        optimization: options.optimization || 'balanced'
+        extractorName: this.name,
+        slideCount: presentation.getSlides().getCount()
       });
 
       const slideCount = presentation.getSlides().getCount();
