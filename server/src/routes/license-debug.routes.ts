@@ -132,12 +132,33 @@ router.post('/debug/license-manager',
         const appearsToBeXml = envVars.ASPOSE_LICENSE_CONTENT ? 
           (envVars.ASPOSE_LICENSE_CONTENT.trim().startsWith('<?xml') || envVars.ASPOSE_LICENSE_CONTENT.trim().startsWith('<')) : false;
 
+        // Enhanced XML analysis
+        let xmlAnalysis = {};
+        if (envVars.ASPOSE_LICENSE_CONTENT) {
+          const content = envVars.ASPOSE_LICENSE_CONTENT;
+          const firstLine = content.split('\n')[0];
+          const hasXmlDeclaration = firstLine.includes('<?xml');
+          const hasQuotedVersion = firstLine.includes('version="') || firstLine.includes("version='");
+          const hasEscapedQuotes = content.includes('\\"');
+          const hasEscapedNewlines = content.includes('\\n');
+          
+          xmlAnalysis = {
+            firstLine,
+            hasXmlDeclaration,
+            hasQuotedVersion,
+            hasEscapedQuotes,
+            hasEscapedNewlines,
+            needsConversion: hasEscapedQuotes || hasEscapedNewlines || !hasQuotedVersion
+          };
+        }
+
         diagnostics.environment.status = 'completed';
         diagnostics.environment.details = {
           envVars,
           hasLicenseContent,
           licenseContentLength,
           appearsToBeXml,
+          xmlAnalysis,
           licensePreview: envVars.ASPOSE_LICENSE_CONTENT ? 
             envVars.ASPOSE_LICENSE_CONTENT.substring(0, 200) + '...' : 'Not set'
         };
