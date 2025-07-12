@@ -18,10 +18,12 @@ import { logger } from '../utils/logger';
 import {
   ExtractAssetsRequestSchema,
   ExtractMetadataRequestSchema,
+  ExtractAssetsRequest,
+  ExtractMetadataRequest
 } from '../schemas/api-request.schema';
 import {
-  ExtractAssetsOptions,
-  ExtractMetadataOptions,
+  AnalyzeOptions,
+  AnalysisResult,
   AssetExtractionResult,
   ExtractedMetadata,
 } from '../types/ai.types';
@@ -139,8 +141,8 @@ const extractAssetsController = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    // Options are already safely parsed by validateFormOptions middleware
-    const options = req.body.options as ExtractAssetsOptions;
+    // Options are validated and have defaults applied by validateFormOptions middleware
+    const options = req.body.options as ExtractAssetsRequest;
     
     // Save uploaded file temporarily
     const fs = require('fs/promises');
@@ -152,29 +154,42 @@ const extractAssetsController = async (req: Request, res: Response): Promise<voi
     await fs.writeFile(tempFilePath, req.file.buffer);
 
     try {
-      logger.info('Extracting assets using Luna AssetService', { requestId, filename: req.file.originalname });
+      logger.info('Extracting assets using AssetServiceRefactored', { 
+        requestId, 
+        filename: req.file.originalname,
+        assetTypes: options.assetTypes,
+        returnFormat: options.returnFormat,
+        generateThumbnails: options.generateThumbnails
+      });
       
-      // Convert legacy API format to internal format - now simplified since schema uses singular
-      const normalizeAssetTypes = (types: string[]): string[] => {
-        return types.map(type => {
-          switch (type) {
-            case 'images': return 'image'; // Legacy support
-            case 'videos': return 'video'; // Legacy support  
-            case 'audios': return 'audio'; // Legacy support
-            case 'documents': return 'document'; // Legacy support
-            default: return type; // Already correct format
-          }
+      // Check if AssetService is available
+      if (!assetService) {
+        logger.warn('AssetService not configured, using basic extraction', { requestId });
+        res.status(503).json({
+          success: false,
+          error: {
+            type: 'service_unavailable',
+            code: 'ASSET_SERVICE_NOT_CONFIGURED',
+            message: 'Asset extraction requires proper service configuration. Please contact administrator.',
+          },
+          meta: {
+            timestamp: new Date().toISOString(),
+            requestId,
+            processingTimeMs: Date.now() - startTime,
+          },
         });
-      };
+        await fs.unlink(tempFilePath).catch(() => {});
+        return;
+      }
       
-      // Extract assets using ONLY AssetServiceRefactored - no fallbacks
+      // Extract assets using AssetServiceRefactored with user options
       const assets = await assetService.extractAssets(tempFilePath, {
-        assetTypes: normalizeAssetTypes(options.assetTypes || ['image', 'video', 'audio', 'document']),
+        assetTypes: options.assetTypes || ['all'],
         returnFormat: options.returnFormat || 'urls',
         extractThumbnails: options.generateThumbnails !== false,
-        saveToFirebase: true,
+        saveToFirebase: options.extractToStorage !== false,
         generateDownloadUrls: true,
-        includeMetadata: true,
+        includeMetadata: options.includeMetadata !== false,
         includeTransforms: true,
         includeStyles: true,
         firebaseFolder: `extracted-assets/${requestId}`,
@@ -184,25 +199,28 @@ const extractAssetsController = async (req: Request, res: Response): Promise<voi
       logger.info('Asset extraction completed successfully', { 
         requestId, 
         totalAssets: assets.length,
-        realDataExtracted: true
+        extractionMethod: 'AssetServiceRefactored'
       });
 
+      // Create proper summary with singular asset types
       const summary = {
         totalAssets: assets.length,
         byType: {
-          images: assets.filter((a: any) => a.type === 'image').length,
-          videos: assets.filter((a: any) => a.type === 'video').length,
+          image: assets.filter((a: any) => a.type === 'image').length,
+          video: assets.filter((a: any) => a.type === 'video').length,
           audio: assets.filter((a: any) => a.type === 'audio').length,
-          documents: assets.filter((a: any) => a.type === 'document').length,
-          shapes: assets.filter((a: any) => a.type === 'shape').length,
-          charts: assets.filter((a: any) => a.type === 'chart').length,
+          document: assets.filter((a: any) => a.type === 'document').length,
+          shape: assets.filter((a: any) => a.type === 'shape').length,
+          chart: assets.filter((a: any) => a.type === 'chart').length,
+          excel: assets.filter((a: any) => a.type === 'excel').length,
+          word: assets.filter((a: any) => a.type === 'word').length,
+          pdf: assets.filter((a: any) => a.type === 'pdf').length,
+          ole: assets.filter((a: any) => a.type === 'ole').length,
         },
         totalSize: assets.reduce((sum: number, asset: any) => sum + (asset.size || 0), 0),
         avgSize: assets.length > 0 ? Math.round(assets.reduce((sum: number, asset: any) => sum + (asset.size || 0), 0) / assets.length) : 0,
         extractionMethod: 'AssetServiceRefactored',
-        dataSource: 'real-aspose-slides',
-        firebaseIntegration: true,
-        noFallbacks: true
+        dataSource: 'real-aspose-slides'
       };
 
       res.status(200).json({
@@ -210,16 +228,12 @@ const extractAssetsController = async (req: Request, res: Response): Promise<voi
         data: {
           assets,
           summary,
-          capabilities: {
-            realDataOnly: true,
-            comprehensiveMetadata: true,
-            firebaseStorage: true,
-            thumbnailGeneration: true,
-            detailedTransforms: true,
-            qualityAnalysis: true,
-            asposeIntegration: true,
-            noMockData: true,
-            noPlaceholders: true
+          extractionOptions: {
+            assetTypes: options.assetTypes || ['all'],
+            returnFormat: options.returnFormat || 'urls',
+            generateThumbnails: options.generateThumbnails !== false,
+            extractToStorage: options.extractToStorage !== false,
+            includeMetadata: options.includeMetadata !== false
           }
         },
         meta: {
@@ -284,7 +298,7 @@ const extractMetadataController = async (req: Request, res: Response): Promise<v
     }
 
     // Options are already safely parsed by validateFormOptions middleware
-    const options = req.body.options as ExtractMetadataOptions;
+    const options = req.body.options as ExtractMetadataRequest;
     
     // Save uploaded file temporarily
     const fs = require('fs/promises');
@@ -298,7 +312,7 @@ const extractMetadataController = async (req: Request, res: Response): Promise<v
     try {
       // Real metadata extraction using AssetServiceRefactored
       const metadata = await assetService.extractMetadata(tempFilePath, {
-        includeSystemProperties: options.includeSystemMetadata !== false,
+        includeSystemProperties: options.includeDocumentProperties !== false,
         includeCustomProperties: options.includeCustomProperties !== false,
         includeDocumentStatistics: options.includeStatistics !== false,
       });
@@ -545,20 +559,27 @@ const extractAssetMetadataController = async (req: Request, res: Response): Prom
  *   post:
  *     tags:
  *       - Extraction
- *     summary: Extract embedded assets from presentation (Enhanced with AssetServiceRefactored)
+ *     summary: Extract embedded assets from presentation using AssetServiceRefactored
  *     description: |
- *       Extract embedded assets from PowerPoint presentations using advanced AssetServiceRefactored.
+ *       Extract embedded assets from PowerPoint presentations using AssetServiceRefactored.
  *       
  *       **Features:**
  *       - Supports images, videos, audio, documents, shapes, and charts
- *       - Firebase Storage integration (when configured)
+ *       - Firebase Storage integration (optional - controlled by extractToStorage option)
  *       - Comprehensive metadata extraction
- *       - Thumbnail generation and quality analysis
+ *       - Optional thumbnail generation
  *       - Transform and style analysis
- *       - Fallback to legacy extraction when Firebase not configured
+ *       - Requires proper AssetService configuration
  *       
  *       **Asset Types (singular):** image, video, audio, document, excel, word, pdf, ole, shape, chart, all
- *       **Return Formats:** urls, firebase-urls, base64, buffers
+ *       **Return Formats:** urls, base64, metadata-only
+ *       
+ *       **Default Behavior:**
+ *       - assetTypes: ['all'] - Extract all types of assets
+ *       - returnFormat: 'urls' - Return download URLs
+ *       - generateThumbnails: true - Generate thumbnails for visual assets
+ *       - extractToStorage: false - Don't save to Firebase by default
+ *       - includeMetadata: true - Include comprehensive metadata
  *     requestBody:
  *       required: true
  *       content:
@@ -572,13 +593,18 @@ const extractAssetMetadataController = async (req: Request, res: Response): Prom
  *                 description: PPTX file to extract assets from
  *               options:
  *                 type: string
- *                 description: JSON string with extraction options
- *                 example: '{"assetTypes":["image","video","audio","document"],"generateThumbnails":true,"returnFormat":"urls"}'
+ *                 description: JSON string with extraction options (optional - defaults will be used if empty)
+ *                 example: '{"assetTypes":["image","video"],"generateThumbnails":false,"returnFormat":"base64"}'
  *             required:
  *               - file
  *           examples:
+ *             default_extraction:
+ *               summary: Default extraction (all assets with URLs)
+ *               value:
+ *                 file: (binary)
+ *                 options: ''
  *             all_assets:
- *               summary: Extract all asset types
+ *               summary: Extract all asset types with thumbnails
  *               value:
  *                 file: (binary)
  *                 options: '{"assetTypes":["all"],"generateThumbnails":true}'
@@ -588,7 +614,7 @@ const extractAssetMetadataController = async (req: Request, res: Response): Prom
  *                 file: (binary)
  *                 options: '{"assetTypes":["image","video","audio"],"generateThumbnails":true,"returnFormat":"urls"}'
  *             media_only:
- *               summary: Extract only media assets
+ *               summary: Extract only media assets as base64
  *               value:
  *                 file: (binary)
  *                 options: '{"assetTypes":["image","video","audio"],"generateThumbnails":false,"returnFormat":"base64"}'
@@ -597,6 +623,11 @@ const extractAssetMetadataController = async (req: Request, res: Response): Prom
  *               value:
  *                 file: (binary)
  *                 options: '{"assetTypes":["document","excel","word","pdf","ole"],"includeMetadata":true}'
+ *             no_thumbnails:
+ *               summary: Extract without generating thumbnails
+ *               value:
+ *                 file: (binary)
+ *                 options: '{"assetTypes":["image","document"],"generateThumbnails":false,"extractToStorage":false}'
  *     responses:
  *       200:
  *         description: Assets extracted successfully
@@ -615,29 +646,108 @@ const extractAssetMetadataController = async (req: Request, res: Response): Prom
  *                       type: array
  *                       items:
  *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           type:
+ *                             type: string
+ *                             enum: [image, video, audio, document, shape, chart, excel, word, pdf, ole]
+ *                           filename:
+ *                             type: string
+ *                           size:
+ *                             type: number
+ *                           url:
+ *                             type: string
+ *                           slideIndex:
+ *                             type: number
  *                     summary:
  *                       type: object
  *                       properties:
  *                         totalAssets:
  *                           type: integer
+ *                           example: 5
  *                         byType:
  *                           type: object
+ *                           properties:
+ *                             image:
+ *                               type: integer
+ *                             video:
+ *                               type: integer
+ *                             audio:
+ *                               type: integer
+ *                             document:
+ *                               type: integer
+ *                             shape:
+ *                               type: integer
+ *                             chart:
+ *                               type: integer
+ *                             excel:
+ *                               type: integer
+ *                             word:
+ *                               type: integer
+ *                             pdf:
+ *                               type: integer
+ *                             ole:
+ *                               type: integer
  *                         totalSize:
  *                           type: integer
- *                         hasFirebaseStorage:
- *                           type: boolean
+ *                           example: 2048576
  *                         extractionMethod:
  *                           type: string
- *                           enum: [AssetServiceRefactored, legacy]
- *                     extractionStats:
+ *                           example: AssetServiceRefactored
+ *                     extractionOptions:
  *                       type: object
  *                       properties:
- *                         comprehensiveMetadata:
+ *                         assetTypes:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                         returnFormat:
+ *                           type: string
+ *                         generateThumbnails:
  *                           type: boolean
- *                         firebaseStorage:
+ *                         extractToStorage:
  *                           type: boolean
- *                         thumbnailGeneration:
+ *                         includeMetadata:
  *                           type: boolean
+ *                 meta:
+ *                   type: object
+ *                   properties:
+ *                     timestamp:
+ *                       type: string
+ *                       format: date-time
+ *                     requestId:
+ *                       type: string
+ *                     processingTimeMs:
+ *                       type: number
+ *                     version:
+ *                       type: string
+ *                       example: 2.0-production
+ *                     serviceType:
+ *                       type: string
+ *                       example: AssetServiceRefactored
+ *       503:
+ *         description: AssetService not configured
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: object
+ *                   properties:
+ *                     type:
+ *                       type: string
+ *                       example: service_unavailable
+ *                     code:
+ *                       type: string
+ *                       example: ASSET_SERVICE_NOT_CONFIGURED
+ *                     message:
+ *                       type: string
+ *                       example: Asset extraction requires proper service configuration
  *       400:
  *         $ref: '#/components/responses/ValidationError'
  *       500:
