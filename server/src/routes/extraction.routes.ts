@@ -836,6 +836,16 @@ router.post('/debug-extract-assets',
         // Add JAR diagnostic to response
         diagnostics.details.jarDiagnostic = jarDiagnostic;
         
+        // Add license diagnostic
+        diagnostics.details.licenseDiagnostic = {
+          hasLicenseContent: !!process.env.ASPOSE_LICENSE_CONTENT,
+          licenseContentLength: process.env.ASPOSE_LICENSE_CONTENT ? process.env.ASPOSE_LICENSE_CONTENT.length : 0,
+          licenseContentPreview: process.env.ASPOSE_LICENSE_CONTENT ? 
+            process.env.ASPOSE_LICENSE_CONTENT.substring(0, 100) + '...' : 'Not set',
+          appearsToBeXml: process.env.ASPOSE_LICENSE_CONTENT ? 
+            (process.env.ASPOSE_LICENSE_CONTENT.trim().startsWith('<?xml') || process.env.ASPOSE_LICENSE_CONTENT.trim().startsWith('<')) : false
+        };
+        
         // If JAR not found, fail early with detailed information
         if (!jarDiagnostic.jarFound) {
           throw new Error(`JAR file not found in any location. Checked: ${possibleJarPaths.join(', ')}`);
