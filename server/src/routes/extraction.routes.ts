@@ -785,7 +785,7 @@ router.post('/debug-extract-assets',
             javaVersion: jarDiagnostic.javaVersion
           });
         } catch (error) {
-          logger.error('❌ Java environment not available:', (error as Error).message);
+          logger.error('❌ Java environment not available', { error: (error as Error).message });
         }
         
         // Test basic Java functionality
@@ -799,7 +799,7 @@ router.post('/debug-extract-assets',
               logger.error('❌ java.lang.String import failed');
             }
           } catch (error) {
-            logger.error('❌ Basic Java test failed:', (error as Error).message);
+            logger.error('❌ Basic Java test failed', { error: (error as Error).message });
           }
         }
         
