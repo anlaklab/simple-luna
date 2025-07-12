@@ -1,0 +1,208 @@
+# 🚨 Luna Platform - Prometheus Alert Rules
+# Critical alerts for infrastructure and application monitoring
+
+groups:
+  # =============================================================================
+  # INFRASTRUCTURE ALERTS
+  # =============================================================================
+  - name: infrastructure
+    rules:
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is above 80% for more than 5 minutes on {{ $labels.instance }}"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 85% for more than 5 minutes on {{ $labels.instance }}"
+
+      # Low disk space
+      - alert: LowDiskSpace
+        expr: (1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space detected"
+          description: "Disk usage is above 90% on {{ $labels.instance }} mount {{ $labels.mountpoint }}"
+
+      # High load average
+      - alert: HighLoadAverage
+        expr: node_load1 / on(instance) count by(instance)(node_cpu_seconds_total{mode="idle"}) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High load average detected"
+          description: "Load average is high on {{ $labels.instance }}"
+
+  # =============================================================================
+  # CONTAINER ALERTS
+  # =============================================================================
+  - name: containers
+    rules:
+      # Container down
+      - alert: ContainerDown
+        expr: up{job=~"luna-.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Luna container is down"
+          description: "Container {{ $labels.job }} on {{ $labels.instance }} is down"
+
+      # High container CPU
+      - alert: ContainerHighCPU
+        expr: rate(container_cpu_usage_seconds_total{name=~"luna-.*"}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container high CPU usage"
+          description: "Container {{ $labels.name }} CPU usage is above 80%"
+
+      # High container memory
+      - alert: ContainerHighMemory
+        expr: (container_memory_usage_bytes{name=~"luna-.*"} / container_spec_memory_limit_bytes{name=~"luna-.*"}) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container high memory usage"
+          description: "Container {{ $labels.name }} memory usage is above 90%"
+
+      # Container restart
+      - alert: ContainerRestarting
+        expr: rate(container_last_seen{name=~"luna-.*"}[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container is restarting frequently"
+          description: "Container {{ $labels.name }} is restarting frequently"
+
+  # =============================================================================
+  # APPLICATION ALERTS
+  # =============================================================================
+  - name: luna-application
+    rules:
+      # Backend API health
+      - alert: LunaBackendDown
+        expr: up{job="luna-health-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Luna Backend API is down"
+          description: "Luna Backend API health check is failing"
+
+      # Frontend health
+      - alert: LunaFrontendDown
+        expr: up{job="luna-health-frontend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Luna Frontend is down"
+          description: "Luna Frontend health check is failing"
+
+      # Nginx proxy health
+      - alert: LunaNginxDown
+        expr: up{job="luna-health-nginx"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Luna Nginx proxy is down"
+          description: "Luna Nginx proxy health check is failing"
+
+      # High HTTP error rate (if we add HTTP metrics)
+      - alert: HighHTTPErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP error rate"
+          description: "HTTP error rate is above 10% for {{ $labels.job }}"
+
+      # Slow response time (if we add response time metrics)
+      - alert: SlowResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow response time"
+          description: "95th percentile response time is above 2 seconds for {{ $labels.job }}"
+
+  # =============================================================================
+  # BUSINESS LOGIC ALERTS
+  # =============================================================================
+  - name: luna-business
+    rules:
+      # High file processing failures (if we add metrics)
+      - alert: HighFileProcessingFailures
+        expr: rate(luna_file_processing_failures_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High file processing failure rate"
+          description: "File processing failure rate is high"
+
+      # Low file processing rate (if we add metrics)
+      - alert: LowFileProcessingRate
+        expr: rate(luna_files_processed_total[5m]) < 0.01
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low file processing rate"
+          description: "File processing rate is unusually low"
+
+      # Aspose.Slides errors (if we add metrics)
+      - alert: AsposeErrors
+        expr: rate(luna_aspose_errors_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Aspose.Slides errors detected"
+          description: "Aspose.Slides library is reporting errors"
+
+  # =============================================================================
+  # EXTERNAL DEPENDENCIES
+  # =============================================================================
+  - name: external-services
+    rules:
+      # Firebase connection issues (if we add metrics)
+      - alert: FirebaseConnectionIssues
+        expr: rate(luna_firebase_errors_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Firebase connection issues"
+          description: "Firebase API is reporting errors"
+
+      # OpenAI API issues (if we add metrics)
+      - alert: OpenAIAPIIssues
+        expr: rate(luna_openai_errors_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "OpenAI API issues"
+          description: "OpenAI API is reporting errors" 
