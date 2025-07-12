@@ -1755,9 +1755,7 @@ router.post('/validate-jar-deployment',
         path.join(process.cwd(), '../lib/aspose-slides-25.6-nodejs.jar'),
         path.join(__dirname, '../../lib/aspose-slides-25.6-nodejs.jar'),
         path.join(__dirname, '../../../lib/aspose-slides-25.6-nodejs.jar'),
-        path.join(__dirname, '../../../../lib/aspose-slides-25.6-nodejs.jar'),
-        path.join(__dirname, '../../../../../lib/aspose-slides-25.6-nodejs.jar'),
-        path.join(__dirname, '../../../../../../lib/aspose-slides-25.6-nodejs.jar')
+        path.join(__dirname, '../../../../lib/aspose-slides-25.6-nodejs.jar')
       ];
 
       for (const jarPath of possibleJarPaths) {
@@ -1770,7 +1768,7 @@ router.post('/validate-jar-deployment',
             validation.jarSize = stats.size;
             validation.jarPermissions = stats.mode.toString(8);
             
-            logger.info('✅ JAR file found', { 
+            logger.info('✅ JAR found', { 
               requestId, 
               path: jarPath, 
               size: stats.size,
@@ -1922,6 +1920,332 @@ router.post('/validate-jar-deployment',
         success: false,
         error: (error as Error).message,
         validation,
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId
+        }
+      });
+    }
+  })
+);
+
+/**
+ * @swagger
+ * /api/v1/debug-license:
+ *   post:
+ *     tags: [Extraction]
+ *     summary: Debug Aspose license configuration
+ *     description: |
+ *       Comprehensive diagnostic tool for troubleshooting Aspose license issues.
+ *       
+ *       **What it checks:**
+ *       - License file existence in all possible locations
+ *       - License file permissions and content
+ *       - Environment variable configuration
+ *       - License manager initialization
+ *       - Aspose license validation
+ *       
+ *       **Use Cases:**
+ *       - Post-deployment license validation
+ *       - License file troubleshooting
+ *       - Environment variable debugging
+ *       - License manager initialization issues
+ *     responses:
+ *       200:
+ *         description: License diagnostic completed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 license:
+ *                   type: object
+ *                   properties:
+ *                     licenseFound:
+ *                       type: boolean
+ *                       example: true
+ *                     licensePath:
+ *                       type: string
+ *                       example: "/app/server/Aspose.Slides.Product.Family.lic"
+ *                     licenseSize:
+ *                       type: number
+ *                       example: 1024
+ *                     licenseContent:
+ *                       type: string
+ *                       example: "Aspose.Slides for Java..."
+ *                     environmentVariables:
+ *                       type: object
+ *                       properties:
+ *                         ASPOSE_LICENSE_PATH:
+ *                           type: string
+ *                           example: "/app/server/Aspose.Slides.Product.Family.lic"
+ *                     licenseManagerStatus:
+ *                       type: string
+ *                       example: "initialized"
+ *       500:
+ *         description: License diagnostic failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "License file not found"
+ *                 details:
+ *                   type: object
+ */
+router.post('/debug-license', 
+  handleAsyncErrors(async (req: Request, res: Response): Promise<void> => {
+    const requestId = req.requestId || `license_debug_${Date.now()}`;
+    
+    logger.info('🔍 Starting Aspose license diagnostic', { requestId });
+    
+    const fs = require('fs');
+    const path = require('path');
+    
+    const licenseDiagnostic = {
+      licenseFound: false,
+      licensePath: null as string | null,
+      licenseSize: null as number | null,
+      licenseContent: null as string | null,
+      licensePermissions: null as string | null,
+      environmentVariables: {
+        ASPOSE_LICENSE_PATH: process.env.ASPOSE_LICENSE_PATH || null,
+        ASPOSE_LICENSE_CONTENT: process.env.ASPOSE_LICENSE_CONTENT || null
+      },
+      licenseManagerStatus: 'not_initialized',
+      checkedPaths: [] as string[],
+      errors: [] as string[],
+      warnings: [] as string[],
+      containerInfo: {
+        workingDirectory: process.cwd(),
+        serverDirectory: path.join(process.cwd(), 'server'),
+        licenseDirectories: [] as any[]
+      }
+    };
+
+    try {
+      // Step 1: Check environment variables
+      logger.info('🔍 STEP 1: Checking environment variables', { requestId });
+      if (licenseDiagnostic.environmentVariables.ASPOSE_LICENSE_PATH) {
+        logger.info('✅ ASPOSE_LICENSE_PATH is set', { 
+          requestId, 
+          path: licenseDiagnostic.environmentVariables.ASPOSE_LICENSE_PATH 
+        });
+      } else {
+        licenseDiagnostic.warnings.push('ASPOSE_LICENSE_PATH environment variable is not set');
+        logger.warn('⚠️ ASPOSE_LICENSE_PATH not set', { requestId });
+      }
+
+      // Step 2: Check all possible license file locations
+      logger.info('🔍 STEP 2: Checking license file locations', { requestId });
+      const possibleLicensePaths = [
+        '/app/server/Aspose.Slides.Product.Family.lic',
+        '/app/Aspose.Slides.Product.Family.lic',
+        '/app/lib/Aspose.Slides.Product.Family.lic',
+        path.join(process.cwd(), 'server/Aspose.Slides.Product.Family.lic'),
+        path.join(process.cwd(), 'Aspose.Slides.Product.Family.lic'),
+        path.join(process.cwd(), 'lib/Aspose.Slides.Product.Family.lic'),
+        path.join(__dirname, '../../Aspose.Slides.Product.Family.lic'),
+        path.join(__dirname, '../../../Aspose.Slides.Product.Family.lic'),
+        path.join(__dirname, '../../../../Aspose.Slides.Product.Family.lic'),
+        path.join(__dirname, '../../../../../Aspose.Slides.Product.Family.lic')
+      ];
+
+      for (const licensePath of possibleLicensePaths) {
+        licenseDiagnostic.checkedPaths.push(licensePath);
+        try {
+          if (fs.existsSync(licensePath)) {
+            const stats = fs.statSync(licensePath);
+            licenseDiagnostic.licenseFound = true;
+            licenseDiagnostic.licensePath = licensePath;
+            licenseDiagnostic.licenseSize = stats.size;
+            licenseDiagnostic.licensePermissions = stats.mode.toString(8);
+            
+            // Read license content (first 200 characters for security)
+            try {
+              const content = fs.readFileSync(licensePath, 'utf8');
+              licenseDiagnostic.licenseContent = content.substring(0, 200) + (content.length > 200 ? '...' : '');
+            } catch (readError) {
+              licenseDiagnostic.warnings.push(`Could not read license content: ${(readError as Error).message}`);
+            }
+            
+            logger.info('✅ License file found', { 
+              requestId, 
+              path: licensePath, 
+              size: stats.size,
+              permissions: stats.mode.toString(8)
+            });
+            break;
+          }
+        } catch (error) {
+          licenseDiagnostic.errors.push(`Error checking ${licensePath}: ${(error as Error).message}`);
+        }
+      }
+
+      if (!licenseDiagnostic.licenseFound) {
+        licenseDiagnostic.errors.push('License file not found in any of the checked locations');
+        logger.error('❌ License file not found', { requestId, checkedPaths: licenseDiagnostic.checkedPaths });
+      }
+
+      // Step 3: Check container directory structure
+      logger.info('🔍 STEP 3: Checking container directory structure', { requestId });
+      const directoriesToCheck = [
+        '/app',
+        '/app/server',
+        '/app/lib',
+        process.cwd(),
+        path.join(process.cwd(), 'server'),
+        path.join(process.cwd(), 'lib')
+      ];
+
+      for (const dir of directoriesToCheck) {
+        try {
+          if (fs.existsSync(dir)) {
+            const files = fs.readdirSync(dir);
+            const licenseFiles = files.filter((file: string) => file.includes('lic') || file.includes('license'));
+            licenseDiagnostic.containerInfo.licenseDirectories.push({
+              path: dir,
+              exists: true,
+              fileCount: files.length,
+              allFiles: files.slice(0, 10), // First 10 files
+              licenseFiles: licenseFiles
+            });
+            logger.info(`📁 Directory exists: ${dir}`, { 
+              requestId, 
+              fileCount: files.length,
+              licenseFiles: licenseFiles
+            });
+          } else {
+            licenseDiagnostic.containerInfo.licenseDirectories.push({
+              path: dir,
+              exists: false,
+              fileCount: 0,
+              allFiles: [],
+              licenseFiles: []
+            });
+            logger.info(`❌ Directory not found: ${dir}`, { requestId });
+          }
+        } catch (error) {
+          licenseDiagnostic.containerInfo.licenseDirectories.push({
+            path: dir,
+            exists: false,
+            error: (error as Error).message,
+            fileCount: 0,
+            allFiles: [],
+            licenseFiles: []
+          });
+          licenseDiagnostic.errors.push(`Error checking directory ${dir}: ${(error as Error).message}`);
+        }
+      }
+
+      // Step 4: Test license manager initialization (if license found)
+      if (licenseDiagnostic.licenseFound && licenseDiagnostic.licensePath) {
+        logger.info('🔍 STEP 4: Testing license manager initialization', { requestId });
+        try {
+          // Try to initialize the license manager
+          const licenseManager = require('../../../lib/aspose-license-manager');
+          if (licenseManager && typeof licenseManager.initializeLicense === 'function') {
+            try {
+              await licenseManager.initializeLicense(licenseDiagnostic.licensePath);
+              licenseDiagnostic.licenseManagerStatus = 'initialized';
+              logger.info('✅ License manager initialized successfully', { requestId });
+            } catch (initError) {
+              licenseDiagnostic.licenseManagerStatus = 'initialization_failed';
+              licenseDiagnostic.errors.push(`License manager initialization failed: ${(initError as Error).message}`);
+              logger.error('❌ License manager initialization failed', { requestId, error: (initError as Error).message });
+            }
+          } else {
+            licenseDiagnostic.licenseManagerStatus = 'manager_not_found';
+            licenseDiagnostic.errors.push('License manager module not found or invalid');
+            logger.error('❌ License manager module not found', { requestId });
+          }
+        } catch (error) {
+          licenseDiagnostic.licenseManagerStatus = 'module_load_failed';
+          licenseDiagnostic.errors.push(`License manager module load failed: ${(error as Error).message}`);
+          logger.error('❌ License manager module load failed', { requestId, error: (error as Error).message });
+        }
+      } else {
+        licenseDiagnostic.warnings.push('Skipping license manager test - license file not found');
+      }
+
+      // Step 5: Test Aspose with license (if available)
+      if (licenseDiagnostic.licenseFound && licenseDiagnostic.licensePath) {
+        logger.info('🔍 STEP 5: Testing Aspose with license', { requestId });
+        try {
+          // Try to load Aspose and test basic functionality
+          const aspose = require('../../../lib/aspose.slides.js');
+          if (aspose && aspose.Presentation) {
+            logger.info('✅ Aspose library loaded successfully', { requestId });
+            // Note: We can't actually test license validation without a real presentation file
+            // But we can confirm the library loads
+          } else {
+            licenseDiagnostic.errors.push('Aspose library loaded but Presentation class not found');
+            logger.error('❌ Aspose Presentation class not found', { requestId });
+          }
+        } catch (error) {
+          licenseDiagnostic.errors.push(`Aspose library load failed: ${(error as Error).message}`);
+          logger.error('❌ Aspose library load failed', { requestId, error: (error as Error).message });
+        }
+      }
+
+      // Generate summary
+      const summary = {
+        overallStatus: licenseDiagnostic.licenseFound && licenseDiagnostic.licenseManagerStatus === 'initialized' ? 'healthy' : 'issues_detected',
+        criticalIssues: licenseDiagnostic.errors.length,
+        warnings: licenseDiagnostic.warnings.length,
+        recommendations: [] as string[]
+      };
+
+      if (!licenseDiagnostic.licenseFound) {
+        summary.recommendations.push('License file is missing - check Dockerfile COPY instructions');
+      }
+      if (licenseDiagnostic.licenseManagerStatus !== 'initialized') {
+        summary.recommendations.push('License manager not initialized - check license file format and permissions');
+      }
+      if (!licenseDiagnostic.environmentVariables.ASPOSE_LICENSE_PATH) {
+        summary.recommendations.push('ASPOSE_LICENSE_PATH environment variable should be set');
+      }
+      if (licenseDiagnostic.licenseFound && licenseDiagnostic.licenseManagerStatus === 'initialized') {
+        summary.recommendations.push('License configuration is correct - Aspose should work properly');
+      }
+
+      logger.info('✅ License diagnostic completed', { 
+        requestId, 
+        summary,
+        licenseFound: licenseDiagnostic.licenseFound,
+        licenseManagerStatus: licenseDiagnostic.licenseManagerStatus
+      });
+
+      res.json({
+        success: true,
+        license: licenseDiagnostic,
+        summary,
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId,
+          diagnosticTimeMs: Date.now() - parseInt(requestId.split('_')[2])
+        }
+      });
+
+    } catch (error) {
+      logger.error('❌ License diagnostic failed', { 
+        requestId, 
+        error: (error as Error).message,
+        stack: (error as Error).stack
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: (error as Error).message,
+        license: licenseDiagnostic,
         meta: {
           timestamp: new Date().toISOString(),
           requestId
