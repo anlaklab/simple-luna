@@ -20,15 +20,21 @@ import { glob } from 'glob';
  * Uses glob patterns to find all .ts files in relevant directories
  */
 function resolveSourcePaths(): string[] {
+  // In production, we need to use compiled .js files since .ts files don't exist
+  const isProduction = process.env.NODE_ENV === 'production';
+  
   const possibleBasePaths = [
     // If running from compiled dist/ directory (production)
-    path.resolve(__dirname, '../../src'),
+    path.resolve(__dirname, '../'),
     // If running from src/ directory directly
     path.resolve(__dirname, '../'),
     // If running from server/ directory
     path.resolve(process.cwd(), 'src'),
     // If running from project root
     path.resolve(process.cwd(), 'server/src'),
+    // Additional production paths
+    path.resolve(process.cwd(), 'server/dist'),
+    path.resolve(__dirname, '../../src'),
   ];
 
   // Find the first valid base path that contains the routes directory
@@ -37,6 +43,7 @@ function resolveSourcePaths(): string[] {
     const routesPath = path.join(basePath, 'routes');
     if (fs.existsSync(routesPath)) {
       sourcePath = basePath;
+      console.log(`📖 Swagger: Found valid base path: ${sourcePath}`);
       break;
     }
   }
@@ -45,22 +52,25 @@ function resolveSourcePaths(): string[] {
     console.warn('⚠️  Swagger: Could not find source files for JSDoc documentation');
     // Fallback: Use current directory structure
     return [
-      './routes/*.ts',
-      './controllers/*.ts',
+      path.join(__dirname, '../routes/*.{ts,js}'),
+      path.join(__dirname, '../controllers/*.{ts,js}'),
     ];
   }
 
   console.log('📖 Swagger: Base source path found:', sourcePath);
 
-  // Use glob to find all TypeScript files that might contain Swagger docs
+  // Use both .ts and .js files for compatibility
+  const fileExtension = isProduction ? '{ts,js}' : 'ts';
   const searchPatterns = [
     // All route files - MOST IMPORTANT
-    path.join(sourcePath, 'routes/**/*.ts'),
+    path.join(sourcePath, `routes/**/*.${fileExtension}`),
     // All controller files
-    path.join(sourcePath, 'controllers/**/*.ts'),
+    path.join(sourcePath, `controllers/**/*.${fileExtension}`),
     // Main index files
-    path.join(sourcePath, 'index.ts'),
+    path.join(sourcePath, `index.${fileExtension}`),
   ];
+
+  console.log('📁 Swagger: Search patterns:', searchPatterns);
 
   const allFiles: string[] = [];
   
@@ -69,10 +79,9 @@ function resolveSourcePaths(): string[] {
       const files = glob.sync(pattern, {
         ignore: [
           '**/*.d.ts',      // Ignore type definition files
-          '**/*.test.ts',   // Ignore test files
-          '**/*.spec.ts',   // Ignore spec files
+          '**/*.test.{ts,js}',   // Ignore test files
+          '**/*.spec.{ts,js}',   // Ignore spec files
           '**/node_modules/**', // Ignore node_modules
-          '**/dist/**',     // Ignore compiled files
           '**/build/**',    // Ignore build files
         ],
         absolute: true
@@ -83,10 +92,16 @@ function resolveSourcePaths(): string[] {
         try {
           const content = fs.readFileSync(file, 'utf8');
           // Check if file contains @swagger JSDoc comments
-          return content.includes('@swagger') || 
-                 content.includes('swagger') || 
-                 content.includes('router.') ||
-                 file.includes('routes');
+          const hasSwagger = content.includes('@swagger') || 
+                           content.includes('swagger') || 
+                           content.includes('router.') ||
+                           file.includes('routes');
+          
+          if (hasSwagger && content.includes('@swagger')) {
+            console.log(`✅ Found swagger file: ${path.relative(sourcePath, file)}`);
+          }
+          
+          return hasSwagger;
         } catch (error) {
           console.warn(`⚠️  Could not read file ${file}:`, error);
           return false;
@@ -103,9 +118,10 @@ function resolveSourcePaths(): string[] {
     console.error('❌ Error scanning for source files:', error);
     // Enhanced fallback with absolute paths
     const fallbackPatterns = [
-      path.join(sourcePath, 'routes', '*.ts'),
-      path.join(sourcePath, 'controllers', '*.ts'),
+      path.join(sourcePath, 'routes', `*.${fileExtension}`),
+      path.join(sourcePath, 'controllers', `*.${fileExtension}`),
     ];
+    console.log('🔄 Using fallback patterns:', fallbackPatterns);
     return fallbackPatterns;
   }
 
@@ -113,6 +129,10 @@ function resolveSourcePaths(): string[] {
   const uniqueFiles = [...new Set(allFiles)].sort();
   
   console.log(`📖 Swagger: Total ${uniqueFiles.length} files will be scanned for API documentation`);
+  console.log('📋 Files to process:');
+  uniqueFiles.forEach(file => {
+    console.log(`   📄 ${path.relative(sourcePath, file)}`);
+  });
   
   return uniqueFiles;
 }
