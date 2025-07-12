@@ -412,4 +412,40 @@ router.post('/debug/license-manager',
   })
 );
 
+/**
+ * @swagger
+ * /api/v1/debug-license:
+ *   post:
+ *     tags: [Debug]
+ *     summary: Quick license debugging
+ *     description: |
+ *       Simple endpoint for quick license debugging
+ *       Redirects to the comprehensive license manager debug endpoint
+ *     responses:
+ *       200:
+ *         description: License debug completed
+ */
+router.post('/debug-license', 
+  handleAsyncErrors(async (req: Request, res: Response): Promise<void> => {
+    // Redirect to the comprehensive endpoint
+    const requestId = req.requestId || `quick_license_debug_${Date.now()}`;
+    
+    logger.info('🔄 Quick license debug - redirecting to comprehensive endpoint', { requestId });
+    
+    // Call the comprehensive endpoint internally
+    const comprehensiveEndpoint = req.originalUrl.replace('/debug-license', '/debug/license-manager');
+    
+    res.json({
+      success: true,
+      message: 'Quick license debug - use comprehensive endpoint for detailed diagnostics',
+      redirectTo: comprehensiveEndpoint,
+      instructions: 'Use POST /api/v1/debug/license-manager for comprehensive debugging',
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId
+      }
+    });
+  })
+);
+
 export default router; 
