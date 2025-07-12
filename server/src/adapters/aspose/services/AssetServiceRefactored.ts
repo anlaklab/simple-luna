@@ -92,7 +92,7 @@ export class AssetServiceRefactored implements IAssetService {
       // ✅ REFACTORED: Load presentation using AsposeDriverFactory
       await asposeDriver.initialize();
       const presentation = await asposeDriver.loadPresentation(filePath);
-      const slideCount = presentation.getSlides().getCount();
+      const slideCount = presentation.getSlides().size();
       
       logger.info('Presentation loaded successfully', {
         extractionId,

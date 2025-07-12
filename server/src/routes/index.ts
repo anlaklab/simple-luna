@@ -38,8 +38,14 @@ const router = Router();
 // GLOBAL MIDDLEWARE FOR API ROUTES
 // =============================================================================
 
-// Request timeout middleware (30 seconds for all API routes)
-router.use(timeoutHandler(30000));
+// Request timeout middleware (30 seconds for all API routes, except debug endpoints)
+router.use((req: Request, res: Response, next) => {
+  // Skip timeout for debug endpoints that need more time
+  if (req.originalUrl?.includes('debug-extract-assets')) {
+    return next();
+  }
+  return timeoutHandler(30000)(req, res, next);
+});
 
 // Request logging middleware
 router.use((req: Request, res: Response, next) => {

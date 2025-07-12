@@ -201,7 +201,7 @@ const extractAssetsController = async (req: Request, res: Response): Promise<voi
         const asposeDriver = require('/app/lib/AsposeDriverFactory');
         await asposeDriver.initialize();
         const testPresentation = await asposeDriver.loadPresentation(tempFilePath);
-        const slideCount = testPresentation.getSlides().getCount();
+        const slideCount = testPresentation.getSlides().size();
         presentationMetadata = { slideCount, loaded: true };
         testPresentation.dispose();
         logger.info('✅ STEP 3: Presentation loaded successfully', { slideCount });

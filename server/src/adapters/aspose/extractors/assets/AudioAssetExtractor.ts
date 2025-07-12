@@ -40,10 +40,10 @@ export class AudioAssetExtractor implements AudioExtractor {
 
       logger.info('Starting real audio extraction with Aspose.Slides', {
         extractorName: this.name,
-        slideCount: presentation.getSlides().getCount()
+        slideCount: presentation.getSlides().size()
       });
 
-      const slideCount = presentation.getSlides().getCount();
+      const slideCount = presentation.getSlides().size();
       
       // Process ALL slides - never limit slides
       for (let slideIndex = 0; slideIndex < slideCount; slideIndex++) {
