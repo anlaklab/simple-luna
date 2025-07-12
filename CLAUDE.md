@@ -269,24 +269,31 @@ The TypeScript server is now **FEATURE-COMPLETE** and production-ready with ente
 # PowerPoint Processing Platform with AI Capabilities
 
 ## 🎯 PROJECT OVERVIEW
-You are working on Luna, a professional PowerPoint processing platform with AI capabilities. This project converts PPTX files to Universal JSON schema and provides advanced analysis through a React frontend and Node.js backend.
+You are working on Luna, a professional PowerPoint processing platform with AI capabilities. This project converts PPTX files to Universal JSON schema and provides advanced analysis through a React frontend and Node.js backend. 
+
+**PRODUCTION ENVIRONMENT**: Hostinger VPS (root@31.97.193.83)
+- 4 CPU cores, 16GB RAM, 200GB NVMe SSD
+- Professional Docker deployment with monitoring stack
+- Use `scripts/deploy-hostinger.sh` for all deployments
 
 ## 🚨 CRITICAL SURGICAL RULES - NEVER VIOLATE
 
 ### ❌ ULTRA CRITICAL - ENVIRONMENT & DEPLOYMENT:
 1. **NEVER TOUCH .env FILE**: NEVER modify, overwrite, or recreate the .env file - it is sacred
-2. **COOLIFY DEPLOYMENT ONLY**: NEVER attempt to run anything locally, ONLY deploy via Coolify from GitHub
-3. **NO LOCAL DEVELOPMENT**: NEVER install Node.js modules locally, ONLY in Coolify containers
+2. **HOSTINGER VPS DEPLOYMENT ONLY**: NEVER attempt to run anything locally, ONLY deploy to Hostinger VPS
+3. **NO LOCAL DEVELOPMENT**: NEVER install Node.js modules locally, ONLY in Docker containers
 4. **NO LOCAL JAVA MODULE**: NEVER attempt to install java module locally - it will fail
 5. **SURGICAL PRECISION**: Every change must be deliberate, tested, and step-by-step
 6. **VERIFY BEFORE ACTION**: Always check current state before making any changes
-7. **GITHUB PUSH ONLY**: All changes must be pushed to GitHub for Coolify deployment
+7. **GITHUB PUSH ONLY**: All changes must be pushed to GitHub for VPS deployment
 
-### 🐳 COOLIFY MANDATORY RULES:
-1. **COOLIFY IS THE ONLY ENVIRONMENT**: All development, testing, and debugging ONLY in Coolify
-2. **NODE.JS 18 REQUIRED**: Coolify must use Node.js 18 for java module compatibility
-3. **AUTOMATIC DEPLOYMENT**: Always push to GitHub for automatic Coolify deployment
-4. **CONTAINER LOGS**: Always check Coolify logs for debugging, not local execution
+### 🐳 DOCKER DEPLOYMENT MANDATORY RULES:
+1. **HOSTINGER VPS IS THE ONLY ENVIRONMENT**: All development, testing, and debugging ONLY on Hostinger VPS
+2. **NODE.JS 18 REQUIRED**: Docker must use Node.js 18 for java module compatibility
+3. **USE HOSTINGER DEPLOYMENT SCRIPT**: Always use `scripts/deploy-hostinger.sh` for deployment
+4. **HOSTINGER CONFIGURATION**: Use `docker-compose.hostinger.yml` for production
+5. **MONITORING STACK**: All deployments include Prometheus + Grafana + alerting
+6. **CONTAINER LOGS**: Always check Docker logs for debugging, not local execution
 
 ## 🚫 CRITICAL PROHIBITIONS - NEVER VIOLATE THESE RULES
 
@@ -517,14 +524,56 @@ app.get('/endpoint', handleAsyncErrors(async (req, res) => {
 4. NEVER create demo files or test cases
 5. ALWAYS use real user files for testing
 
+### 🚀 HOSTINGER VPS DEPLOYMENT GUIDELINES
+
+#### PRODUCTION DEPLOYMENT WORKFLOW
+1. **COMMIT & PUSH**: Always commit and push changes to GitHub first
+2. **SSH TO VPS**: Connect to Hostinger VPS: `ssh root@31.97.193.83`
+3. **NAVIGATE TO PROJECT**: `cd /opt/luna-platform`
+4. **PULL LATEST CODE**: `git pull origin main`
+5. **DEPLOY**: Run `./scripts/deploy-hostinger.sh`
+6. **VERIFY DEPLOYMENT**: Check all services are running via monitoring
+
+#### HOSTINGER VPS SPECIFICATIONS
+- **Server**: Hostinger KVM 4 VPS (€9.99/month)
+- **CPU**: 4 cores (Intel/AMD)
+- **RAM**: 16GB DDR4
+- **Storage**: 200GB NVMe SSD
+- **Bandwidth**: 16TB/month
+- **IP**: 31.97.193.83
+
+#### DEPLOYMENT COMMAND REFERENCE
+```bash
+# Deploy to production
+./scripts/deploy-hostinger.sh
+
+# Monitor services
+docker-compose -f docker-compose.hostinger.yml ps
+docker-compose -f docker-compose.hostinger.yml logs -f
+
+# Check system resources
+docker stats
+
+# Access monitoring
+# Prometheus: http://31.97.193.83:9090
+# Grafana: http://31.97.193.83:3001
+```
+
+#### PERFORMANCE OPTIMIZATION
+- **Backend**: 8GB RAM limit with G1GC Java optimization
+- **Redis**: 1GB caching layer for improved performance
+- **Nginx**: 4096 concurrent connections with rate limiting
+- **Database**: Optional PostgreSQL for enterprise features
+- **Monitoring**: 30-day metrics retention with compression
+
 ## 🔧 TECHNICAL CONSTRAINTS
 
 ### DEPLOYMENT & TESTING RULES
 - **NO LOCAL TESTING**: Never attempt to run, test, or debug locally
-- **GITHUB DEPLOYMENT ONLY**: Always push changes to GitHub and wait for deployment (max 2 minutes)
+- **HOSTINGER VPS DEPLOYMENT ONLY**: Always deploy to Hostinger VPS using the deployment script
 - **DEPLOYED TESTING ONLY**: Test only against deployed version at https://luna.anlaklab.com
 - **NO DOCKER COMMANDS**: Never use docker-compose, docker run, or local containers
-- **PUSH → WAIT → TEST**: The only testing workflow is: git push → wait 2 minutes → test deployed version
+- **PUSH → DEPLOY → TEST**: The only testing workflow is: git push → deploy to VPS → test deployed version
 
 ### BACKEND REQUIREMENTS
 - ALWAYS use TypeScript
@@ -538,6 +587,17 @@ app.get('/endpoint', handleAsyncErrors(async (req, res) => {
 - ALWAYS use Tailwind CSS with design system tokens
 - ALWAYS use React Query for server state
 - ALWAYS use shadcn/ui components
+
+### HOSTINGER VPS PRODUCTION CONSTRAINTS
+- **Domain**: https://luna.anlaklab.com (production domain)
+- **VPS IP**: 31.97.193.83 (Hostinger KVM 4 VPS)
+- **SSL**: Automatic Let's Encrypt SSL certificate management
+- **File Limits**: 100MB max file size for PowerPoint uploads
+- **Memory**: 6GB Java heap for Aspose.Slides processing
+- **Concurrent**: 4096 nginx connections, 8 UV threads
+- **Monitoring**: Prometheus + Grafana + alerting system
+- **Database**: Firebase primary, PostgreSQL optional for enterprise
+- **Caching**: Redis 1GB for improved performance
 
 ## 📚 KEY FILES TO REFERENCE
 
@@ -615,19 +675,22 @@ const mockSlides = generateMockSlides(slideCount);
 
 ## 🚀 DEPLOYMENT RULES
 
-### COOLIFY DEPLOYMENT ONLY
-- **NEVER RUN LOCALLY**: All development and testing must be done via Coolify deployment
-- **GITHUB PUSH REQUIRED**: All changes must be pushed to GitHub for automatic deployment
-- **NO LOCAL DOCKER**: Never use docker-compose locally, only for Coolify
-- **ENVIRONMENT VARIABLES**: All configuration must be set in Coolify environment
+### HOSTINGER VPS DEPLOYMENT ONLY
+- **NEVER RUN LOCALLY**: All development and testing must be done via Hostinger VPS deployment
+- **GITHUB PUSH REQUIRED**: All changes must be pushed to GitHub before deployment
+- **NO LOCAL DOCKER**: Never use docker-compose locally, only on Hostinger VPS
+- **ENVIRONMENT VARIABLES**: All configuration must be set in VPS environment
 - **PRODUCTION ONLY**: This is a production application, not a development environment
 
 ### DEPLOYMENT WORKFLOW
 1. **Make changes** to code
 2. **Commit and push** to GitHub
-3. **Coolify automatically deploys** from GitHub
-4. **Test in production** at luna.anlaklab.com
-5. **Check Coolify logs** for any issues
+3. **SSH to VPS**: `ssh root@31.97.193.83`
+4. **Navigate to project**: `cd /opt/luna-platform`
+5. **Pull latest code**: `git pull origin main`
+6. **Deploy**: Run `./scripts/deploy-hostinger.sh`
+7. **Test in production** at luna.anlaklab.com
+8. **Check Docker logs** for any issues
 
 Remember: This is a professional application that processes REAL PowerPoint files with REAL content. Every slide, every shape, every piece of text must be extracted from the actual file using the local Aspose.Slides library. NO EXCEPTIONS.
 
@@ -640,7 +703,7 @@ Remember: This is a professional application that processes REAL PowerPoint file
 - Use cloud APIs instead of local library
 - Limit slide processing
 - Create demo presentations
-- Run locally (use Coolify only)
+- Run locally (use Hostinger VPS only)
 
 **ALWAYS, WITHOUT EXCEPTION:**
 - Use real files
@@ -649,4 +712,4 @@ Remember: This is a professional application that processes REAL PowerPoint file
 - Use local Aspose.Slides library
 - Handle large presentations properly
 - Store real data in Firebase
-- Deploy via Coolify from GitHub
+- Deploy via Hostinger VPS
