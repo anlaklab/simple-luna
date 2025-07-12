@@ -5,7 +5,7 @@
  * Moved from ai.routes.ts to organize non-AI extraction functionality
  */
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { createAssetService } from '../adapters/aspose';
 import { AssetServiceConfig } from '../adapters/aspose/types/asset-interfaces';
 import { validateRequest, validateFormOptions } from '../middleware/validation.middleware';
@@ -678,6 +678,12 @@ router.post('/debug-extract-assets',
   debugFileUpload.single('file'),
   validateUploadWithTiers,
   handleUploadError,
+  (req: Request, res: Response, next: NextFunction) => {
+    // Override timeout for debug endpoint - set to 2 minutes
+    req.setTimeout(120000);
+    res.setTimeout(120000);
+    next();
+  },
   handleAsyncErrors(async (req: Request, res: Response): Promise<void> => {
     const requestId = req.requestId || `debug_${Date.now()}`;
     const diagnostics = {
@@ -890,7 +896,7 @@ router.post('/debug-extract-assets',
         diagnostics.details.asposeDriverStatus = 'initialized';
         
         const presentation = await asposeDriver.loadPresentation(tempFilePath);
-        const slideCount = presentation.getSlides().getCount();
+        const slideCount = presentation.getSlides().size();
         
         diagnostics.step1_presentationLoaded = true;
         diagnostics.details.presentationInfo = {
@@ -906,7 +912,7 @@ router.post('/debug-extract-assets',
         for (let i = 0; i < Math.min(slideCount, 5); i++) {
           const slide = presentation.getSlides().get_Item(i);
           const shapes = slide.getShapes();
-          const shapeCount = shapes.getCount();
+          const shapeCount = shapes.size();
           
           const shapeTypes = [];
           for (let j = 0; j < Math.min(shapeCount, 10); j++) {
@@ -1571,7 +1577,7 @@ router.post('/debug-extract-assets',
       await asposeDriver.initialize();
       
       const presentation = await asposeDriver.loadPresentation(tempFilePath);
-      const slideCount = presentation.getSlides().getCount();
+      const slideCount = presentation.getSlides().size();
       
       logger.info('DEBUG: Presentation loaded successfully', {
         requestId,
@@ -1583,7 +1589,7 @@ router.post('/debug-extract-assets',
       for (let i = 0; i < Math.min(slideCount, 3); i++) { // Just test first 3 slides
         const slide = presentation.getSlides().get_Item(i);
         const shapes = slide.getShapes();
-        const shapeCount = shapes.getCount();
+        const shapeCount = shapes.size();
         
         logger.info(`DEBUG: Slide ${i} inspection`, {
           requestId,
