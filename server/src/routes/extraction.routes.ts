@@ -50,7 +50,7 @@ const requiredVars = {
   FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY,
   FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
   FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET,
-  ASPOSE_LICENSE_PATH: process.env.ASPOSE_LICENSE_PATH
+  ASPOSE_LICENSE_CONTENT: process.env.ASPOSE_LICENSE_CONTENT
 };
 
 const missingVars = Object.entries(requiredVars)
@@ -74,7 +74,7 @@ try {
   
   assetService = createAssetService({
     aspose: {
-      licenseFilePath: process.env.ASPOSE_LICENSE_PATH,
+      licenseContent: process.env.ASPOSE_LICENSE_CONTENT,
       tempDirectory: process.env.ASPOSE_TEMP_DIR || './temp/aspose'
     },
     firebase: {
@@ -1979,9 +1979,9 @@ router.post('/validate-jar-deployment',
  *                     environmentVariables:
  *                       type: object
  *                       properties:
- *                         ASPOSE_LICENSE_PATH:
+ *                         ASPOSE_LICENSE_CONTENT:
  *                           type: string
- *                           example: "/app/server/Aspose.Slides.Product.Family.lic"
+ *                           example: "Aspose.Slides for Java..."
  *                     licenseManagerStatus:
  *                       type: string
  *                       example: "initialized"
@@ -2017,7 +2017,6 @@ router.post('/debug-license',
       licenseContent: null as string | null,
       licensePermissions: null as string | null,
       environmentVariables: {
-        ASPOSE_LICENSE_PATH: process.env.ASPOSE_LICENSE_PATH || null,
         ASPOSE_LICENSE_CONTENT: process.env.ASPOSE_LICENSE_CONTENT || null
       },
       licenseManagerStatus: 'not_initialized',
@@ -2034,14 +2033,14 @@ router.post('/debug-license',
     try {
       // Step 1: Check environment variables
       logger.info('🔍 STEP 1: Checking environment variables', { requestId });
-      if (licenseDiagnostic.environmentVariables.ASPOSE_LICENSE_PATH) {
-        logger.info('✅ ASPOSE_LICENSE_PATH is set', { 
+      if (licenseDiagnostic.environmentVariables.ASPOSE_LICENSE_CONTENT) {
+        logger.info('✅ ASPOSE_LICENSE_CONTENT is set', { 
           requestId, 
-          path: licenseDiagnostic.environmentVariables.ASPOSE_LICENSE_PATH 
+          content: licenseDiagnostic.environmentVariables.ASPOSE_LICENSE_CONTENT 
         });
       } else {
-        licenseDiagnostic.warnings.push('ASPOSE_LICENSE_PATH environment variable is not set');
-        logger.warn('⚠️ ASPOSE_LICENSE_PATH not set', { requestId });
+        licenseDiagnostic.warnings.push('ASPOSE_LICENSE_CONTENT environment variable is not set');
+        logger.warn('⚠️ ASPOSE_LICENSE_CONTENT not set', { requestId });
       }
 
       // Step 2: Check all possible license file locations
@@ -2210,8 +2209,8 @@ router.post('/debug-license',
       if (licenseDiagnostic.licenseManagerStatus !== 'initialized') {
         summary.recommendations.push('License manager not initialized - check license file format and permissions');
       }
-      if (!licenseDiagnostic.environmentVariables.ASPOSE_LICENSE_PATH) {
-        summary.recommendations.push('ASPOSE_LICENSE_PATH environment variable should be set');
+      if (!licenseDiagnostic.environmentVariables.ASPOSE_LICENSE_CONTENT) {
+        summary.recommendations.push('ASPOSE_LICENSE_CONTENT environment variable should be set');
       }
       if (licenseDiagnostic.licenseFound && licenseDiagnostic.licenseManagerStatus === 'initialized') {
         summary.recommendations.push('License configuration is correct - Aspose should work properly');
