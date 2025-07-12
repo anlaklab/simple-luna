@@ -180,6 +180,51 @@ export const batchUpload = createUploadMiddleware({
   enableTierValidation: true,
 });
 
+/**
+ * Debug upload middleware using disk storage for large files
+ * This prevents memory truncation issues with large PPTX files
+ */
+export const debugFileUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadDir = process.env.UPLOAD_TEMP_DIR || './temp/uploads';
+      const fs = require('fs');
+      
+      // Ensure directory exists
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const requestId = req.requestId || `debug_${Date.now()}`;
+      const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+      cb(null, `${requestId}_${sanitizedName}`);
+    }
+  }),
+  limits: {
+    fileSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'), // 50MB default
+    files: 1,
+    fieldSize: 1024 * 1024, // 1MB for form fields
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimeTypes = [
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.slideshow',
+      'application/pdf',
+      'application/vnd.oasis.opendocument.presentation',
+    ];
+
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      return cb(new MulterError('LIMIT_UNEXPECTED_FILE', 'file'));
+    }
+
+    cb(null, true);
+  },
+});
+
 // =============================================================================
 // UPLOAD VALIDATION MIDDLEWARE
 // =============================================================================
