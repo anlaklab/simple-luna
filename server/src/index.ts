@@ -155,11 +155,43 @@ const API_BASE = `/api/${API_VERSION}`;
 app.use(API_BASE, apiRoutes);
 
 // =============================================================================
-// ERROR HANDLING
+// FRONTEND SERVING CONFIGURATION
 // =============================================================================
 
-// 404 handler for all unmatched routes
-app.use('*', notFoundHandler);
+// Serve static files from the React app build directory
+const frontendDistPath = path.join(__dirname, '../../client/dist');
+app.use(express.static(frontendDistPath));
+
+// Handle React Router - serve index.html for all non-API routes
+app.get('*', (req, res) => {
+  // Only serve frontend for non-API routes
+  if (!req.path.startsWith('/api/')) {
+    res.sendFile(path.join(frontendDistPath, 'index.html'));
+  } else {
+    // Let the API routes handle API requests
+    res.status(404).json({
+      success: false,
+      error: {
+        type: "server_error",
+        code: "ROUTE_NOT_FOUND",
+        message: `Route ${req.method} ${req.path} not found`
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: req.get('X-Request-ID') || `req_${Date.now()}`,
+        error: {
+          type: "server_error",
+          code: "ROUTE_NOT_FOUND",
+          message: `Route ${req.method} ${req.path} not found`
+        }
+      }
+    });
+  }
+});
+
+// =============================================================================
+// ERROR HANDLING
+// =============================================================================
 
 // Global error handler (must be last)
 app.use(errorHandler);
