@@ -1622,4 +1622,313 @@ router.post('/debug-extract-assets',
   })
 );
 
+/**
+ * @swagger
+ * /api/v1/validate-jar-deployment:
+ *   post:
+ *     tags: [Extraction]
+ *     summary: Validate JAR deployment in container
+ *     description: |
+ *       Validates that the Aspose.Slides JAR file is properly deployed in the container.
+ *       
+ *       **What it checks:**
+ *       - JAR file existence in all expected locations
+ *       - File permissions and accessibility
+ *       - Java classpath configuration
+ *       - Basic Java functionality
+ *       - Aspose class loading capability
+ *       
+ *       **Use Cases:**
+ *       - Post-deployment validation
+ *       - Container health checks
+ *       - JAR deployment troubleshooting
+ *       - Java environment verification
+ *     responses:
+ *       200:
+ *         description: JAR deployment validation completed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 validation:
+ *                   type: object
+ *                   properties:
+ *                     jarFound:
+ *                       type: boolean
+ *                       example: true
+ *                     jarPath:
+ *                       type: string
+ *                       example: "/app/lib/aspose-slides-25.6-nodejs.jar"
+ *                     jarSize:
+ *                       type: number
+ *                       example: 52428800
+ *                     jarPermissions:
+ *                       type: string
+ *                       example: "rw-r--r--"
+ *                     javaAvailable:
+ *                       type: boolean
+ *                       example: true
+ *                     javaVersion:
+ *                       type: string
+ *                       example: "11.0.27"
+ *                     asposeClassesLoadable:
+ *                       type: boolean
+ *                       example: true
+ *                     containerInfo:
+ *                       type: object
+ *                       properties:
+ *                         workingDirectory:
+ *                           type: string
+ *                         libDirectories:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *       500:
+ *         description: Validation failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "JAR file not found"
+ *                 details:
+ *                   type: object
+ */
+router.post('/validate-jar-deployment', 
+  handleAsyncErrors(async (req: Request, res: Response): Promise<void> => {
+    const requestId = req.requestId || `jar_validation_${Date.now()}`;
+    
+    logger.info('🔍 Starting JAR deployment validation', { requestId });
+    
+    const fs = require('fs');
+    const path = require('path');
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const execAsync = promisify(exec);
+    
+    const validation = {
+      jarFound: false,
+      jarPath: null as string | null,
+      jarSize: null as number | null,
+      jarPermissions: null as string | null,
+      javaAvailable: false,
+      javaVersion: null as string | null,
+      asposeClassesLoadable: false,
+      containerInfo: {
+        workingDirectory: process.cwd(),
+        libDirectories: [] as any[]
+      },
+      checkedPaths: [] as string[],
+      errors: [] as string[],
+      warnings: [] as string[]
+    };
+
+    try {
+      // Step 1: Check Java availability
+      logger.info('🔍 STEP 1: Checking Java availability', { requestId });
+      try {
+        const { stdout: javaVersion } = await execAsync('java -version 2>&1');
+        validation.javaAvailable = true;
+        validation.javaVersion = javaVersion.split('\n')[0].replace('java version "', '').replace('"', '');
+        logger.info('✅ Java is available', { requestId, version: validation.javaVersion });
+      } catch (error) {
+        validation.errors.push(`Java not available: ${(error as Error).message}`);
+        logger.error('❌ Java not available', { requestId, error: (error as Error).message });
+      }
+
+      // Step 2: Check all possible JAR locations
+      logger.info('🔍 STEP 2: Checking JAR file locations', { requestId });
+      const possibleJarPaths = [
+        '/app/lib/aspose-slides-25.6-nodejs.jar',
+        '/lib/aspose-slides-25.6-nodejs.jar',
+        '/app/server/lib/aspose-slides-25.6-nodejs.jar',
+        path.join(process.cwd(), 'lib/aspose-slides-25.6-nodejs.jar'),
+        path.join(process.cwd(), '../lib/aspose-slides-25.6-nodejs.jar'),
+        path.join(__dirname, '../../lib/aspose-slides-25.6-nodejs.jar'),
+        path.join(__dirname, '../../../lib/aspose-slides-25.6-nodejs.jar'),
+        path.join(__dirname, '../../../../lib/aspose-slides-25.6-nodejs.jar'),
+        path.join(__dirname, '../../../../../lib/aspose-slides-25.6-nodejs.jar'),
+        path.join(__dirname, '../../../../../../lib/aspose-slides-25.6-nodejs.jar')
+      ];
+
+      for (const jarPath of possibleJarPaths) {
+        validation.checkedPaths.push(jarPath);
+        try {
+          if (fs.existsSync(jarPath)) {
+            const stats = fs.statSync(jarPath);
+            validation.jarFound = true;
+            validation.jarPath = jarPath;
+            validation.jarSize = stats.size;
+            validation.jarPermissions = stats.mode.toString(8);
+            
+            logger.info('✅ JAR file found', { 
+              requestId, 
+              path: jarPath, 
+              size: stats.size,
+              permissions: stats.mode.toString(8)
+            });
+            break;
+          }
+        } catch (error) {
+          validation.errors.push(`Error checking ${jarPath}: ${(error as Error).message}`);
+        }
+      }
+
+      if (!validation.jarFound) {
+        validation.errors.push('JAR file not found in any of the checked locations');
+        logger.error('❌ JAR file not found', { requestId, checkedPaths: validation.checkedPaths });
+      }
+
+      // Step 3: Check container directory structure
+      logger.info('🔍 STEP 3: Checking container directory structure', { requestId });
+      const directoriesToCheck = [
+        '/app',
+        '/app/lib',
+        '/lib',
+        process.cwd(),
+        path.join(process.cwd(), 'lib'),
+        path.join(process.cwd(), '../lib')
+      ];
+
+      for (const dir of directoriesToCheck) {
+        try {
+          if (fs.existsSync(dir)) {
+            const files = fs.readdirSync(dir);
+            validation.containerInfo.libDirectories.push({
+              path: dir,
+              exists: true,
+              fileCount: files.length,
+              files: files.slice(0, 10) // First 10 files only
+            });
+            logger.info(`📁 Directory exists: ${dir}`, { requestId, fileCount: files.length });
+          } else {
+            validation.containerInfo.libDirectories.push({
+              path: dir,
+              exists: false,
+              fileCount: 0,
+              files: []
+            });
+            logger.info(`❌ Directory not found: ${dir}`, { requestId });
+          }
+        } catch (error) {
+          validation.containerInfo.libDirectories.push({
+            path: dir,
+            exists: false,
+            error: (error as Error).message,
+            fileCount: 0,
+            files: []
+          });
+          validation.errors.push(`Error checking directory ${dir}: ${(error as Error).message}`);
+        }
+      }
+
+      // Step 4: Test Aspose class loading (if JAR found)
+      if (validation.jarFound && validation.javaAvailable) {
+        logger.info('🔍 STEP 4: Testing Aspose class loading', { requestId });
+        try {
+          // Try to load the Aspose library
+          if (validation.jarPath) {
+            const aspose = require(validation.jarPath);
+            if (aspose && aspose.Presentation) {
+              validation.asposeClassesLoadable = true;
+              logger.info('✅ Aspose classes loadable', { requestId });
+            } else {
+              validation.errors.push('Aspose library loaded but Presentation class not found');
+              logger.error('❌ Aspose Presentation class not found', { requestId });
+            }
+          } else {
+            validation.errors.push('JAR path is null despite jarFound being true');
+            logger.error('❌ JAR path is null', { requestId });
+          }
+        } catch (error) {
+          validation.errors.push(`Aspose class loading failed: ${(error as Error).message}`);
+          logger.error('❌ Aspose class loading failed', { requestId, error: (error as Error).message });
+        }
+      } else {
+        validation.warnings.push('Skipping Aspose class loading test - JAR not found or Java not available');
+      }
+
+      // Step 5: Check Java classpath
+      logger.info('🔍 STEP 5: Checking Java classpath', { requestId });
+      try {
+        const { stdout: classpath } = await execAsync('echo $CLASSPATH');
+        if (classpath && classpath.trim()) {
+          logger.info('✅ CLASSPATH is set', { requestId, classpath: classpath.trim() });
+        } else {
+          validation.warnings.push('CLASSPATH environment variable is not set');
+          logger.warn('⚠️ CLASSPATH not set', { requestId });
+        }
+      } catch (error) {
+        validation.errors.push(`Error checking CLASSPATH: ${(error as Error).message}`);
+      }
+
+      // Generate summary
+      const summary = {
+        overallStatus: validation.jarFound && validation.javaAvailable && validation.asposeClassesLoadable ? 'healthy' : 'issues_detected',
+        criticalIssues: validation.errors.length,
+        warnings: validation.warnings.length,
+        recommendations: [] as string[]
+      };
+
+      if (!validation.jarFound) {
+        summary.recommendations.push('JAR file is missing - check Dockerfile COPY instructions');
+      }
+      if (!validation.javaAvailable) {
+        summary.recommendations.push('Java is not available - check Java installation in container');
+      }
+      if (!validation.asposeClassesLoadable) {
+        summary.recommendations.push('Aspose classes cannot be loaded - check JAR file integrity');
+      }
+      if (validation.jarFound && validation.javaAvailable && validation.asposeClassesLoadable) {
+        summary.recommendations.push('All systems operational - JAR deployment is successful');
+      }
+
+      logger.info('✅ JAR deployment validation completed', { 
+        requestId, 
+        summary,
+        jarFound: validation.jarFound,
+        javaAvailable: validation.javaAvailable,
+        asposeLoadable: validation.asposeClassesLoadable
+      });
+
+      res.json({
+        success: true,
+        validation,
+        summary,
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId,
+          validationTimeMs: Date.now() - parseInt(requestId.split('_')[2])
+        }
+      });
+
+    } catch (error) {
+      logger.error('❌ JAR deployment validation failed', { 
+        requestId, 
+        error: (error as Error).message,
+        stack: (error as Error).stack
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: (error as Error).message,
+        validation,
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId
+        }
+      });
+    }
+  })
+);
+
 export default router; 
