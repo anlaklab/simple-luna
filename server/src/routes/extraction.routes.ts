@@ -183,6 +183,18 @@ const extractAssetsController = async (req: Request, res: Response): Promise<voi
       }
       
       // Extract assets using AssetServiceRefactored with user options
+      logger.info('Starting asset extraction process', { 
+        requestId,
+        assetServiceType: typeof assetService,
+        extractionOptions: {
+          assetTypes: options.assetTypes || ['all'],
+          returnFormat: options.returnFormat || 'urls',
+          extractThumbnails: options.generateThumbnails !== false,
+          saveToFirebase: options.extractToStorage !== false,
+          includeMetadata: options.includeMetadata !== false
+        }
+      });
+
       const assets = await assetService.extractAssets(tempFilePath, {
         assetTypes: options.assetTypes || ['all'],
         returnFormat: options.returnFormat || 'urls',
@@ -199,7 +211,15 @@ const extractAssetsController = async (req: Request, res: Response): Promise<voi
       logger.info('Asset extraction completed successfully', { 
         requestId, 
         totalAssets: assets.length,
-        extractionMethod: 'AssetServiceRefactored'
+        extractionMethod: 'AssetServiceRefactored',
+        fileSize: req.file.size,
+        assetsTypes: assets.map((a: any) => a.type),
+        firstAssetSample: assets.length > 0 ? {
+          id: assets[0].id,
+          type: assets[0].type,
+          size: assets[0].size,
+          hasData: !!assets[0].data
+        } : null
       });
 
       // Create proper summary with singular asset types
@@ -548,6 +568,132 @@ const extractAssetMetadataController = async (req: Request, res: Response): Prom
   });
   }
 };
+
+// Add debug endpoint before the regular routes
+router.post('/debug-extract-assets', 
+  largeFileUpload.single('file'),
+  validateUploadWithTiers,
+  handleUploadError,
+  handleAsyncErrors(async (req: Request, res: Response): Promise<void> => {
+    const requestId = req.requestId || `debug_${Date.now()}`;
+    
+    if (!req.file) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+
+    const fs = require('fs/promises');
+    const path = require('path');
+    const tempDir = './temp/debug';
+    await fs.mkdir(tempDir, { recursive: true });
+    
+    const tempFilePath = path.join(tempDir, `${requestId}_${req.file.originalname}`);
+    await fs.writeFile(tempFilePath, req.file.buffer);
+
+    try {
+      logger.info('DEBUG: Starting direct asset extraction test', {
+        requestId,
+        filename: req.file.originalname,
+        fileSize: req.file.size,
+        assetServiceAvailable: !!assetService,
+        assetServiceType: typeof assetService
+      });
+
+      if (!assetService) {
+        res.status(503).json({ error: 'AssetService not available' });
+        return;
+      }
+
+      // Load presentation directly to test
+      const asposeDriver = require('/app/lib/AsposeDriverFactory');
+      await asposeDriver.initialize();
+      
+      const presentation = await asposeDriver.loadPresentation(tempFilePath);
+      const slideCount = presentation.getSlides().getCount();
+      
+      logger.info('DEBUG: Presentation loaded successfully', {
+        requestId,
+        slideCount,
+        presentationType: typeof presentation
+      });
+
+      // Test basic slide iteration
+      for (let i = 0; i < Math.min(slideCount, 3); i++) { // Just test first 3 slides
+        const slide = presentation.getSlides().get_Item(i);
+        const shapes = slide.getShapes();
+        const shapeCount = shapes.getCount();
+        
+        logger.info(`DEBUG: Slide ${i} inspection`, {
+          requestId,
+          slideIndex: i,
+          shapeCount,
+          slideType: typeof slide
+        });
+
+        // Test shape iteration
+        for (let j = 0; j < Math.min(shapeCount, 5); j++) { // Just test first 5 shapes
+          const shape = shapes.get_Item(j);
+          const shapeType = shape.getShapeType();
+          
+          logger.info(`DEBUG: Shape ${j} inspection`, {
+            requestId,
+            slideIndex: i,
+            shapeIndex: j,
+            shapeType,
+            shapeTypeName: shapeType.toString()
+          });
+        }
+      }
+
+      presentation.dispose();
+
+      // Now test the actual AssetService
+      const assets = await assetService.extractAssets(tempFilePath, {
+        assetTypes: ['all'],
+        returnFormat: 'urls',
+        extractThumbnails: false,
+        saveToFirebase: false,
+        includeMetadata: true
+      });
+
+      logger.info('DEBUG: Asset extraction completed', {
+        requestId,
+        totalAssets: assets.length,
+        assetTypes: assets.map((a: any) => a.type)
+      });
+
+      await fs.unlink(tempFilePath).catch(() => {});
+
+      res.json({
+        success: true,
+        debug: {
+          requestId,
+          filename: req.file.originalname,
+          fileSize: req.file.size,
+          slideCount,
+          totalAssets: assets.length,
+          assetTypes: assets.map((a: any) => a.type),
+          sampleAssets: assets.slice(0, 3)
+        }
+      });
+
+    } catch (error) {
+      logger.error('DEBUG: Asset extraction failed', {
+        requestId,
+        error: (error as Error).message,
+        stack: (error as Error).stack
+      });
+      
+      await fs.unlink(tempFilePath).catch(() => {});
+      
+      res.status(500).json({
+        success: false,
+        error: (error as Error).message,
+        stack: (error as Error).stack
+      });
+    }
+  })
+);
 
 // =============================================================================
 // ROUTE DEFINITIONS

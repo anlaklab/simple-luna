@@ -118,10 +118,6 @@ All conversions use a standardized JSON schema that preserves:
             url: 'http://localhost:3000/api/v1',
             description: 'Development Server',
           },
-          {
-            url: 'https://luna.anlaklab.com/api/v1',
-            description: 'Production Server',
-          },
         ],
     tags: [
       {
