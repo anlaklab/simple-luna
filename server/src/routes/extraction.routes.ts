@@ -917,11 +917,20 @@ router.post('/debug-extract-assets',
           const shapeTypes = [];
           for (let j = 0; j < Math.min(shapeCount, 10); j++) {
             const shape = shapes.get_Item(j);
-            const shapeType = shape.getShapeType();
+            let shapeType = 'Unknown';
+            let shapeTypeName = 'Unknown';
+            try {
+              if (shape && shape.getShapeType) {
+                shapeType = shape.getShapeType();
+                shapeTypeName = shapeType.toString();
+              }
+            } catch (e) {
+              // Shape type extraction failed, use defaults
+            }
             shapeTypes.push({
               index: j,
               type: shapeType,
-              typeName: shapeType.toString()
+              typeName: shapeTypeName
             });
           }
           
@@ -1601,14 +1610,23 @@ router.post('/debug-extract-assets',
         // Test shape iteration
         for (let j = 0; j < Math.min(shapeCount, 5); j++) { // Just test first 5 shapes
           const shape = shapes.get_Item(j);
-          const shapeType = shape.getShapeType();
+          let shapeType = 'Unknown';
+          let shapeTypeName = 'Unknown';
+          try {
+            if (shape && shape.getShapeType) {
+              shapeType = shape.getShapeType();
+              shapeTypeName = shapeType.toString();
+            }
+          } catch (e) {
+            // Shape type extraction failed, use defaults
+          }
           
           logger.info(`DEBUG: Shape ${j} inspection`, {
             requestId,
             slideIndex: i,
             shapeIndex: j,
             shapeType,
-            shapeTypeName: shapeType.toString()
+            shapeTypeName
           });
         }
       }
