@@ -21,6 +21,7 @@ export interface UniversalPresentation {
 // =============================================================================
 
 export interface AsposeConfig {
+  licenseContent?: string;
   licenseFilePath?: string;
   tempDirectory?: string;
   maxFileSize?: number;

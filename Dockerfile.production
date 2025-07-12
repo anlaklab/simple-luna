@@ -1,13 +1,13 @@
 # 🐳 Luna Production - Full Stack Dockerfile for Coolify
 # Single container with built client and server
-# FORCE REBUILD: 2025-01-12-02:15 - Fix Swagger endpoints & URL
+# FORCE REBUILD: 2025-01-12-09:30 - Fix TypeScript compilation issue with licenseContent
 
 # Stage 1: Build Client
 FROM node:18-alpine AS client-builder
 
 # FORCE CACHE BUST - Unique timestamp 
-ARG CACHEBUST=2025-01-12-02:15
-RUN echo "Cache bust: $CACHEBUST - Forcing fresh build with fixed OpenAPI documentation generation"
+ARG CACHEBUST=2025-01-12-09:30
+RUN echo "Cache bust: $CACHEBUST - Forcing fresh build with fixed TypeScript compilation"
 
 WORKDIR /app/client
 COPY client/package*.json ./
@@ -20,8 +20,8 @@ RUN npm run build
 FROM node:18-bullseye AS server-builder
 
 # FORCE CACHE BUST - Unique timestamp 
-ARG CACHEBUST=2025-01-12-02:15
-RUN echo "Server cache bust: $CACHEBUST - Forcing fresh server build with corrected OpenAPI generation"
+ARG CACHEBUST=2025-01-12-09:30
+RUN echo "Server cache bust: $CACHEBUST - Forcing fresh server build with fixed TypeScript compilation"
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
