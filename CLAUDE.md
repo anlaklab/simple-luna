@@ -519,6 +519,13 @@ app.get('/endpoint', handleAsyncErrors(async (req, res) => {
 
 ## 🔧 TECHNICAL CONSTRAINTS
 
+### DEPLOYMENT & TESTING RULES
+- **NO LOCAL TESTING**: Never attempt to run, test, or debug locally
+- **GITHUB DEPLOYMENT ONLY**: Always push changes to GitHub and wait for deployment (max 2 minutes)
+- **DEPLOYED TESTING ONLY**: Test only against deployed version at https://luna.anlaklab.com
+- **NO DOCKER COMMANDS**: Never use docker-compose, docker run, or local containers
+- **PUSH → WAIT → TEST**: The only testing workflow is: git push → wait 2 minutes → test deployed version
+
 ### BACKEND REQUIREMENTS
 - ALWAYS use TypeScript
 - ALWAYS use proper middleware for validation
