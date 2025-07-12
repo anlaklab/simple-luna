@@ -701,13 +701,61 @@ router.post('/debug-extract-assets',
       return;
     }
 
+    // Enhanced file size and buffer validation
+    logger.info('🔍 FILE UPLOAD DIAGNOSTIC:', {
+      requestId,
+      filename: req.file.originalname,
+      fileSize: req.file.size,
+      bufferLength: req.file.buffer?.length || 0,
+      mimetype: req.file.mimetype,
+      encoding: req.file.encoding
+    });
+
+    // Check if file was truncated
+    if (req.file.size > 0 && req.file.buffer.length !== req.file.size) {
+      const error = `File buffer truncated: expected ${req.file.size} bytes, got ${req.file.buffer.length} bytes`;
+      logger.error('❌ FILE TRUNCATION DETECTED:', { error });
+      diagnostics.errors.push(`FILE TRUNCATION: ${error}`);
+      
+      res.status(400).json({
+        success: false,
+        error: 'File upload was truncated - file too large for memory storage',
+        diagnostics,
+        debug: {
+          requestId,
+          filename: req.file.originalname,
+          fileSize: req.file.size,
+          bufferLength: req.file.buffer?.length || 0,
+          truncationDetected: true
+        }
+      });
+      return;
+    }
+
     const fs = require('fs/promises');
     const path = require('path');
     const tempDir = './temp/debug';
     await fs.mkdir(tempDir, { recursive: true });
     
     const tempFilePath = path.join(tempDir, `${requestId}_${req.file.originalname}`);
+    
+    // Write file and verify size
     await fs.writeFile(tempFilePath, req.file.buffer);
+    
+    // Verify written file size
+    const writtenFileStats = await fs.stat(tempFilePath);
+    logger.info('🔍 FILE WRITTEN DIAGNOSTIC:', {
+      tempFilePath,
+      expectedSize: req.file.size,
+      writtenSize: writtenFileStats.size,
+      sizeMatch: writtenFileStats.size === req.file.size
+    });
+    
+    if (writtenFileStats.size !== req.file.size) {
+      const error = `File size mismatch after writing: expected ${req.file.size}, written ${writtenFileStats.size}`;
+      logger.error('❌ FILE SIZE MISMATCH:', { error });
+      diagnostics.errors.push(`FILE SIZE MISMATCH: ${error}`);
+    }
 
     try {
       logger.info('🔍 DIAGNOSTIC: Starting comprehensive asset extraction analysis', {
