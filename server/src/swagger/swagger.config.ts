@@ -106,17 +106,17 @@ All conversions use a standardized JSON schema that preserves:
         email: 'support@lunaserver.com',
       },
     },
-    servers: process.env.NODE_ENV === 'production' 
+    servers: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'dev'
       ? [
           {
-            url: 'https://luna.anlaklab.com/api/v1',
-            description: 'Production Server',
+            url: 'http://localhost:3000/api/v1',
+            description: 'Development Server',
           },
         ]
       : [
           {
-            url: 'http://localhost:3000/api/v1',
-            description: 'Development Server',
+            url: 'https://luna.anlaklab.com/api/v1',
+            description: 'Production Server',
           },
         ],
     tags: [
