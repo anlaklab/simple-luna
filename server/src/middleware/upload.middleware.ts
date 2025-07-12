@@ -204,7 +204,7 @@ export const debugFileUpload = multer({
     }
   }),
   limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'), // 50MB default
+    fileSize: parseInt(process.env.DEBUG_MAX_FILE_SIZE || '1073741824'), // 1GB default for debugging
     files: 1,
     fieldSize: 1024 * 1024, // 1MB for form fields
   },
@@ -317,7 +317,12 @@ export const handleUploadError = (
 
     switch (error.code) {
       case 'LIMIT_FILE_SIZE':
-        message = `File too large. Maximum size is ${formatBytes(parseInt(process.env.MAX_FILE_SIZE || '52428800'))}`;
+        // Check if this is from debug endpoint by looking at the field name or request path
+        const isDebugEndpoint = req.originalUrl?.includes('debug-extract-assets');
+        const maxSize = isDebugEndpoint ? 
+          parseInt(process.env.DEBUG_MAX_FILE_SIZE || '1073741824') : 
+          parseInt(process.env.MAX_FILE_SIZE || '52428800');
+        message = `File too large. Maximum size is ${formatBytes(maxSize)}`;
         code = 'FILE_TOO_LARGE';
         break;
       case 'LIMIT_FILE_COUNT':
