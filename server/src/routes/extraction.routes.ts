@@ -154,22 +154,22 @@ const extractAssetsController = async (req: Request, res: Response): Promise<voi
     try {
       logger.info('Extracting assets using Luna AssetService', { requestId, filename: req.file.originalname });
       
-      // Convert legacy API format to internal format
+      // Convert legacy API format to internal format - now simplified since schema uses singular
       const normalizeAssetTypes = (types: string[]): string[] => {
         return types.map(type => {
           switch (type) {
-            case 'images': return 'image';
-            case 'videos': return 'video';
-            case 'audio': return 'audio';
-            case 'documents': return 'document';
-            default: return type;
+            case 'images': return 'image'; // Legacy support
+            case 'videos': return 'video'; // Legacy support  
+            case 'audios': return 'audio'; // Legacy support
+            case 'documents': return 'document'; // Legacy support
+            default: return type; // Already correct format
           }
         });
       };
       
       // Extract assets using ONLY AssetServiceRefactored - no fallbacks
       const assets = await assetService.extractAssets(tempFilePath, {
-        assetTypes: normalizeAssetTypes(options.assetTypes || ['images', 'videos', 'audio', 'documents']),
+        assetTypes: normalizeAssetTypes(options.assetTypes || ['image', 'video', 'audio', 'document']),
         returnFormat: options.returnFormat || 'urls',
         extractThumbnails: options.generateThumbnails !== false,
         saveToFirebase: true,
@@ -557,7 +557,7 @@ const extractAssetMetadataController = async (req: Request, res: Response): Prom
  *       - Transform and style analysis
  *       - Fallback to legacy extraction when Firebase not configured
  *       
- *       **Asset Types:** image, video, audio, document, shape, chart
+ *       **Asset Types (singular):** image, video, audio, document, excel, word, pdf, ole, shape, chart, all
  *       **Return Formats:** urls, firebase-urls, base64, buffers
  *     requestBody:
  *       required: true
@@ -573,9 +573,30 @@ const extractAssetMetadataController = async (req: Request, res: Response): Prom
  *               options:
  *                 type: string
  *                 description: JSON string with extraction options
- *                 example: '{"assetTypes":["image","video","audio"],"generateThumbnails":true}'
+ *                 example: '{"assetTypes":["image","video","audio","document"],"generateThumbnails":true,"returnFormat":"urls"}'
  *             required:
  *               - file
+ *           examples:
+ *             all_assets:
+ *               summary: Extract all asset types
+ *               value:
+ *                 file: (binary)
+ *                 options: '{"assetTypes":["all"],"generateThumbnails":true}'
+ *             specific_types:
+ *               summary: Extract specific asset types
+ *               value:
+ *                 file: (binary)
+ *                 options: '{"assetTypes":["image","video","audio"],"generateThumbnails":true,"returnFormat":"urls"}'
+ *             media_only:
+ *               summary: Extract only media assets
+ *               value:
+ *                 file: (binary)
+ *                 options: '{"assetTypes":["image","video","audio"],"generateThumbnails":false,"returnFormat":"base64"}'
+ *             documents_only:
+ *               summary: Extract embedded documents
+ *               value:
+ *                 file: (binary)
+ *                 options: '{"assetTypes":["document","excel","word","pdf","ole"],"includeMetadata":true}'
  *     responses:
  *       200:
  *         description: Assets extracted successfully

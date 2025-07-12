@@ -155,13 +155,16 @@ export const AiTranslateRequestSchema = z.object({
  */
 export const ExtractAssetsRequestSchema = z.object({
   assetTypes: z.array(z.enum([
-    'images',
-    'videos',
-    'audios',
+    'image',
+    'video',
+    'audio',
+    'document',
     'excel',
     'word',
     'pdf',
     'ole',
+    'shape',
+    'chart',
     'all'
   ])).optional().default(['all']),
   
