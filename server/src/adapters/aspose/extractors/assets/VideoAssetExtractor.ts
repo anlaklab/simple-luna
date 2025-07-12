@@ -96,7 +96,7 @@ export class VideoAssetExtractor implements VideoExtractor {
 
     try {
       const shapes = slide.getShapes();
-      const shapeCount = shapes.getCount();
+      const shapeCount = shapes.size();
 
       // Extract videos from all shapes in the slide
       for (let shapeIndex = 0; shapeIndex < shapeCount; shapeIndex++) {
@@ -304,7 +304,7 @@ export class VideoAssetExtractor implements VideoExtractor {
 
     try {
       const shapes = groupShape.getShapes();
-      const shapeCount = shapes.getCount();
+      const shapeCount = shapes.size();
 
       for (let i = 0; i < shapeCount; i++) {
         const shape = shapes.get_Item(i);

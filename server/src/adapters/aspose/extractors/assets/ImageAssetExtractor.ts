@@ -99,7 +99,7 @@ export class ImageAssetExtractor implements ImageExtractor {
 
     try {
       const shapes = slide.getShapes();
-      const shapeCount = shapes.getCount();
+      const shapeCount = shapes.size();
 
       // Extract images from all shapes in the slide
       for (let shapeIndex = 0; shapeIndex < shapeCount; shapeIndex++) {
@@ -299,7 +299,7 @@ export class ImageAssetExtractor implements ImageExtractor {
         
         // Extract images from data series if any
         const seriesCollection = chart.getChartData().getSeries();
-        for (let i = 0; i < seriesCollection.getCount(); i++) {
+        for (let i = 0; i < seriesCollection.size(); i++) {
           const series = seriesCollection.get_Item(i);
           // Check for image markers or fills in data points
           // This would require specific Aspose.Slides API calls
@@ -322,11 +322,11 @@ export class ImageAssetExtractor implements ImageExtractor {
     try {
       if (shape.hasTable && shape.hasTable()) {
         const table = shape.getTable();
-        const rowCount = table.getRows().getCount();
+        const rowCount = table.getRows().size();
         
         for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
           const row = table.getRows().get_Item(rowIndex);
-          const cellCount = row.getCells().getCount();
+          const cellCount = row.getCells().size();
           
           for (let cellIndex = 0; cellIndex < cellCount; cellIndex++) {
             const cell = row.getCells().get_Item(cellIndex);
@@ -410,7 +410,7 @@ export class ImageAssetExtractor implements ImageExtractor {
 
     try {
       const shapes = groupShape.getShapes();
-      const shapeCount = shapes.getCount();
+      const shapeCount = shapes.size();
 
       for (let i = 0; i < shapeCount; i++) {
         const shape = shapes.get_Item(i);

@@ -82,6 +82,11 @@ export class AssetServiceRefactored implements IAssetService {
       ...options
     };
 
+    // Expand "all" asset type to all available types
+    if (extractionOptions.assetTypes?.includes('all' as any)) {
+      extractionOptions.assetTypes = ['image', 'video', 'audio', 'document'];
+    }
+
     try {
       logger.info('Starting comprehensive asset extraction', {
         filePath,
