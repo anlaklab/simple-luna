@@ -113,7 +113,19 @@ RUN echo "🔍 Verifying Aspose JAR file..." && \
     fi
 
 # Copy Aspose license file
-COPY Aspose.Slides.Product.Family.lic ./
+COPY Aspose.Slides.Product.Family.lic ./server/
+
+# CRITICAL: Verify license file was copied correctly
+RUN echo "🔍 Verifying Aspose license file..." && \
+    if [ -f "./server/Aspose.Slides.Product.Family.lic" ]; then \
+        echo "✅ License file found: $(ls -lh ./server/Aspose.Slides.Product.Family.lic)" && \
+        echo "✅ License file size: $(stat -c%s ./server/Aspose.Slides.Product.Family.lic) bytes"; \
+    else \
+        echo "❌ License file NOT found in ./server/" && \
+        echo "📁 Contents of ./server/:" && \
+        ls -la ./server/ && \
+        exit 1; \
+    fi
 
 # Copy server source code
 COPY server/ ./server/
