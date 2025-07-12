@@ -25,6 +25,7 @@ import { createGranularControlRoutes } from './granular-control.routes';
 import enhancedSwaggerRoutes from './enhanced-swagger.routes';
 import dynamicExtensionsRoutes from './dynamic-extensions.routes';
 import debugRoutes from './debug.routes';
+import licenseDebugRoutes from './license-debug.routes';
 // import batchRoutes from './batch.routes'; // Temporarily disabled due to Firebase config issue
 
 // =============================================================================
@@ -230,6 +231,13 @@ router.use('/', enhancedSwaggerRoutes);
  * ⚠️  WARNING: These routes should be protected in production
  */
 router.use('/debug', debugRoutes);
+
+/**
+ * Mount license debug routes
+ * Handles comprehensive license manager debugging and diagnostics
+ * ⚠️  WARNING: These routes should be protected in production
+ */
+router.use('/', licenseDebugRoutes);
 
 // =============================================================================
 // HEALTH CHECK ENDPOINT
