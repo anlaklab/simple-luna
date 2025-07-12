@@ -141,8 +141,7 @@ firebase-debug.*.log
 
 # Aspose.Slides specific
 lib/aspose-slides-*.jar
-build/
-*.class
+!lib/aspose-slides-25.6-nodejs.jar
 
 # Java
 *.jar
@@ -151,6 +150,7 @@ build/
 *.zip
 *.tar.gz
 *.rar
+!lib/aspose-slides-25.6-nodejs.jar
 
 # IDEs
 .idea/
