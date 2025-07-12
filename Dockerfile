@@ -99,6 +99,19 @@ RUN echo "🔨 Force rebuild Java bindings for container compatibility..." && \
 # Copy Aspose.Slides library (most important part)
 COPY lib/ ./lib/
 
+# CRITICAL: Explicitly verify JAR file was copied
+RUN echo "🔍 Verifying Aspose JAR file..." && \
+    ls -la ./lib/ && \
+    if [ -f "./lib/aspose-slides-25.6-nodejs.jar" ]; then \
+        echo "✅ JAR file found: $(ls -lh ./lib/aspose-slides-25.6-nodejs.jar)" && \
+        echo "✅ JAR file size: $(stat -c%s ./lib/aspose-slides-25.6-nodejs.jar) bytes"; \
+    else \
+        echo "❌ JAR file NOT found in ./lib/" && \
+        echo "📁 Contents of ./lib/:" && \
+        ls -la ./lib/ && \
+        exit 1; \
+    fi
+
 # Copy Aspose license file
 COPY Aspose.Slides.Product.Family.lic ./
 
