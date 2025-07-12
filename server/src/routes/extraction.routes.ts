@@ -727,9 +727,11 @@ router.post('/debug-extract-assets',
         // Check JAR file existence and details
         const possibleJarPaths = [
           '/app/lib/aspose-slides-25.6-nodejs.jar',
-          path.join(__dirname, '../../../../lib/aspose-slides-25.6-nodejs.jar'),
           path.join(process.cwd(), 'lib/aspose-slides-25.6-nodejs.jar'),
-          path.join(__dirname, '../../../../../lib/aspose-slides-25.6-nodejs.jar')
+          path.join(process.cwd(), '../lib/aspose-slides-25.6-nodejs.jar'),
+          path.join(__dirname, '../../lib/aspose-slides-25.6-nodejs.jar'),
+          path.join(__dirname, '../../../lib/aspose-slides-25.6-nodejs.jar'),
+          path.join(__dirname, '../../../../lib/aspose-slides-25.6-nodejs.jar')
         ];
         
         const jarDiagnostic = {
@@ -757,9 +759,36 @@ router.post('/debug-extract-assets',
             } else {
               logger.info(`❌ JAR not found: ${jarPath}`);
             }
-                     } catch (error) {
-             logger.info(`❌ Error checking JAR: ${jarPath} - ${(error as Error).message}`);
-           }
+          } catch (error) {
+            logger.info(`❌ Error checking JAR: ${jarPath} - ${(error as Error).message}`);
+          }
+        }
+        
+        // Additional diagnostic: Check current working directory and list lib contents
+        try {
+          const cwd = process.cwd();
+          logger.info(`🔍 Current working directory: ${cwd}`);
+          
+          // Check if lib directory exists in current working directory
+          const libDir = path.join(cwd, 'lib');
+          if (fs.existsSync(libDir)) {
+            const libFiles = fs.readdirSync(libDir);
+            logger.info(`📁 Lib directory contents (${cwd}/lib):`, libFiles);
+          } else {
+            logger.info(`❌ Lib directory not found: ${libDir}`);
+          }
+          
+          // Check if lib directory exists in /app
+          const appLibDir = '/app/lib';
+          if (fs.existsSync(appLibDir)) {
+            const appLibFiles = fs.readdirSync(appLibDir);
+            logger.info(`📁 App lib directory contents (/app/lib):`, appLibFiles);
+          } else {
+            logger.info(`❌ App lib directory not found: ${appLibDir}`);
+          }
+          
+        } catch (error) {
+          logger.error('❌ Error checking directories', { error: (error as Error).message });
         }
         
         // Check Java environment
