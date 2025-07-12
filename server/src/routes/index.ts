@@ -232,6 +232,54 @@ router.use('/', enhancedSwaggerRoutes);
 router.use('/debug', debugRoutes);
 
 // =============================================================================
+// HEALTH CHECK ENDPOINT
+// =============================================================================
+
+/**
+ * GET /health - Health check and server info endpoint
+ * 
+ * @route GET /health
+ * @desc Health check with comprehensive server information
+ * @access Public
+ * @returns {Object} Server health status and information
+ */
+router.get('/health', (req: Request, res: Response) => {
+  const requestId = req.requestId || `req_${Date.now()}`;
+  
+  res.json({
+    name: 'Luna Server',
+    version: '1.0.0',
+    description: 'Professional PowerPoint processing API with AI capabilities',
+    status: 'running',
+    health: 'healthy',
+    endpoints: {
+      health: '/api/v1/health',
+      documentation: '/api/v1/docs',
+      pptx2json: '/api/v1/pptx2json',
+      json2pptx: '/api/v1/json2pptx',
+      convertformat: '/api/v1/convertformat',
+      thumbnails: '/api/v1/thumbnails',
+      aitranslate: '/api/v1/aitranslate',
+      analyze: '/api/v1/analyze',
+      'extract-assets': '/api/v1/extract-assets',
+      'extract-metadata': '/api/v1/extract-metadata',
+    },
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString(),
+    features: {
+      firebase: !!process.env.FIREBASE_PROJECT_ID,
+      openai: !!process.env.OPENAI_API_KEY,
+      aspose: true,
+    },
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId,
+      version: '1.0.0',
+    },
+  });
+});
+
+// =============================================================================
 // API DOCUMENTATION ROUTE
 // =============================================================================
 

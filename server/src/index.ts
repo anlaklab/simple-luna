@@ -151,35 +151,6 @@ app.use((req, res, next) => {
 
 const API_BASE = `/api/${API_VERSION}`;
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    name: 'Luna Server',
-    version: '1.0.0',
-    description: 'Professional PowerPoint processing API with AI capabilities',
-    status: 'running',
-    endpoints: {
-      health: `${API_BASE}/health`,
-      documentation: `${API_BASE}/docs`,
-      pptx2json: `${API_BASE}/pptx2json`,
-      json2pptx: `${API_BASE}/json2pptx`,
-      convertformat: `${API_BASE}/convertformat`,
-      thumbnails: `${API_BASE}/thumbnails`,
-      aitranslate: `${API_BASE}/aitranslate`,
-      analyze: `${API_BASE}/analyze`,
-      'extract-assets': `${API_BASE}/extract-assets`,
-      'extract-metadata': `${API_BASE}/extract-metadata`,
-    },
-    environment: NODE_ENV,
-    timestamp: new Date().toISOString(),
-    features: {
-      firebase: !!process.env.FIREBASE_PROJECT_ID,
-      openai: !!process.env.OPENAI_API_KEY,
-      aspose: true,
-    },
-  });
-});
-
 // Mount API routes
 app.use(API_BASE, apiRoutes);
 
