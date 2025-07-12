@@ -170,7 +170,15 @@ router.post('/debug/license-manager',
       logger.info('🔍 STEP 2: Testing Java environment configuration', { requestId });
       try {
         const JavaConfigurator = require('/app/lib/aspose-license-manager-refactored').JavaConfigurator;
-        const javaConfigurator = new JavaConfigurator({ logger });
+        const javaConfigurator = new JavaConfigurator({ 
+          logger: {
+            log: (msg: any) => logger.info(msg),
+            error: (msg: any) => logger.error(msg),
+            warn: (msg: any) => logger.warn(msg),
+            info: (msg: any) => logger.info(msg),
+            debug: (msg: any) => logger.debug(msg)
+          }
+        });
         
         javaConfigurator.configure();
         javaConfigurator.validate();
@@ -198,7 +206,15 @@ router.post('/debug/license-manager',
       logger.info('🔍 STEP 3: Testing JAR loading and coordination', { requestId });
       try {
         const JarLoader = require('/app/lib/aspose-license-manager-refactored').JarLoader;
-        const jarLoader = new JarLoader({ logger });
+        const jarLoader = new JarLoader({ 
+          logger: {
+            log: (msg: any) => logger.info(msg),
+            error: (msg: any) => logger.error(msg),
+            warn: (msg: any) => logger.warn(msg),
+            info: (msg: any) => logger.info(msg),
+            debug: (msg: any) => logger.debug(msg)
+          }
+        });
         
         const aspose = await jarLoader.loadAndWait();
 
@@ -229,14 +245,28 @@ router.post('/debug/license-manager',
           const ClassVerifier = require('/app/lib/aspose-license-manager-refactored').ClassVerifier;
           const JarLoader = require('/app/lib/aspose-license-manager-refactored').JarLoader;
           
-          const jarLoader = new JarLoader({ logger });
+          const jarLoader = new JarLoader({ 
+            logger: {
+              log: (msg: any) => logger.info(msg),
+              error: (msg: any) => logger.error(msg),
+              warn: (msg: any) => logger.warn(msg),
+              info: (msg: any) => logger.info(msg),
+              debug: (msg: any) => logger.debug(msg)
+            }
+          });
           const aspose = await jarLoader.loadAndWait();
           const java = require('java');
           
           const classVerifier = new ClassVerifier({ 
             aspose, 
             java, 
-            logger 
+            logger: {
+              log: (msg: any) => logger.info(msg),
+              error: (msg: any) => logger.error(msg),
+              warn: (msg: any) => logger.warn(msg),
+              info: (msg: any) => logger.info(msg),
+              debug: (msg: any) => logger.debug(msg)
+            }
           });
           
           classVerifier.verify();
@@ -271,10 +301,26 @@ router.post('/debug/license-manager',
           const LicenseLoader = require('/app/lib/aspose-license-manager-refactored').LicenseLoader;
           const JarLoader = require('/app/lib/aspose-license-manager-refactored').JarLoader;
           
-          const jarLoader = new JarLoader({ logger });
+          const jarLoader = new JarLoader({ 
+            logger: {
+              log: (msg: any) => logger.info(msg),
+              error: (msg: any) => logger.error(msg),
+              warn: (msg: any) => logger.warn(msg),
+              info: (msg: any) => logger.info(msg),
+              debug: (msg: any) => logger.debug(msg)
+            }
+          });
           const aspose = await jarLoader.loadAndWait();
           
-          const licenseLoader = new LicenseLoader({ logger });
+          const licenseLoader = new LicenseLoader({ 
+            logger: {
+              log: (msg: any) => logger.info(msg),
+              error: (msg: any) => logger.error(msg),
+              warn: (msg: any) => logger.warn(msg),
+              info: (msg: any) => logger.info(msg),
+              debug: (msg: any) => logger.debug(msg)
+            }
+          });
           
           // First validate the content
           const validation = licenseLoader.validateContent(process.env.ASPOSE_LICENSE_CONTENT);
