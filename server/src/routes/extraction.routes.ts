@@ -7,6 +7,7 @@
 
 import { Router, Request, Response } from 'express';
 import { createAssetService } from '../adapters/aspose';
+import { AssetServiceConfig } from '../adapters/aspose/types/asset-interfaces';
 import { validateRequest, validateFormOptions } from '../middleware/validation.middleware';
 import { handleAsyncErrors } from '../middleware/error.middleware';
 import { 
@@ -76,7 +77,7 @@ try {
     aspose: {
       licenseContent: process.env.ASPOSE_LICENSE_CONTENT,
       tempDirectory: process.env.ASPOSE_TEMP_DIR || './temp/aspose'
-    },
+    } as AssetServiceConfig['aspose'],
     firebase: {
       projectId: process.env.FIREBASE_PROJECT_ID!,
       privateKey: process.env.FIREBASE_PRIVATE_KEY!,

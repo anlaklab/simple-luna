@@ -355,6 +355,7 @@ export interface IAssetService {
 
 export interface AssetServiceConfig {
   aspose: {
+    licenseContent?: string;
     licenseFilePath?: string;
     tempDirectory?: string;
   };
