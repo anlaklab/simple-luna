@@ -105,9 +105,6 @@ COPY Aspose.Slides.Product.Family.lic ./
 # Copy server source code
 COPY server/ ./server/
 
-# CRITICAL: Ensure server/lib with license manager is copied
-COPY server/lib/ ./server/lib/
-
 # Build TypeScript server
 WORKDIR /app/server
 RUN npm run build || echo "TypeScript build failed, using existing dist/"
