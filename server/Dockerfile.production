@@ -1,0 +1,87 @@
+# ⚙️ Luna Backend - Production Dockerfile
+# Node.js 18 + Java 11 + Aspose.Slides
+
+FROM node:18-bullseye
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    openjdk-11-jre \
+    openjdk-11-jdk \
+    python3 \
+    make \
+    g++ \
+    gcc \
+    build-essential \
+    fontconfig \
+    fonts-dejavu \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Java environment
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+ENV PATH="$JAVA_HOME/bin:${PATH}"
+ENV JAVA_TOOL_OPTIONS="-Djava.awt.headless=true -Dfile.encoding=UTF-8"
+ENV LD_LIBRARY_PATH="$JAVA_HOME/lib/server:$JAVA_HOME/lib:${LD_LIBRARY_PATH:-}"
+
+WORKDIR /app
+
+# Copy root package files for java module
+COPY package*.json ./
+
+# Copy server package files
+COPY server/package*.json ./server/
+
+# Install dependencies
+RUN echo "📦 Installing root dependencies..." && \
+    npm ci && \
+    echo "📦 Installing server dependencies..." && \
+    cd server && \
+    npm ci && \
+    echo "✅ Dependencies installed"
+
+# Install Java module with debugging
+RUN echo "☕ Installing Java module..." && \
+    export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 && \
+    npm install java@0.14.0 --build-from-source && \
+    echo "✅ Java module installed" && \
+    echo "📊 Java version: $(java -version 2>&1)" && \
+    echo "📊 Node version: $(node --version)"
+
+# Copy library files
+COPY lib/ ./lib/
+
+# Copy server source code
+COPY server/ ./server/
+
+# Copy Aspose license (create empty if not exists)
+RUN touch Aspose.Slides.Product.Family.lic
+COPY Aspose.Slides.Product.Family.lic* ./
+
+# Build server
+WORKDIR /app/server
+RUN echo "🔧 Building TypeScript server..." && \
+    npm run build && \
+    echo "✅ Server built successfully" && \
+    echo "📁 Build output:" && \
+    ls -la dist/ && \
+    echo "📄 Key files:" && \
+    ls -la dist/index.js
+
+# Create necessary directories
+RUN mkdir -p /app/temp/{uploads,aspose,conversions,thumbnails} /app/logs
+
+# Verify Aspose.Slides integration
+RUN echo "🔍 Verifying Aspose.Slides setup..." && \
+    ls -la /app/lib/ && \
+    echo "📄 Testing library load..." && \
+    node -e "try { const aspose = require('../lib/aspose.slides.js'); console.log('✅ Aspose.Slides loaded successfully'); console.log('📊 Available classes:', Object.keys(aspose).slice(0, 5)); } catch(e) { console.error('❌ Aspose.Slides load failed:', e.message); }"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:3000/api/v1/health || exit 1
+
+# Expose port
+EXPOSE 3000
+
+# Start server
+CMD ["node", "dist/index.js"] 

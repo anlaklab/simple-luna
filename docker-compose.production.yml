@@ -1,16 +1,44 @@
-# 🐳 Luna Production - Docker Compose for Coolify
+# 🐳 Luna Production - Separate Containers Architecture
+# Better monitoring and debugging with isolated services
+
+version: "3.8"
 
 services:
-  luna-production:
+  # =============================================================================
+  # FRONTEND - React Client
+  # =============================================================================
+  luna-client:
     build:
-      context: .
+      context: ./client
       dockerfile: Dockerfile.production
-    container_name: luna-production
+    container_name: luna-client
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "5173:80"  # Expose for direct access if needed
     environment:
-      # Node.js Configuration
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - luna-network
+
+  # =============================================================================
+  # BACKEND - Node.js API Server
+  # =============================================================================
+  luna-server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile.production
+    container_name: luna-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"  # Expose for direct access
+    environment:
+      # Core Configuration
       - NODE_ENV=production
       - PORT=3000
       
@@ -26,7 +54,7 @@ services:
       # Aspose Configuration
       - ASPOSE_LICENSE_PATH=/app/Aspose.Slides.Product.Family.lic
       
-      # Firebase Configuration (from Coolify environment)
+      # Firebase Configuration
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
       - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
       - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
@@ -37,7 +65,8 @@ services:
       - OPENAI_MODEL=gpt-4-turbo-preview
       
       # Security
-      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      - CORS_ORIGIN=https://luna.anlaklab.com,http://localhost:5173
+      - JWT_SECRET=${JWT_SECRET}
       
     volumes:
       - luna-uploads:/app/temp/uploads
@@ -46,11 +75,68 @@ services:
       - luna-logs:/app/logs
     
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/api/v1/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    
+    depends_on:
+      - luna-client
+    
+    networks:
+      - luna-network
+
+  # =============================================================================
+  # NGINX - Reverse Proxy & Static Serving
+  # =============================================================================
+  luna-nginx:
+    image: nginx:alpine
+    container_name: luna-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.production.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - luna-client
+      - luna-server
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - luna-network
+
+  # =============================================================================
+  # MONITORING - Container Health Dashboard
+  # =============================================================================
+  luna-monitor:
+    image: prom/node-exporter:latest
+    container_name: luna-monitor
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - luna-network
+
+# =============================================================================
+# NETWORKS & VOLUMES
+# =============================================================================
+networks:
+  luna-network:
+    driver: bridge
 
 volumes:
   luna-uploads:
