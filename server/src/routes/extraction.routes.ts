@@ -718,6 +718,107 @@ router.post('/debug-extract-assets',
       // ✅ STEP 1: PRESENTATION LOADING VALIDATION
       logger.info('🔍 STEP 1: Testing presentation loading...');
       try {
+        // CRITICAL: Add comprehensive JAR diagnostic before Aspose initialization
+        logger.info('🔍 JAR DIAGNOSTIC: Starting comprehensive JAR file analysis...');
+        
+        const fs = require('fs');
+        const path = require('path');
+        
+        // Check JAR file existence and details
+        const possibleJarPaths = [
+          '/app/lib/aspose-slides-25.6-nodejs.jar',
+          path.join(__dirname, '../../../../lib/aspose-slides-25.6-nodejs.jar'),
+          path.join(process.cwd(), 'lib/aspose-slides-25.6-nodejs.jar'),
+          path.join(__dirname, '../../../../../lib/aspose-slides-25.6-nodejs.jar')
+        ];
+        
+        const jarDiagnostic = {
+          jarFound: false,
+          jarPath: null,
+          jarSize: null,
+          jarPermissions: null,
+          javaAvailable: false,
+          javaVersion: null,
+          javaClasspath: null,
+          javaOptions: null
+        };
+        
+        // Check JAR file
+        for (const jarPath of possibleJarPaths) {
+          try {
+            if (fs.existsSync(jarPath)) {
+              const stats = fs.statSync(jarPath);
+              jarDiagnostic.jarFound = true;
+              jarDiagnostic.jarPath = jarPath;
+              jarDiagnostic.jarSize = stats.size;
+              jarDiagnostic.jarPermissions = stats.mode.toString(8);
+              logger.info(`✅ JAR found: ${jarPath} (${(stats.size / 1024 / 1024).toFixed(2)}MB)`);
+              break;
+            } else {
+              logger.info(`❌ JAR not found: ${jarPath}`);
+            }
+                     } catch (error) {
+             logger.info(`❌ Error checking JAR: ${jarPath} - ${(error as Error).message}`);
+           }
+        }
+        
+        // Check Java environment
+        try {
+          const java = require('java');
+          jarDiagnostic.javaAvailable = true;
+          jarDiagnostic.javaClasspath = java.classpath.length;
+          jarDiagnostic.javaOptions = java.options.length;
+          
+          // Try to get Java version
+          try {
+            const javaLang = java.import('java.lang.System');
+            if (javaLang) {
+              jarDiagnostic.javaVersion = javaLang.getProperty('java.version');
+            }
+          } catch (e) {
+            logger.info(`⚠️ Could not get Java version: ${(e as Error).message}`);
+          }
+          
+          logger.info('✅ Java environment available', {
+            classpathEntries: jarDiagnostic.javaClasspath,
+            javaOptions: jarDiagnostic.javaOptions,
+            javaVersion: jarDiagnostic.javaVersion
+          });
+        } catch (error) {
+          logger.error('❌ Java environment not available:', (error as Error).message);
+        }
+        
+        // Test basic Java functionality
+        if (jarDiagnostic.javaAvailable) {
+          try {
+            const java = require('java');
+            const JavaString = java.import('java.lang.String');
+            if (JavaString) {
+              logger.info('✅ java.lang.String import successful');
+            } else {
+              logger.error('❌ java.lang.String import failed');
+            }
+          } catch (error) {
+            logger.error('❌ Basic Java test failed:', (error as Error).message);
+          }
+        }
+        
+        // Add JAR diagnostic to response
+        diagnostics.details.jarDiagnostic = jarDiagnostic;
+        
+        // If JAR not found, fail early with detailed information
+        if (!jarDiagnostic.jarFound) {
+          throw new Error(`JAR file not found in any location. Checked: ${possibleJarPaths.join(', ')}`);
+        }
+        
+        // If Java not available, fail early
+        if (!jarDiagnostic.javaAvailable) {
+          throw new Error('Java environment not available');
+        }
+        
+        logger.info('✅ JAR diagnostic completed successfully');
+        
+        // Now try Aspose initialization
         const asposeDriver = require('/app/lib/AsposeDriverFactory');
         await asposeDriver.initialize();
         
