@@ -227,72 +227,146 @@ export class AssetServiceRefactored implements IAssetService {
   ): Promise<AssetResult[]> {
     const allAssets: AssetResult[] = [];
     const assetTypes = options.assetTypes || ['image', 'video', 'audio', 'document'];
+    const slideCount = presentation.getSlides().size();
+    const isLargeFile = slideCount > 100;
+
+    logger.info('🔍 Starting asset extraction execution', {
+      extractionId: context.extractionId,
+      assetTypes,
+      slideCount,
+      isLargeFile,
+      parallelProcessing: this.config.processing.enableParallelProcessing,
+      estimatedTime: isLargeFile ? 'Long (>2 minutes)' : 'Short (<1 minute)'
+    });
 
     try {
       if (this.config.processing.enableParallelProcessing) {
-        // Parallel extraction
+        logger.info('🔄 Using parallel extraction mode');
+        
+        // Parallel extraction with timeout monitoring
         const extractionPromises = assetTypes.map(async (assetType) => {
           const extractor = this.extractors.get(assetType);
           if (!extractor) {
-            logger.warn('No extractor found for asset type', { assetType });
+            logger.warn('⚠️ No extractor found for asset type', { assetType });
             return [];
           }
 
+          const extractorStartTime = Date.now();
+          logger.info(`🔍 Starting ${assetType} extraction`, {
+            extractionId: context.extractionId,
+            extractorName: extractor.name,
+            assetType
+          });
+
           try {
-            const assets = await extractor.extractAssets(presentation, options);
-            logger.debug('Extractor completed', {
-              assetType,
-              extractorName: extractor.name,
-              assetsFound: assets.length
+            // Add timeout for individual extractors
+            const timeoutMs = isLargeFile ? 300000 : 60000; // 5 minutes for large files
+            const timeoutPromise = new Promise<AssetResult[]>((_, reject) => {
+              setTimeout(() => {
+                reject(new Error(`${assetType} extraction timeout after ${timeoutMs/1000} seconds`));
+              }, timeoutMs);
             });
-            return assets;
-          } catch (error) {
-            logger.error('Extractor failed', {
-              assetType,
+
+            const extractionPromise = extractor.extractAssets(presentation, options);
+            const assets = await Promise.race([extractionPromise, timeoutPromise]);
+            
+            const extractorTime = Date.now() - extractorStartTime;
+            logger.info(`✅ ${assetType} extraction completed`, {
+              extractionId: context.extractionId,
               extractorName: extractor.name,
-              error: (error as Error).message
+              assetsFound: assets.length,
+              processingTimeMs: extractorTime
+            });
+            
+            return assets;
+            
+          } catch (error) {
+            const extractorTime = Date.now() - extractorStartTime;
+            logger.error(`❌ ${assetType} extraction failed`, {
+              extractionId: context.extractionId,
+              extractorName: extractor.name,
+              error: (error as Error).message,
+              processingTimeMs: extractorTime
             });
             return [];
           }
         });
 
-        const extractionResults = await Promise.all(extractionPromises);
+        // Wait for all extractors with overall timeout
+        const overallTimeoutMs = isLargeFile ? 600000 : 120000; // 10 minutes for large files
+        const overallTimeoutPromise = new Promise<AssetResult[][]>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error(`Overall extraction timeout after ${overallTimeoutMs/1000} seconds`));
+          }, overallTimeoutMs);
+        });
+
+        const allExtractionPromise = Promise.all(extractionPromises);
+        const extractionResults = await Promise.race([allExtractionPromise, overallTimeoutPromise]);
+        
         extractionResults.forEach(assets => allAssets.push(...assets));
 
       } else {
-        // Sequential extraction
+        logger.info('🔄 Using sequential extraction mode');
+        
+        // Sequential extraction with detailed monitoring
         for (const assetType of assetTypes) {
           const extractor = this.extractors.get(assetType);
           if (!extractor) {
-            logger.warn('No extractor found for asset type', { assetType });
+            logger.warn('⚠️ No extractor found for asset type', { assetType });
             continue;
           }
+
+          const extractorStartTime = Date.now();
+          logger.info(`🔍 Starting ${assetType} extraction (sequential)`, {
+            extractionId: context.extractionId,
+            extractorName: extractor.name,
+            assetType
+          });
 
           try {
             const assets = await extractor.extractAssets(presentation, options);
             allAssets.push(...assets);
             
-            logger.debug('Extractor completed', {
-              assetType,
+            const extractorTime = Date.now() - extractorStartTime;
+            logger.info(`✅ ${assetType} extraction completed (sequential)`, {
+              extractionId: context.extractionId,
               extractorName: extractor.name,
-              assetsFound: assets.length
+              assetsFound: assets.length,
+              processingTimeMs: extractorTime
             });
+            
           } catch (error) {
-            logger.error('Extractor failed', {
-              assetType,
+            const extractorTime = Date.now() - extractorStartTime;
+            logger.error(`❌ ${assetType} extraction failed (sequential)`, {
+              extractionId: context.extractionId,
               extractorName: extractor.name,
-              error: (error as Error).message
+              error: (error as Error).message,
+              processingTimeMs: extractorTime
             });
           }
         }
       }
 
+      const totalTime = Date.now() - context.startTime;
+      logger.info('✅ Asset extraction execution completed', {
+        extractionId: context.extractionId,
+        totalAssets: allAssets.length,
+        totalTimeMs: totalTime,
+        avgTimePerAsset: allAssets.length > 0 ? Math.round(totalTime / allAssets.length) : 0,
+        assetBreakdown: allAssets.reduce((acc, asset) => {
+          acc[asset.type] = (acc[asset.type] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+      });
+
       return allAssets;
 
     } catch (error) {
-      logger.error('Extraction execution failed', {
+      logger.error('❌ Extraction execution failed', {
         extractionId: context.extractionId,
-        error: (error as Error).message
+        error: (error as Error).message,
+        stack: (error as Error).stack,
+        totalTimeMs: Date.now() - context.startTime
       });
       throw error;
     }

@@ -1,21 +1,23 @@
 /**
- * Swagger/OpenAPI Configuration
+ * Swagger/OpenAPI Configuration - Dynamic Auto-Discovery
  * 
- * Comprehensive API documentation with all endpoints, schemas, and examples
+ * Automatically discovers and documents all endpoints from JSDoc comments
+ * Scans all route files, controllers, and service files for @swagger annotations
  */
 
 import swaggerJsdoc from 'swagger-jsdoc';
 import { Request } from 'express';
 import path from 'path';
 import fs from 'fs';
+import { glob } from 'glob';
 
 // =============================================================================
-// DYNAMIC PATH RESOLUTION
+// ENHANCED DYNAMIC PATH RESOLUTION
 // =============================================================================
 
 /**
- * Dynamically resolve paths to TypeScript source files
- * swagger-jsdoc needs the actual .ts files with JSDoc comments, not compiled .js files
+ * Dynamically discover all TypeScript files with potential Swagger documentation
+ * Uses glob patterns to find all .ts files in relevant directories
  */
 function resolveSourcePaths(): string[] {
   const possibleBasePaths = [
@@ -44,13 +46,111 @@ function resolveSourcePaths(): string[] {
     return [];
   }
 
-  const apiPaths = [
-    path.join(sourcePath, 'routes/*.ts'),
-    path.join(sourcePath, 'controllers/*.ts'),
+  console.log('📖 Swagger: Base source path found:', sourcePath);
+
+  // Use glob to find all TypeScript files that might contain Swagger docs
+  const searchPatterns = [
+    // All route files
+    path.join(sourcePath, 'routes/**/*.ts'),
+    // All controller files
+    path.join(sourcePath, 'controllers/**/*.ts'),
+    // All service files (some might have endpoint documentation)
+    path.join(sourcePath, 'services/**/*.ts'),
+    // All adapter files (some might have endpoint documentation)
+    path.join(sourcePath, 'adapters/**/*.ts'),
+    // Main index files
+    path.join(sourcePath, 'index.ts'),
+    path.join(sourcePath, 'app.ts'),
+    // Middleware files (some might have endpoint documentation)
+    path.join(sourcePath, 'middleware/**/*.ts'),
   ];
 
-  console.log('📖 Swagger: Using source paths for JSDoc documentation:', apiPaths);
-  return apiPaths;
+  const allFiles: string[] = [];
+  
+  try {
+    for (const pattern of searchPatterns) {
+      const files = glob.sync(pattern, {
+        ignore: [
+          '**/*.d.ts',      // Ignore type definition files
+          '**/*.test.ts',   // Ignore test files
+          '**/*.spec.ts',   // Ignore spec files
+          '**/node_modules/**', // Ignore node_modules
+          '**/dist/**',     // Ignore compiled files
+          '**/build/**',    // Ignore build files
+        ],
+        absolute: true
+      });
+      
+      // Filter files that likely contain Swagger documentation
+      const swaggerFiles = files.filter(file => {
+        try {
+          const content = fs.readFileSync(file, 'utf8');
+          // Check if file contains @swagger JSDoc comments
+          return content.includes('@swagger') || 
+                 content.includes('swagger') || 
+                 content.includes('router.') ||
+                 content.includes('app.') ||
+                 file.includes('routes') ||
+                 file.includes('controller');
+        } catch (error) {
+          console.warn(`⚠️  Could not read file ${file}:`, error);
+          return false;
+        }
+      });
+      
+      allFiles.push(...swaggerFiles);
+      
+      if (swaggerFiles.length > 0) {
+        console.log(`📁 Found ${swaggerFiles.length} files in pattern:`, pattern);
+        swaggerFiles.forEach(file => {
+          const relativePath = path.relative(sourcePath, file);
+          console.log(`   📄 ${relativePath}`);
+        });
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error scanning for source files:', error);
+    // Fallback to basic patterns
+    return [
+      path.join(sourcePath, 'routes/*.ts'),
+      path.join(sourcePath, 'controllers/*.ts'),
+    ];
+  }
+
+  // Remove duplicates and sort
+  const uniqueFiles = [...new Set(allFiles)].sort();
+  
+  console.log(`📖 Swagger: Total ${uniqueFiles.length} files will be scanned for API documentation`);
+  console.log('📖 Swagger: Files to be processed:');
+  uniqueFiles.forEach(file => {
+    const relativePath = path.relative(sourcePath, file);
+    console.log(`   📄 ${relativePath}`);
+  });
+
+  return uniqueFiles;
+}
+
+/**
+ * Check if swagger-jsdoc can process the discovered files
+ */
+function validateSwaggerSources(apiPaths: string[]): string[] {
+  const validPaths: string[] = [];
+  
+  for (const apiPath of apiPaths) {
+    if (fs.existsSync(apiPath)) {
+      try {
+        const content = fs.readFileSync(apiPath, 'utf8');
+        if (content.includes('@swagger')) {
+          validPaths.push(apiPath);
+        }
+      } catch (error) {
+        console.warn(`⚠️  Could not validate swagger source ${apiPath}:`, error);
+      }
+    }
+  }
+  
+  console.log(`✅ Swagger: ${validPaths.length} files contain @swagger documentation`);
+  return validPaths;
 }
 
 // =============================================================================
@@ -61,14 +161,23 @@ const swaggerOptions: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Luna Server API',
+      title: 'Luna Server API - Auto-Generated Documentation',
       version: '1.0.0',
       description: `
-# Luna Server API
+# Luna Server API - Complete Auto-Generated Documentation
 
 Professional PowerPoint processing API with AI capabilities built on Node.js + TypeScript.
 
-## Features
+## 🚀 Auto-Discovery Features
+
+This documentation is **automatically generated** by scanning all source files for JSDoc @swagger comments.
+
+- **Routes Auto-Detection**: Scans all files in \`routes/\` directory
+- **Controllers Auto-Detection**: Includes all controller files  
+- **Services Auto-Detection**: Documents service endpoints
+- **Real-Time Updates**: Documentation updates when code changes
+
+## 📋 API Features
 
 - **File Conversion**: PPTX ↔ JSON conversions using Universal Presentation Schema
 - **Format Export**: Convert to PDF, HTML, images (PNG, JPG, SVG)
@@ -77,8 +186,9 @@ Professional PowerPoint processing API with AI capabilities built on Node.js + T
 - **Content Analysis**: AI-powered sentiment, accessibility, and design analysis
 - **Asset Extraction**: Extract embedded images, videos, documents
 - **Metadata Extraction**: Comprehensive document metadata and statistics
+- **Debug Tools**: Comprehensive debugging and diagnostic endpoints
 
-## Architecture
+## 🏗️ Architecture
 
 Built with Clean Architecture principles:
 - **Controllers**: HTTP request/response handling
@@ -87,7 +197,7 @@ Built with Clean Architecture principles:
 - **Schemas**: Universal Presentation Schema with Zod validation
 - **Middleware**: Request validation, error handling, logging
 
-## Universal Presentation Schema
+## 📊 Universal Presentation Schema
 
 All conversions use a standardized JSON schema that preserves:
 - Slide layouts and master slides
@@ -96,6 +206,20 @@ All conversions use a standardized JSON schema that preserves:
 - Animations and transitions
 - Charts, tables, and SmartArt
 - Comments and metadata
+
+## 🔧 Debugging & Diagnostics
+
+The API includes comprehensive debugging tools:
+- **Standard Debug**: General-purpose debugging for most files
+- **Large File Debug**: Specialized debugging for files >10MB
+- **License Debug**: Aspose license validation and troubleshooting
+- **JAR Validation**: Java environment and JAR file validation
+- **Performance Analysis**: Memory usage and processing time analysis
+
+## 📚 Dynamic Documentation
+
+This documentation is generated from JSDoc comments in the source code. 
+To add or modify endpoint documentation, update the @swagger comments in the respective source files.
       `,
       license: {
         name: 'MIT',
@@ -110,13 +234,21 @@ All conversions use a standardized JSON schema that preserves:
       ? [
           {
             url: 'http://localhost:3000/api/v1',
-            description: 'Development Server',
+            description: 'Development Server (Auto-Discovery Enabled)',
+          },
+          {
+            url: 'http://localhost:8080/api/v1',
+            description: 'Alternative Development Server',
           },
         ]
       : [
           {
             url: 'https://luna.anlaklab.com/api/v1',
             description: 'Production Server',
+          },
+          {
+            url: 'http://localhost:3000/api/v1',
+            description: 'Development Server',
           },
         ],
     tags: [
@@ -157,13 +289,29 @@ All conversions use a standardized JSON schema that preserves:
         description: 'Individual slide/shape operations and raw rendering capabilities',
       },
       {
+        name: 'Debug & Diagnostics',
+        description: 'Debugging tools, diagnostics, and system validation',
+      },
+      {
+        name: 'Admin',
+        description: 'Administrative endpoints and system management',
+      },
+      {
+        name: 'Presentations',
+        description: 'Presentation management and operations',
+      },
+      {
+        name: 'Analysis',
+        description: 'Content analysis and insights',
+      },
+      {
         name: 'Utility',
         description: 'Health checks, documentation, system status',
       },
     ],
     
     // =============================================================================
-    // COMPONENTS - REUSABLE SCHEMAS AND RESPONSES
+    // COMPONENTS - REUSABLE SCHEMAS AND RESPONSES (Enhanced)
     // =============================================================================
     
     components: {
@@ -224,6 +372,8 @@ All conversions use a standardized JSON schema that preserves:
                     'authentication_error',
                     'authorization_error',
                     'server_error',
+                    'timeout_error',
+                    'service_unavailable',
                   ],
                   description: 'Error category',
                 },
@@ -468,10 +618,54 @@ All conversions use a standardized JSON schema that preserves:
           },
           required: ['slideCount', 'conversionTimeMs'],
         },
+
+        // Debug Diagnostic Response
+        DebugDiagnostic: {
+          type: 'object',
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true,
+            },
+            diagnostics: {
+              type: 'object',
+              properties: {
+                step1_presentationLoaded: { type: 'boolean' },
+                step2_firebaseConnected: { type: 'boolean' },
+                step3_asposeInitialized: { type: 'boolean' },
+                step4_assetsExtracted: { type: 'boolean' },
+                step5_assetsAnalyzed: { type: 'boolean' },
+                step6_firebaseStorageSaved: { type: 'boolean' },
+                step7_responseGenerated: { type: 'boolean' },
+                errors: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+                warnings: {
+                  type: 'array', 
+                  items: { type: 'string' },
+                },
+                summary: {
+                  type: 'object',
+                  properties: {
+                    overallHealth: { type: 'string', enum: ['healthy', 'issues_detected'] },
+                    stepsPassedRatio: { type: 'string', example: '6/7' },
+                    criticalIssues: { type: 'number' },
+                    warnings: { type: 'number' },
+                  },
+                },
+              },
+            },
+            recommendations: {
+              type: 'array',
+              items: { type: 'string' },
+            },
+          },
+        },
       },
       
       // =============================================================================
-      // RESPONSE TEMPLATES
+      // RESPONSE TEMPLATES (Enhanced)
       // =============================================================================
       
       responses: {
@@ -530,10 +724,38 @@ All conversions use a standardized JSON schema that preserves:
             },
           },
         },
+
+        ServiceUnavailable: {
+          description: 'Service Unavailable',
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/ErrorResponse',
+              },
+              example: {
+                success: false,
+                error: {
+                  type: 'service_unavailable',
+                  code: 'ASSET_SERVICE_NOT_CONFIGURED',
+                  message: 'Asset extraction requires proper service configuration. Please contact administrator.',
+                },
+                meta: {
+                  timestamp: '2024-01-15T10:30:00.000Z',
+                  requestId: 'req_1705316200000_abc123',
+                  error: {
+                    type: 'service_unavailable',
+                    code: 'ASSET_SERVICE_NOT_CONFIGURED',
+                    message: 'Service configuration error',
+                  },
+                },
+              },
+            },
+          },
+        },
       },
       
       // =============================================================================
-      // REQUEST BODY EXAMPLES
+      // REQUEST BODY EXAMPLES (Enhanced)
       // =============================================================================
       
       examples: {
@@ -622,33 +844,94 @@ All conversions use a standardized JSON schema that preserves:
             translateMetadata: false,
           },
         },
+
+        AssetExtractionOptions: {
+          summary: 'Asset extraction options',
+          value: {
+            assetTypes: ['image', 'video', 'audio'],
+            returnFormat: 'urls',
+            generateThumbnails: true,
+            extractToStorage: false,
+            includeMetadata: true,
+          },
+        },
+
+        DebugOptions: {
+          summary: 'Debug extraction options',
+          value: {
+            enableVerboseLogging: true,
+            includePerformanceMetrics: true,
+            checkAllServices: true,
+            validateFileStructure: true,
+          },
+        },
       },
     },
   },
-  // Dynamically resolve paths to TypeScript source files with JSDoc comments
-  apis: resolveSourcePaths(),
+  // ✅ ENHANCED: Use dynamic path resolution with validation
+  apis: (() => {
+    console.log('🔍 Swagger: Starting dynamic API discovery...');
+    const discoveredPaths = resolveSourcePaths();
+    const validatedPaths = validateSwaggerSources(discoveredPaths);
+    console.log(`✅ Swagger: API discovery complete. Processing ${validatedPaths.length} files with documentation.`);
+    return validatedPaths.length > 0 ? validatedPaths : discoveredPaths;
+  })(),
 };
 
 // =============================================================================
-// DYNAMIC SERVER URL GENERATION
+// DYNAMIC SERVER URL GENERATION (Enhanced)
 // =============================================================================
 
 export function generateSwaggerSpec(req?: Request): object {
-  const spec = swaggerJsdoc(swaggerOptions) as any;
+  console.log('🔄 Swagger: Generating dynamic API specification...');
   
-  // Update servers based on request if available
-  if (req) {
-    const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}`;
-    spec.servers = [
-      {
-        url: baseUrl,
-        description: 'Current Server',
+  try {
+    const spec = swaggerJsdoc(swaggerOptions) as any;
+    
+    // Update servers based on request if available
+    if (req) {
+      const protocol = req.get('x-forwarded-proto') || req.protocol;
+      const host = req.get('x-forwarded-host') || req.get('host');
+      const baseUrl = `${protocol}://${host}${req.baseUrl}`;
+      
+      spec.servers = [
+        {
+          url: baseUrl,
+          description: 'Current Server (Dynamic)',
+        },
+        ...spec.servers.filter((server: any) => server.url !== baseUrl),
+      ];
+    }
+    
+    // Add metadata about dynamic generation
+    spec.info['x-generated'] = {
+      timestamp: new Date().toISOString(),
+      method: 'dynamic',
+      filesScanned: swaggerOptions.apis?.length || 0,
+      endpointsFound: Object.keys(spec.paths || {}).length,
+    };
+    
+    console.log(`✅ Swagger: Generated specification with ${Object.keys(spec.paths || {}).length} endpoints`);
+    
+    return spec;
+  } catch (error) {
+    console.error('❌ Swagger: Error generating specification:', error);
+    
+    // Return fallback spec on error
+    return {
+      openapi: '3.0.0',
+      info: {
+        title: 'Luna Server API - Error in Dynamic Generation',
+        version: '1.0.0',
+        description: 'Error occurred during dynamic API discovery. Please check server logs.',
       },
-      ...spec.servers.filter((server: any) => server.url !== baseUrl),
-    ];
+      paths: {},
+      'x-error': {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString(),
+      },
+    };
   }
-  
-  return spec;
 }
 
 export default swaggerOptions;

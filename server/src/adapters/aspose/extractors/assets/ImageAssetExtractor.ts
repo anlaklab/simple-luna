@@ -33,56 +33,107 @@ export class ImageAssetExtractor implements ImageExtractor {
     options: AssetExtractionOptions
   ): Promise<AssetResult[]> {
     const startTime = Date.now();
+    const extractionId = `img_extract_${Date.now()}`;
     const assets: AssetResult[] = [];
     
     try {
       // Get Aspose via singleton license manager
       const aspose = await licenseManager.getAspose();
       
-      logger.info('Starting image extraction from presentation', {
+      const slideCount = presentation.getSlides().size();
+      const isLargeFile = slideCount > 100;
+      
+      logger.info('🔍 Starting image extraction from presentation', {
+        extractionId,
         includeMetadata: options.includeMetadata || false,
         extractorName: this.name,
-        slideCount: presentation.getSlides().size()
+        slideCount,
+        isLargeFile,
+        processTimeout: isLargeFile ? 180000 : 60000 // 3 minutes for large files
       });
 
-      const slideCount = presentation.getSlides().size();
-      
       // Process ALL slides - never limit slides
       for (let slideIndex = 0; slideIndex < slideCount; slideIndex++) {
-        const slide = presentation.getSlides().get_Item(slideIndex);
+        const slideStartTime = Date.now();
         
-        // Skip slide range filtering if specified
-        if (options.slideRange) {
-          if (slideIndex < options.slideRange.start || slideIndex > options.slideRange.end) {
-            continue;
+        try {
+          const slide = presentation.getSlides().get_Item(slideIndex);
+          
+          // Skip slide range filtering if specified
+          if (options.slideRange) {
+            if (slideIndex < options.slideRange.start || slideIndex > options.slideRange.end) {
+              continue;
+            }
           }
-        }
-        
-        const slideAssets = await this.extractImagesFromSlide(aspose, slide, slideIndex, options);
-        assets.push(...slideAssets);
-        
-        // Log progress for large presentations
-        if (slideIndex % 50 === 0) {
-          logger.info('Image extraction progress', { 
-            slideIndex, 
-            totalSlides: slideCount, 
-            assetsFound: assets.length 
+          
+          // Log progress for large files more frequently
+          if (isLargeFile && slideIndex % 20 === 0) {
+            logger.info('🔍 Image extraction progress', { 
+              extractionId,
+              slideIndex, 
+              totalSlides: slideCount, 
+              assetsFound: assets.length,
+              percentComplete: Math.round((slideIndex / slideCount) * 100),
+              avgSlideTime: slideIndex > 0 ? Math.round((Date.now() - startTime) / slideIndex) : 0
+            });
+          }
+          
+          const slideAssets = await this.extractImagesFromSlide(aspose, slide, slideIndex, options);
+          assets.push(...slideAssets);
+          
+          const slideProcessingTime = Date.now() - slideStartTime;
+          
+          // Warn about slow slides
+          if (slideProcessingTime > 2000) {
+            logger.warn('⚠️ Slow slide processing detected', {
+              extractionId,
+              slideIndex,
+              processingTime: slideProcessingTime,
+              assetsInSlide: slideAssets.length
+            });
+          }
+          
+          // Memory check for large files
+          if (isLargeFile && slideIndex % 50 === 0) {
+            const memUsage = process.memoryUsage();
+            logger.info('🔍 Memory usage during extraction', {
+              extractionId,
+              slideIndex,
+              heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
+              rss: Math.round(memUsage.rss / 1024 / 1024)
+            });
+          }
+          
+        } catch (slideError) {
+          logger.error('❌ Error processing slide in image extraction', {
+            extractionId,
+            slideIndex,
+            error: (slideError as Error).message,
+            stack: (slideError as Error).stack
           });
+          
+          // Continue processing other slides
+          continue;
         }
       }
 
       const processingTime = Date.now() - startTime;
-      logger.info('Image extraction completed', {
+      logger.info('✅ Image extraction completed', {
+        extractionId,
         totalSlides: slideCount,
         imagesFound: assets.length,
-        processingTimeMs: processingTime
+        processingTimeMs: processingTime,
+        avgTimePerSlide: Math.round(processingTime / slideCount),
+        isLargeFile
       });
 
       return assets;
 
     } catch (error) {
-      logger.error('Image extraction failed', { 
+      logger.error('❌ Image extraction failed', { 
+        extractionId,
         error: (error as Error).message,
+        stack: (error as Error).stack,
         extractorName: this.name
       });
       throw new Error(`Image extraction failed: ${(error as Error).message}`);
