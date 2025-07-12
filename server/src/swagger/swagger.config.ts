@@ -21,7 +21,7 @@ import { glob } from 'glob';
  */
 function resolveSourcePaths(): string[] {
   const possibleBasePaths = [
-    // If running from compiled dist/ directory
+    // If running from compiled dist/ directory (production)
     path.resolve(__dirname, '../../src'),
     // If running from src/ directory directly
     path.resolve(__dirname, '../'),
@@ -43,26 +43,23 @@ function resolveSourcePaths(): string[] {
 
   if (!sourcePath) {
     console.warn('⚠️  Swagger: Could not find source files for JSDoc documentation');
-    return [];
+    // Fallback: Use current directory structure
+    return [
+      './routes/*.ts',
+      './controllers/*.ts',
+    ];
   }
 
   console.log('📖 Swagger: Base source path found:', sourcePath);
 
   // Use glob to find all TypeScript files that might contain Swagger docs
   const searchPatterns = [
-    // All route files
+    // All route files - MOST IMPORTANT
     path.join(sourcePath, 'routes/**/*.ts'),
     // All controller files
     path.join(sourcePath, 'controllers/**/*.ts'),
-    // All service files (some might have endpoint documentation)
-    path.join(sourcePath, 'services/**/*.ts'),
-    // All adapter files (some might have endpoint documentation)
-    path.join(sourcePath, 'adapters/**/*.ts'),
     // Main index files
     path.join(sourcePath, 'index.ts'),
-    path.join(sourcePath, 'app.ts'),
-    // Middleware files (some might have endpoint documentation)
-    path.join(sourcePath, 'middleware/**/*.ts'),
   ];
 
   const allFiles: string[] = [];
@@ -89,9 +86,7 @@ function resolveSourcePaths(): string[] {
           return content.includes('@swagger') || 
                  content.includes('swagger') || 
                  content.includes('router.') ||
-                 content.includes('app.') ||
-                 file.includes('routes') ||
-                 file.includes('controller');
+                 file.includes('routes');
         } catch (error) {
           console.warn(`⚠️  Could not read file ${file}:`, error);
           return false;
@@ -102,31 +97,23 @@ function resolveSourcePaths(): string[] {
       
       if (swaggerFiles.length > 0) {
         console.log(`📁 Found ${swaggerFiles.length} files in pattern:`, pattern);
-        swaggerFiles.forEach(file => {
-          const relativePath = path.relative(sourcePath, file);
-          console.log(`   📄 ${relativePath}`);
-        });
       }
     }
   } catch (error) {
     console.error('❌ Error scanning for source files:', error);
-    // Fallback to basic patterns
-    return [
-      path.join(sourcePath, 'routes/*.ts'),
-      path.join(sourcePath, 'controllers/*.ts'),
+    // Enhanced fallback with absolute paths
+    const fallbackPatterns = [
+      path.join(sourcePath, 'routes', '*.ts'),
+      path.join(sourcePath, 'controllers', '*.ts'),
     ];
+    return fallbackPatterns;
   }
 
   // Remove duplicates and sort
   const uniqueFiles = [...new Set(allFiles)].sort();
   
   console.log(`📖 Swagger: Total ${uniqueFiles.length} files will be scanned for API documentation`);
-  console.log('📖 Swagger: Files to be processed:');
-  uniqueFiles.forEach(file => {
-    const relativePath = path.relative(sourcePath, file);
-    console.log(`   📄 ${relativePath}`);
-  });
-
+  
   return uniqueFiles;
 }
 
@@ -245,10 +232,6 @@ To add or modify endpoint documentation, update the @swagger comments in the res
           {
             url: 'https://luna.anlaklab.com/api/v1',
             description: 'Production Server',
-          },
-          {
-            url: 'http://localhost:3000/api/v1',
-            description: 'Development Server',
           },
         ],
     tags: [
@@ -892,15 +875,29 @@ export function generateSwaggerSpec(req?: Request): object {
     if (req) {
       const protocol = req.get('x-forwarded-proto') || req.protocol;
       const host = req.get('x-forwarded-host') || req.get('host');
-      const baseUrl = `${protocol}://${host}${req.baseUrl}`;
+      const baseUrl = `${protocol}://${host}`;
+      const apiUrl = `${baseUrl}/api/v1`;
       
-      spec.servers = [
-        {
-          url: baseUrl,
-          description: 'Current Server (Dynamic)',
-        },
-        ...spec.servers.filter((server: any) => server.url !== baseUrl),
-      ];
+      // Only include current server in production
+      if (process.env.NODE_ENV === 'production') {
+        spec.servers = [
+          {
+            url: apiUrl,
+            description: 'Current Server (Production)',
+          },
+        ];
+      } else {
+        spec.servers = [
+          {
+            url: apiUrl,
+            description: 'Current Server (Dynamic)',
+          },
+          {
+            url: 'http://localhost:3000/api/v1',
+            description: 'Development Server',
+          },
+        ];
+      }
     }
     
     // Add metadata about dynamic generation
@@ -909,9 +906,25 @@ export function generateSwaggerSpec(req?: Request): object {
       method: 'dynamic',
       filesScanned: swaggerOptions.apis?.length || 0,
       endpointsFound: Object.keys(spec.paths || {}).length,
+      environment: process.env.NODE_ENV || 'development',
     };
     
     console.log(`✅ Swagger: Generated specification with ${Object.keys(spec.paths || {}).length} endpoints`);
+    
+    // Log endpoint summary for debugging
+    if (spec.paths && Object.keys(spec.paths).length > 0) {
+      console.log('📋 Swagger: Available endpoints:');
+      Object.keys(spec.paths).forEach(path => {
+        const methods = Object.keys(spec.paths[path]);
+        console.log(`   ${methods.map(m => m.toUpperCase()).join(', ')} ${path}`);
+      });
+    } else {
+      console.warn('⚠️  Swagger: No endpoints found in specification!');
+      console.log('🔍 Debugging info:', {
+        sourcePaths: swaggerOptions.apis,
+        environment: process.env.NODE_ENV,
+      });
+    }
     
     return spec;
   } catch (error) {
@@ -925,6 +938,9 @@ export function generateSwaggerSpec(req?: Request): object {
         version: '1.0.0',
         description: 'Error occurred during dynamic API discovery. Please check server logs.',
       },
+      servers: process.env.NODE_ENV === 'production' 
+        ? [{ url: 'https://luna.anlaklab.com/api/v1', description: 'Production Server' }]
+        : [{ url: 'http://localhost:3000/api/v1', description: 'Development Server' }],
       paths: {},
       'x-error': {
         message: error instanceof Error ? error.message : 'Unknown error',

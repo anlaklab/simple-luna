@@ -58,11 +58,7 @@ export function generateEnhancedSwaggerSpec(req: Request) {
     servers: [
       {
         url: baseUrl,
-        description: 'Production Server',
-      },
-      {
-        url: 'http://localhost:3000',
-        description: 'Development Server',
+        description: 'Current Server (Production)',
       },
     ],
     
