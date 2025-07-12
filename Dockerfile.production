@@ -6,15 +6,20 @@
 FROM node:18-alpine AS client-builder
 
 # FORCE CACHE BUST - Unique timestamp 
-ARG CACHEBUST=2025-01-12-09:30
-RUN echo "Cache bust: $CACHEBUST - Forcing fresh build with fixed TypeScript compilation"
+ARG CACHEBUST=2025-01-12-fix-frontend
+RUN echo "Cache bust: $CACHEBUST - Fix frontend build and serving"
 
 WORKDIR /app/client
 COPY client/package*.json ./
-RUN npm ci
+RUN npm ci --silent
 
 COPY client/ ./
-RUN npm run build
+RUN echo "🔧 Building frontend with TypeScript compilation..." && \
+    npm run build && \
+    echo "✅ Frontend build completed successfully" && \
+    ls -la dist/ && \
+    echo "📁 Frontend files:" && \
+    find dist -type f -name "*.html" -o -name "*.js" -o -name "*.css" | head -10
 
 # Stage 2: Build Server
 FROM node:18-bullseye AS server-builder
@@ -114,6 +119,9 @@ WORKDIR /app
 
 # Copy built client
 COPY --from=client-builder /app/client/dist /var/www/html
+
+# ALSO copy to expected server location for fallback/direct serving
+COPY --from=client-builder /app/client/dist /app/client/dist
 
 # Copy server package files and install production dependencies
 COPY --from=server-builder /app/server/package*.json ./server/

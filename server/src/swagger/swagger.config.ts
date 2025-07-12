@@ -20,21 +20,19 @@ import { glob } from 'glob';
  * Uses glob patterns to find all .ts files in relevant directories
  */
 function resolveSourcePaths(): string[] {
-  // In production, we need to use compiled .js files since .ts files don't exist
+  // In production, we need to check both .ts and .js files
   const isProduction = process.env.NODE_ENV === 'production';
+  const fileExtensions = isProduction ? ['.js', '.ts'] : ['.ts'];
   
   const possibleBasePaths = [
     // If running from compiled dist/ directory (production)
     path.resolve(__dirname, '../'),
     // If running from src/ directory directly
-    path.resolve(__dirname, '../'),
+    path.join(__dirname, '../'),
     // If running from server/ directory
     path.resolve(process.cwd(), 'src'),
     // If running from project root
     path.resolve(process.cwd(), 'server/src'),
-    // Additional production paths
-    path.resolve(process.cwd(), 'server/dist'),
-    path.resolve(__dirname, '../../src'),
   ];
 
   // Find the first valid base path that contains the routes directory
@@ -43,98 +41,55 @@ function resolveSourcePaths(): string[] {
     const routesPath = path.join(basePath, 'routes');
     if (fs.existsSync(routesPath)) {
       sourcePath = basePath;
-      console.log(`📖 Swagger: Found valid base path: ${sourcePath}`);
       break;
     }
   }
 
   if (!sourcePath) {
-    console.warn('⚠️  Swagger: Could not find source files for JSDoc documentation');
-    // Fallback: Use current directory structure
-    return [
-      path.join(__dirname, '../routes/*.{ts,js}'),
-      path.join(__dirname, '../controllers/*.{ts,js}'),
-    ];
+    console.warn('⚠️  Swagger: Could not find source directory with routes');
+    return [];
   }
 
-  console.log('📖 Swagger: Base source path found:', sourcePath);
+  console.log(`🔍 Swagger: Using source path: ${sourcePath}`);
 
-  // Use both .ts and .js files for compatibility
-  const fileExtension = isProduction ? '{ts,js}' : 'ts';
-  const searchPatterns = [
-    // All route files - MOST IMPORTANT
-    path.join(sourcePath, `routes/**/*.${fileExtension}`),
-    // All controller files
-    path.join(sourcePath, `controllers/**/*.${fileExtension}`),
-    // Main index files
-    path.join(sourcePath, `index.${fileExtension}`),
-  ];
+  // Build path patterns for all potential source files
+  const pathPatterns: string[] = [];
+  
+  for (const ext of fileExtensions) {
+    pathPatterns.push(
+      path.join(sourcePath, `routes/**/*${ext}`),
+      path.join(sourcePath, `controllers/**/*${ext}`),
+      path.join(sourcePath, `modules/**/*${ext}`),
+      path.join(sourcePath, `**/*${ext}`)
+    );
+  }
 
-  console.log('📁 Swagger: Search patterns:', searchPatterns);
-
+  // Find all files that might contain swagger documentation
   const allFiles: string[] = [];
-  
-  try {
-    for (const pattern of searchPatterns) {
-      const files = glob.sync(pattern, {
-        ignore: [
-          '**/*.d.ts',      // Ignore type definition files
-          '**/*.test.{ts,js}',   // Ignore test files
-          '**/*.spec.{ts,js}',   // Ignore spec files
-          '**/node_modules/**', // Ignore node_modules
-          '**/build/**',    // Ignore build files
-        ],
-        absolute: true
-      });
-      
-      // Filter files that likely contain Swagger documentation
-      const swaggerFiles = files.filter(file => {
-        try {
-          const content = fs.readFileSync(file, 'utf8');
-          // Check if file contains @swagger JSDoc comments
-          const hasSwagger = content.includes('@swagger') || 
-                           content.includes('swagger') || 
-                           content.includes('router.') ||
-                           file.includes('routes');
-          
-          if (hasSwagger && content.includes('@swagger')) {
-            console.log(`✅ Found swagger file: ${path.relative(sourcePath, file)}`);
-          }
-          
-          return hasSwagger;
-        } catch (error) {
-          console.warn(`⚠️  Could not read file ${file}:`, error);
-          return false;
-        }
-      });
-      
-      allFiles.push(...swaggerFiles);
-      
-      if (swaggerFiles.length > 0) {
-        console.log(`📁 Found ${swaggerFiles.length} files in pattern:`, pattern);
-      }
+  for (const pattern of pathPatterns) {
+    try {
+      const files = glob.sync(pattern, { nodir: true });
+      allFiles.push(...files);
+    } catch (error) {
+      console.warn(`⚠️  Swagger: Could not scan pattern ${pattern}:`, error);
     }
-  } catch (error) {
-    console.error('❌ Error scanning for source files:', error);
-    // Enhanced fallback with absolute paths
-    const fallbackPatterns = [
-      path.join(sourcePath, 'routes', `*.${fileExtension}`),
-      path.join(sourcePath, 'controllers', `*.${fileExtension}`),
-    ];
-    console.log('🔄 Using fallback patterns:', fallbackPatterns);
-    return fallbackPatterns;
   }
 
-  // Remove duplicates and sort
-  const uniqueFiles = [...new Set(allFiles)].sort();
-  
-  console.log(`📖 Swagger: Total ${uniqueFiles.length} files will be scanned for API documentation`);
-  console.log('📋 Files to process:');
-  uniqueFiles.forEach(file => {
-    console.log(`   📄 ${path.relative(sourcePath, file)}`);
+  // Filter for files that likely contain swagger documentation
+  const swaggerFiles = allFiles.filter(file => {
+    try {
+      const content = fs.readFileSync(file, 'utf8');
+      return content.includes('@swagger') || content.includes('swagger');
+    } catch (error) {
+      console.warn(`⚠️  Swagger: Could not read file ${file}:`, error);
+      return false;
+    }
   });
-  
-  return uniqueFiles;
+
+  console.log(`📄 Swagger: Found ${swaggerFiles.length} files with swagger documentation`);
+  swaggerFiles.forEach(file => console.log(`  - ${file}`));
+
+  return swaggerFiles;
 }
 
 /**
