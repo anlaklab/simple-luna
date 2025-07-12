@@ -196,6 +196,38 @@ logger.info('Frontend serving configuration', {
   files: fs.existsSync(frontendDistPath) ? fs.readdirSync(frontendDistPath).slice(0, 10) : 'path_not_found'
 });
 
+// 🔍 COMPREHENSIVE FRONTEND DEBUG
+logger.info('🔍 COMPREHENSIVE FRONTEND DEBUG:');
+logger.info('📁 Current working directory:', process.cwd());
+logger.info('📁 __dirname:', __dirname);
+
+// Check all possible frontend locations
+const debugPaths = [
+  '/var/www/html',
+  '/app/client/dist',
+  path.join(__dirname, '../../client/dist'),
+  path.join(process.cwd(), 'client/dist'),
+];
+
+for (const debugPath of debugPaths) {
+  const exists = fs.existsSync(debugPath);
+  const indexExists = exists && fs.existsSync(path.join(debugPath, 'index.html'));
+  logger.info(`🔍 Path: ${debugPath}`, {
+    exists,
+    indexExists,
+    files: exists ? (fs.readdirSync(debugPath).slice(0, 5) || 'empty') : 'path_not_found'
+  });
+}
+
+// Check if nginx is serving files
+const nginxServing = NODE_ENV === 'production' && fs.existsSync('/var/www/html/index.html');
+logger.info('🌐 Nginx serving status:', {
+  production: NODE_ENV === 'production',
+  nginxLocation: fs.existsSync('/var/www/html'),
+  nginxIndex: fs.existsSync('/var/www/html/index.html'),
+  shouldNginxServe: nginxServing
+});
+
 // Only serve static files if frontend directory exists AND we're not in production with nginx
 const shouldServeStatic = fs.existsSync(frontendDistPath) && !(NODE_ENV === 'production' && fs.existsSync('/var/www/html'));
 
