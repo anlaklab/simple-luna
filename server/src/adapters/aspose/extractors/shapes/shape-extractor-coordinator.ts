@@ -14,7 +14,7 @@ export class ShapeExtractorCoordinator {
   async processShape(shape: any, options: ConversionOptions): Promise<ExtractionResult> {
     const startTime = Date.now();
     try {
-      const shapeType = this.detector.detectShapeType(shape);
+      const shapeType = await this.detector.detectShapeType(shape);
       const extractor = this.registry.getExtractor(shapeType);
       
       const result = await extractor.extract(shape, options, {
@@ -40,9 +40,9 @@ export class ShapeExtractorCoordinator {
     }
   }
 
-  canProcessShape(shape: any): boolean {
+  async canProcessShape(shape: any): Promise<boolean> {
     try {
-      const shapeType = this.detector.detectShapeType(shape);
+      const shapeType = await this.detector.detectShapeType(shape);
       return this.registry.hasExtractor(shapeType) || this.detector.isSupportedType(shapeType);
     } catch (error) {
       return false;

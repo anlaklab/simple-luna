@@ -43,11 +43,14 @@ export class ChartExtractor extends BaseShapeExtractor {
     }
   }
 
-  async canHandle(shape: any): Promise<boolean> {
+  canHandle(shape: any): boolean {
     try {
-      // ✅ REFACTORED: Use AsposeDriverFactory instead of direct import
-      await asposeDriver.initialize();
-      const ShapeType = await asposeDriver.getShapeTypes();
+      // ✅ REFACTORED: Use synchronous check - AsposeDriverFactory should be already initialized
+      if (!asposeDriver.isInitialized()) {
+        return false;
+      }
+      
+      const ShapeType = asposeDriver.getShapeTypes();
       return shape.getShapeType() === ShapeType.Chart;
     } catch (error) {
       this.handleError(error as Error, 'canHandle');

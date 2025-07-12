@@ -70,9 +70,9 @@ export class ShapeExtractor {
   /**
    * Check if shape type is supported
    */
-  canProcessShape(shape: any): boolean {
+  async canProcessShape(shape: any): Promise<boolean> {
     try {
-      return this.coordinator.canProcessShape(shape);
+      return await this.coordinator.canProcessShape(shape);
     } catch (error) {
       logger.error('Error checking shape support', { error: (error as Error).message });
       return false;

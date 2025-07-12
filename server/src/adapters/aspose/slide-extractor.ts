@@ -43,7 +43,7 @@ export class SlideExtractor {
       if (slide.getBackground) {
         const background = slide.getBackground();
         if (background && background.getFillFormat) {
-          const fillFormat = this.fillExtractor.extractFillFormat(background.getFillFormat());
+          const fillFormat = await this.fillExtractor.extractFillFormat(background.getFillFormat());
           if (fillFormat) {
             slideData.background = {
               type: fillFormat.type,
