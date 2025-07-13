@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Enhanced AI Controller - Schema-aware AI endpoints for analysis and translation
  */

@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Geometry Extractor - Handles shape position, size, rotation
  */

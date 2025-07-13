@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Chart Extractor - Specialized Shape Extractor for Chart Objects
  * 

@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Table Extractor - Delegates to specialized sub-extractors
  */

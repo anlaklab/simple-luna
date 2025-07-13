@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Extraction Routes - Asset and metadata extraction endpoints
  * 
@@ -2005,7 +2006,7 @@ router.post('/debug-extract-large-files',
     });
 
     const progressUpdates: any[] = [];
-    const addProgress = (message: string, data?: any) => {
+    const addProgress = async (message: string, data?: any) => {
       const progress = {
         timestamp: new Date().toISOString(),
         timeElapsed: Date.now() - startTime,

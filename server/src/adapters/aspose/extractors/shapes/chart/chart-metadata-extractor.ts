@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Chart Metadata Extractor - Specialized Component for Chart Metadata
  * 

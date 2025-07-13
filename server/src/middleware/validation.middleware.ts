@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Validation Middleware - Request validation using Zod schemas
  * 
@@ -130,7 +131,7 @@ export function validateRequest<T>(schema: ZodSchema<T>, source: 'body' | 'query
 /**
  * File upload validation middleware
  */
-export function validateFileUpload(options: {
+export function validateFileUpload async (options: {
   required?: boolean;
   maxSize?: number;
   allowedMimeTypes?: string[];

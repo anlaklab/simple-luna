@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Module Factory - Central DI Container & Factory Registry
  * 
@@ -67,7 +68,7 @@ let securityManager: DynamicLoadingSecurityManager;
 // DYNAMIC COMPONENT LOADING FUNCTIONS (Enhanced with Security)
 // =============================================================================
 
-export function loadDynamicComponents(config: DynamicLoadConfig): Map<string, any> {
+export function loadDynamicComponents async (config: DynamicLoadConfig): Map<string, any> {
   const startTime = Date.now();
   
   try {
@@ -167,7 +168,7 @@ export function loadDynamicComponents(config: DynamicLoadConfig): Map<string, an
   }
 }
 
-async function loadSingleExtensionSecure(
+async function loadSingleExtensionSecure async (
   extensionsDir: string, 
   file: string, 
   type: string, 
@@ -244,7 +245,7 @@ async function loadSingleExtensionSecure(
 }
 
 // Legacy function for backward compatibility (now uses secure loading)
-function loadSingleExtension(
+function loadSingleExtension async (
   extensionsDir: string, 
   file: string, 
   type: string, 
@@ -268,30 +269,30 @@ function loadSingleExtension(
 // DYNAMIC REGISTRY ACCESS FUNCTIONS
 // =============================================================================
 
-export function getDynamicRegistry(): Map<string, any> {
+export function getDynamicRegistry async (): Map<string, any> {
   return dynamicRegistry;
 }
 
-export function getDynamicExtension(type: string): any | null {
+export function getDynamicExtension async (type: string): any | null {
   return dynamicRegistry.get(type) || null;
 }
 
-export function getExtensionMetadata(type?: string): ExtensionMetadata[] | ExtensionMetadata | null {
+export function getExtensionMetadata async (type?: string): ExtensionMetadata[] | ExtensionMetadata | null {
   if (type) {
     return extensionMetadata.get(type) || null;
   }
   return Array.from(extensionMetadata.values());
 }
 
-export function isDynamicRegistryInitialized(): boolean {
+export function isDynamicRegistryInitialized async (): boolean {
   return registryInitialized;
 }
 
-export function getLoadedExtensionTypes(): string[] {
+export function getLoadedExtensionTypes async (): string[] {
   return Array.from(dynamicRegistry.keys());
 }
 
-export function clearDynamicRegistry(): void {
+export function clearDynamicRegistry async (): void {
   // Dispose extensions if they support it
   dynamicRegistry.forEach((extension, type) => {
     if (extension.dispose && typeof extension.dispose === 'function') {
@@ -311,7 +312,7 @@ export function clearDynamicRegistry(): void {
 // HOT RELOAD SUPPORT (Development)
 // =============================================================================
 
-export function reloadDynamicComponents(config: DynamicLoadConfig): Map<string, any> {
+export function reloadDynamicComponents async (config: DynamicLoadConfig): Map<string, any> {
   logger.info('Reloading dynamic components');
   clearDynamicRegistry();
   return loadDynamicComponents(config);
@@ -321,7 +322,7 @@ export function reloadDynamicComponents(config: DynamicLoadConfig): Map<string, 
 // SECURITY AND HEALTH CHECK FUNCTIONS
 // =============================================================================
 
-export function getDynamicLoadingStats(): any {
+export function getDynamicLoadingStats async (): any {
   const baseStats = {
     registry: {
       initialized: registryInitialized,
@@ -341,7 +342,7 @@ export function getDynamicLoadingStats(): any {
   return baseStats;
 }
 
-export function validateDynamicRegistry(): { valid: boolean; issues: string[] } {
+export function validateDynamicRegistry async (): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
 
   if (!registryInitialized) {

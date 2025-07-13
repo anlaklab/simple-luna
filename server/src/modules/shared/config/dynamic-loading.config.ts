@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Dynamic Loading Configuration
  * 
@@ -405,7 +406,7 @@ export class RobustnessManager {
         
         // Check if we should retry
         if (attempt < maxRetries && this.shouldRetry(operationId, lastError)) {
-          const retryCount = (this.retryCounters.get(operationId) || 0) + 1;
+          const retryCount = async (this.retryCounters.get(operationId) || 0) + 1;
           this.retryCounters.set(operationId, retryCount);
           
           // Exponential backoff

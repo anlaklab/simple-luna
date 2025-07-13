@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Enhanced Swagger Configuration - OpenAPI 3.0 with comprehensive schemas
  */
@@ -8,7 +9,7 @@ import { Request } from 'express';
 // OPENAPI 3.0 SPECIFICATION
 // =============================================================================
 
-export function generateEnhancedSwaggerSpec(req: Request) {
+export function generateEnhancedSwaggerSpec async (req: Request) {
   const baseUrl = `${req.protocol}://${req.get('host')}`;
   
   return {

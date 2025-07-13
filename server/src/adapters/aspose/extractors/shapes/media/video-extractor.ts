@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Video Extractor - Specialized Component for Video Frame Processing
  * 

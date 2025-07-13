@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * NotesService - Notes and Comments Management
  * 

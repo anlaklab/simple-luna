@@ -1,3 +1,4 @@
+import { z } from "zod";
 // 🔧 Asset Service - Simplified for deployment compatibility
 // Handles asset extraction from presentations
 

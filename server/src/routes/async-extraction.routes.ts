@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Async Extraction Routes - Routes for async asset and metadata extraction
  */
@@ -12,7 +13,7 @@ import { handleAsyncErrors } from '../middleware/error.middleware';
 // ROUTE FACTORY
 // =============================================================================
 
-export function createAsyncExtractionRoutes(
+export function createAsyncExtractionRoutes async (
   controller: AsyncExtractionController
 ): Router {
   const router = Router();
@@ -674,7 +675,7 @@ export function createAsyncExtractionRoutes(
 // DEPRECATED LEGACY ROUTES (for backward compatibility)
 // =============================================================================
 
-export function createLegacyAsyncRoutes(
+export function createLegacyAsyncRoutes async (
   controller: AsyncExtractionController
 ): Router {
   const router = Router();

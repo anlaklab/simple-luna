@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * @fileoverview Granular Control Routes - Individual Slide & Shape Operations
  * 
@@ -69,7 +70,7 @@ const RenderShapeSchema = z.object({
 // GRANULAR CONTROL ROUTES FACTORY
 // =============================================================================
 
-export function createGranularControlRoutes(): Router {
+export function createGranularControlRoutes async (): Router {
   const router = Router();
 
   // =============================================================================

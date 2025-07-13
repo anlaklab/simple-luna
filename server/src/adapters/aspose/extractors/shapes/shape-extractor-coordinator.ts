@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Shape Extractor Coordinator - Delegates to registry and detector
  */

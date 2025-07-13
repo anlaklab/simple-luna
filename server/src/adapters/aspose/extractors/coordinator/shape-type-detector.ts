@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Shape Type Detector - Identifies shape types from Aspose objects
  * 

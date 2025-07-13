@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Fill Format Extractor - Handles fill, gradient, pattern extraction
  */

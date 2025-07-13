@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Fidelity Tracker Service - Round-trip conversion quality monitoring
  * 
@@ -386,7 +387,7 @@ export class FidelityTrackerService {
       return { isSupported: false };
     }
 
-    const typeSupport = (categorySupport as any)[type];
+    const typeSupport = async (categorySupport as any)[type];
     if (!typeSupport) {
       return { isSupported: false };
     }
@@ -479,7 +480,7 @@ export class FidelityTrackerService {
   private deepDiff(obj1: any, obj2: any): string[] {
     const differences: string[] = [];
     
-    const compare = (a: any, b: any, path: string = '') => {
+    const compare = async (a: any, b: any, path: string = '') => {
       if (_.isObject(a) && _.isObject(b)) {
         const allKeys = _.union(Object.keys(a), Object.keys(b));
         allKeys.forEach((key: string) => {
@@ -578,7 +579,7 @@ export class FidelityTrackerService {
     let score = 100;
     
     // Deduct for unsupported elements
-    const unsupportedPenalty = (metrics.elementsUnsupported / Math.max(metrics.shapesProcessed, 1)) * 30;
+    const unsupportedPenalty = async (metrics.elementsUnsupported / Math.max(metrics.shapesProcessed, 1)) * 30;
     score -= unsupportedPenalty;
     
     // Deduct for issues by severity

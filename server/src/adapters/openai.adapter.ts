@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * OpenAI Adapter - Clean abstraction over OpenAI SDK
  * 

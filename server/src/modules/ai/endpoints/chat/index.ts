@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Chat Endpoint - Public API Exports
  * 

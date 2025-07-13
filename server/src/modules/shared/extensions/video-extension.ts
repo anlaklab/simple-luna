@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * VideoExtension - Dynamic Extension for Video Processing
  * 

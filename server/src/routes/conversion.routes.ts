@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Conversion Routes - File conversion endpoints
  * 

@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Shape Extractor - Handles shape property extraction for Aspose.Slides
  */

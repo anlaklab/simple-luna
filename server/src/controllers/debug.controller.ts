@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Request, Response } from 'express';
 import * as os from 'os';
 import * as fs from 'fs';
@@ -56,7 +57,7 @@ const conversionJobs: Map<string, ConversionJob> = new Map();
 const recentLogs: Array<{level: string, message: string, timestamp: Date, service?: string}> = [];
 
 // Initialize with some demo data
-const initializeDemoData = () => {
+const initializeDemoData = async () => {
   // Demo sessions
   activeSessions.set('sess_001', {
     id: 'sess_001',
@@ -318,7 +319,7 @@ export class DebugController {
         const deltaUsage = process.cpuUsage(startUsage);
         const deltaTime = process.hrtime.bigint() - startTime;
         
-        const cpuPercent = ((deltaUsage.user + deltaUsage.system) / Number(deltaTime)) * 100;
+        const cpuPercent = async ((deltaUsage.user + deltaUsage.system) / Number(deltaTime)) * 100;
         resolve(Math.min(100, Math.max(0, cpuPercent * os.cpus().length)));
       }, 100);
     });

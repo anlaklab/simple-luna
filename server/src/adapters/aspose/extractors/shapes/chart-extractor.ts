@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Chart Extractor - Delegates to specialized sub-extractors
  */

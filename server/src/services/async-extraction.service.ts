@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Async Extraction Service - Background processing for asset and metadata extraction
  * 

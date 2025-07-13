@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Thumbnail Manager Service - Generates and manages slide thumbnails
  */

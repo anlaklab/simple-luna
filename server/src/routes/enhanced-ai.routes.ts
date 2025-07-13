@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Enhanced AI Routes - Schema-aware AI endpoints
  */
@@ -139,7 +140,7 @@ const enhancedSuggestionsSchema = {
 // ROUTE FACTORY
 // =============================================================================
 
-export function createEnhancedAIRoutes(): Router {
+export function createEnhancedAIRoutes async (): Router {
   const router = Router();
 
   // Initialize OpenAI adapter with environment configuration
@@ -660,7 +661,7 @@ export function createEnhancedAIRoutes(): Router {
 // LEGACY COMPATIBILITY ROUTES
 // =============================================================================
 
-export function createLegacyEnhancedAIRoutes(): Router {
+export function createLegacyEnhancedAIRoutes async (): Router {
   const router = Router();
 
   try {

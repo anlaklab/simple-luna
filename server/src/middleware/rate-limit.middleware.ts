@@ -1,3 +1,4 @@
+import { z } from "zod";
 // ⚡ Rate Limiting Middleware
 // Simple rate limiting for API endpoints
 
@@ -7,7 +8,7 @@ import { logger } from '../utils/logger';
 // Simple in-memory rate limiting (for development)
 const requestCounts: Map<string, { count: number; resetTime: number }> = new Map();
 
-export const rateLimit = (windowMs: number = 15 * 60 * 1000, max: number = 100) => {
+export const rateLimit = async (windowMs: number = 15 * 60 * 1000, max: number = 100) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const clientId = req.ip || 'anonymous';
     const now = Date.now();

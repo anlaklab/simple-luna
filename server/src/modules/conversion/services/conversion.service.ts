@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * ConversionService - Comprehensive PPTX Processing Service
  * 

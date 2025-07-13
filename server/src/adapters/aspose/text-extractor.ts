@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Text Extractor - Handles text frame and formatting extraction
  */

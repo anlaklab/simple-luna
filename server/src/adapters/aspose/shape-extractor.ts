@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Shape Extractor - Refactored using Componentized Architecture
  * 

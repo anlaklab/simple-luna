@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Enhanced AI Service - Schema-aware AI for PowerPoint analysis and translation
  * 

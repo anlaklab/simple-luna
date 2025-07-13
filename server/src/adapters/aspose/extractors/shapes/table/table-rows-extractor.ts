@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Table Rows Extractor - Specialized Component for Table Row Processing
  * 

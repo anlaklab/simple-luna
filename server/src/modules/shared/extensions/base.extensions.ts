@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Base Extensions System - Modular Functionality Injection
  * 

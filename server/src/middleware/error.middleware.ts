@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Error Handling Middleware - Centralized error management
  * 
@@ -93,7 +94,7 @@ export class RateLimitError extends AppError {
 /**
  * Main error handling middleware
  */
-export function errorHandler(
+export function errorHandler async (
   error: Error,
   req: Request,
   res: Response,
@@ -242,7 +243,7 @@ export function errorHandler(
 /**
  * 404 Not Found handler
  */
-export function notFoundHandler(req: Request, res: Response, next: NextFunction): void {
+export function notFoundHandler async (req: Request, res: Response, next: NextFunction): void {
   const requestId = req.requestId || `req_${Date.now()}`;
   
   logger.warn('Route not found', {
@@ -287,7 +288,7 @@ export function asyncHandler<T extends Request, U extends Response>(
 /**
  * Express error handler wrapper for promise rejections
  */
-export function handleAsyncErrors(
+export function handleAsyncErrors async (
   fn: (req: Request, res: Response, next: NextFunction) => Promise<void>
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -298,7 +299,7 @@ export function handleAsyncErrors(
 /**
  * Request timeout handler
  */
-export function timeoutHandler(timeoutMs: number = 30000) {
+export function timeoutHandler async (timeoutMs: number = 30000) {
   return (req: Request, res: Response, next: NextFunction) => {
     const requestId = req.requestId || `req_${Date.now()}`;
     
@@ -350,7 +351,7 @@ export function timeoutHandler(timeoutMs: number = 30000) {
 /**
  * Global unhandled rejection handler
  */
-export function setupGlobalErrorHandlers(): void {
+export function setupGlobalErrorHandlers async (): void {
   process.on('unhandledRejection', (reason, promise) => {
     logger.error('Unhandled Promise Rejection', {
       reason,

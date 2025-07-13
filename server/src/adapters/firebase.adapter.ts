@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Firebase Adapter - Clean abstraction over Firebase Admin SDK
  * 
@@ -57,7 +58,7 @@ export class FirebaseAdapter {
     this.config = config;
 
     // Improved private key handling for various escape scenarios
-    const processPrivateKey = (privateKey: string): string => {
+    const processPrivateKey = async (privateKey: string): string => {
       let processedKey = privateKey;
       
       // Handle common escape sequence patterns

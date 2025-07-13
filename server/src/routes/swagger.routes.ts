@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Swagger UI Routes - Dynamic Interactive API Documentation
  * 
@@ -56,7 +57,7 @@ const swaggerUiOptions = {
 /**
  * Generate dynamic OpenAPI spec with current request context
  */
-function getDynamicSwaggerSpec(req: Request): any {
+function getDynamicSwaggerSpec async (req: Request): any {
   try {
     console.log('🔄 Generating dynamic Swagger spec for request:', req.url);
     const spec = generateSwaggerSpec(req);
@@ -312,7 +313,7 @@ router.get('/docs/', (req: Request, res: Response, next) => {
 router.get('/docs/stats', (req: Request, res: Response) => {
   try {
     const spec = getDynamicSwaggerSpec(req);
-    const paths = (spec as any).paths || {};
+    const paths = async (spec as any).paths || {};
     
     // Analyze endpoints
     const stats = {
@@ -380,7 +381,7 @@ router.get('/docs/postman', (req: Request, res: Response) => {
   try {
     const baseUrl = `${req.protocol}://${req.get('host')}/api/v1`;
     const spec = getDynamicSwaggerSpec(req);
-    const paths = (spec as any).paths || {};
+    const paths = async (spec as any).paths || {};
     
     // Generate dynamic Postman collection
     const postmanCollection = {

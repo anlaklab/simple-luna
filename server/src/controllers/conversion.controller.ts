@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Conversion Controller - HTTP endpoints for file conversions
  * 

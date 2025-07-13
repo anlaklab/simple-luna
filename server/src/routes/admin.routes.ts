@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Admin Routes - File uploads, job management, and system status
  * 
@@ -911,7 +912,7 @@ router.get('/presentations', handleAsyncErrors(async (req: Request, res: Respons
     // Apply search filter if provided
     let filteredJobs = presentationJobs;
     if (search) {
-      const searchTerm = (search as string).toLowerCase();
+      const searchTerm = async (search as string).toLowerCase();
       filteredJobs = presentationJobs.filter(job =>
         job.metadata?.originalName?.toLowerCase().includes(searchTerm) ||
         job.id.toLowerCase().includes(searchTerm) ||

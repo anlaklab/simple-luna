@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Base Shape Extractor - Abstract Foundation for All Shape Extractors
  * 

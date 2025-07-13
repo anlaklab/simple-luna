@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * ConversionService - Robust PPTX ↔ JSON Conversion
  * 

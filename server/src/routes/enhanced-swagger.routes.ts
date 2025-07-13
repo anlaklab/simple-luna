@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Enhanced Swagger Routes - Interactive API Documentation with OpenAPI 3.0
  */
@@ -21,7 +22,7 @@ let cachedSpec: any = null;
 let cacheTimestamp: number = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-const getEnhancedSpec = (req: Request) => {
+const getEnhancedSpec = async (req: Request) => {
   const now = Date.now();
   
   // Refresh cache if expired or not exists

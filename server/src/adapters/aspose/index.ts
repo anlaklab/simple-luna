@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Aspose Asset Extraction System - Main Exports
  * 
@@ -51,14 +52,14 @@ import { AssetServiceConfig } from './types/asset-interfaces';
 /**
  * Factory function to create a fully configured AssetService
  */
-export function createAssetService(config: AssetServiceConfig): AssetServiceRefactored {
+export function createAssetService async (config: AssetServiceConfig): AssetServiceRefactored {
   return new AssetServiceRefactored(config);
 }
 
 /**
  * Create AssetService with default configuration
  */
-export function createDefaultAssetService(firebaseConfig: {
+export function createDefaultAssetService async (firebaseConfig: {
   projectId: string;
   privateKey: string;
   clientEmail: string;

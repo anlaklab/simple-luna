@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * API Request Schemas - Zod Validation
  * 
@@ -266,11 +267,11 @@ export const FileUploadRequestSchema = z.object({
 // COMMON VALIDATION HELPERS
 // =============================================================================
 
-export const validateFileType = (file: any, allowedTypes: string[]): boolean => {
+export const validateFileType = async (file: any, allowedTypes: string[]): boolean => {
   return allowedTypes.includes(file.mimetype);
 };
 
-export const validateFileSize = (file: any, maxSizeBytes: number): boolean => {
+export const validateFileSize = async (file: any, maxSizeBytes: number): boolean => {
   return file.size <= maxSizeBytes;
 };
 

@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Enhanced PPTX2JSON Processor - Using Base + Extensions Pattern
  * 
