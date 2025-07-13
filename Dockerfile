@@ -142,11 +142,11 @@ COPY .env* ./
 
 # Final verification of Java bridge and Aspose library
 RUN echo "🧪 Final verification of Java bridge and Aspose setup..." && \
-    node -e "try { const java = require('java'); console.log('✅ Java bridge working'); const aspose = require('./lib/aspose.slides.js'); console.log('✅ Aspose.Slides library loaded'); console.log('🚀 All systems ready'); } catch(e) { console.error('❌ Setup failed:', e.message); console.log('📋 Starting with limited functionality'); }" || echo "⚠️ Verification completed with warnings"
+    node -e "try { const java = require('java'); console.log('✅ Java bridge working'); const aspose = require('../lib/aspose.slides.js'); console.log('✅ Aspose.Slides library loaded'); console.log('🚀 All systems ready'); } catch(e) { console.error('❌ Setup failed:', e.message); console.log('📋 Starting with limited functionality'); }" || echo "⚠️ Verification completed with warnings"
 
 # Go back to root and set proper permissions
 WORKDIR /app
-RUN chmod +x ./lib/aspose.slides.js 2>/dev/null || echo "Aspose.slides.js permissions already set"
+RUN chmod +x ../lib/aspose.slides.js 2>/dev/null || echo "Aspose.slides.js permissions already set"
 RUN chown -R node:node /app
 
 # Create non-root user for security
