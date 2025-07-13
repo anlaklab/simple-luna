@@ -197,9 +197,9 @@ logger.info('Frontend serving configuration', {
 });
 
 // 🔍 COMPREHENSIVE FRONTEND DEBUG
-logger.info('🔍 COMPREHENSIVE FRONTEND DEBUG:');
-logger.info('📁 Current working directory:', process.cwd());
-logger.info('📁 __dirname:', __dirname);
+logger.info('🔍 COMPREHENSIVE FRONTEND DEBUG');
+logger.info('📁 Current working directory', { cwd: process.cwd() });
+logger.info('📁 __dirname', { dirname: __dirname });
 
 // Check all possible frontend locations
 const debugPaths = [

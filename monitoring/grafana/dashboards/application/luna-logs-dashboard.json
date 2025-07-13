@@ -1,0 +1,344 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Luna Platform Logs Dashboard",
+    "tags": ["luna", "logs", "loki"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Log Volume Over Time",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "sum(rate({service=\"luna-server\"}[1m]))",
+            "legendFormat": "Server Logs/min",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate({service=\"luna-client\"}[1m]))",
+            "legendFormat": "Client Logs/min",
+            "refId": "B"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "logs/min"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Error Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate({service=\"luna-server\", level=\"ERROR\"}[5m]))",
+            "legendFormat": "Error Rate",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 0.1
+                },
+                {
+                  "color": "red",
+                  "value": 1
+                }
+              ]
+            },
+            "unit": "errors/sec"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Log Levels Distribution",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "sum by (level) (count_over_time({service=\"luna-server\"}[1h]))",
+            "legendFormat": "{{level}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Components Activity",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "sum by (component) (rate({service=\"luna-server\", component!=\"\"}[5m]))",
+            "legendFormat": "{{component}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "logs/sec"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Recent Server Logs",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{service=\"luna-server\"} |= \"\"",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 10,
+          "w": 24,
+          "x": 0,
+          "y": 16
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "options": {
+          "showTime": true,
+          "showLabels": true,
+          "showCommonLabels": false,
+          "wrapLogMessage": false,
+          "prettifyLogMessage": false,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending"
+        }
+      },
+      {
+        "id": 6,
+        "title": "Frontend Errors",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{service=\"luna-client\", level=\"ERROR\"} |= \"\"",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 10,
+          "w": 12,
+          "x": 0,
+          "y": 26
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "options": {
+          "showTime": true,
+          "showLabels": true,
+          "showCommonLabels": false,
+          "wrapLogMessage": false,
+          "prettifyLogMessage": false,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending"
+        }
+      },
+      {
+        "id": 7,
+        "title": "Backend Errors",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{service=\"luna-server\", level=\"ERROR\"} |= \"\"",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 10,
+          "w": 12,
+          "x": 12,
+          "y": 26
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "options": {
+          "showTime": true,
+          "showLabels": true,
+          "showCommonLabels": false,
+          "wrapLogMessage": false,
+          "prettifyLogMessage": false,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending"
+        }
+      },
+      {
+        "id": 8,
+        "title": "Aspose Processing Logs",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{service=\"luna-server\", type=\"aspose_processing\"} |= \"\"",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 10,
+          "w": 12,
+          "x": 0,
+          "y": 36
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "options": {
+          "showTime": true,
+          "showLabels": true,
+          "showCommonLabels": false,
+          "wrapLogMessage": false,
+          "prettifyLogMessage": false,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending"
+        }
+      },
+      {
+        "id": 9,
+        "title": "API Requests",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{service=\"luna-server\", type=\"http_request\"} |= \"\"",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 10,
+          "w": 12,
+          "x": 12,
+          "y": 36
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "options": {
+          "showTime": true,
+          "showLabels": true,
+          "showCommonLabels": false,
+          "wrapLogMessage": false,
+          "prettifyLogMessage": false,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending"
+        }
+      },
+      {
+        "id": 10,
+        "title": "Session Activity",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "count by (sessionId) (count_over_time({service=\"luna-client\", sessionId!=\"\"}[5m]))",
+            "legendFormat": "Active Sessions",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 24,
+          "x": 0,
+          "y": 46
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "sessions"
+          }
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "",
+    "title": "Luna Platform Logs Dashboard",
+    "version": 1,
+    "weekStart": ""
+  }
+} 
