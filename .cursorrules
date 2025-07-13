@@ -24,7 +24,7 @@ You are working on Luna, a professional PowerPoint processing platform with AI c
 
 ### ❌ ABSOLUTELY FORBIDDEN - NO EXCEPTIONS:
 1. **NO MOCK DATA EVER**: NEVER create mock data, test data, placeholder data, or demo data
-2. **NO TESTS OR DEMOS**: NEVER create test files, demo files, or example files
+2. **NO TESTS OUTSIDE MONITORING**: Tests ONLY in monitoring folder (Jest, Playwright, Grafana, Loki, Prometheus)
 3. **NO PLACEHOLDER CONTENT**: NEVER use placeholder text, dummy content, or fake data
 4. **NO SIMULATED RESPONSES**: NEVER simulate API responses or fake service calls
 5. **NO MOCKUPS**: NEVER create mockup presentations or sample presentations
@@ -41,7 +41,11 @@ You are working on Luna, a professional PowerPoint processing platform with AI c
 
 ### 📋 PROJECT STRUCTURE
 ```
-aspose-slides-25.6-nodejs/
+luna/
+├── .env                    # Global environment variables (SACRED - DO NOT TOUCH)
+├── .env.example            # Environment variables template
+├── README.md               # Main project documentation
+├── deploy-hostinger.sh     # Single deployment script for Hostinger/LunaSlides
 ├── client/                 # React Frontend (Vite + TypeScript)
 │   ├── src/
 │   │   ├── components/ui/  # shadcn/ui design system - DO NOT MODIFY
@@ -57,9 +61,19 @@ aspose-slides-25.6-nodejs/
 │   │   ├── controllers/    # Request/response handling
 │   │   ├── routes/         # API route definitions
 │   │   └── middleware/     # Express middleware
-└── lib/                    # Aspose.Slides library (LOCAL ONLY)
-    ├── aspose.slides.js    # Main library file
-    └── aspose.slides.d.ts  # TypeScript definitions
+├── lib/                    # Aspose.Slides library (LOCAL ONLY)
+│   ├── aspose.slides.js    # Main library file
+│   └── aspose.slides.d.ts  # TypeScript definitions
+├── monitoring/             # ALL testing and monitoring tools
+│   ├── jest/               # Jest unit and integration tests
+│   ├── playwright/         # E2E tests with Playwright
+│   ├── grafana/            # Grafana dashboards and configs
+│   ├── loki/               # Log aggregation configs
+│   └── prometheus/         # Metrics collection configs
+└── docs/                   # ALL documentation with Nextra
+    ├── pages/              # Nextra documentation pages
+    ├── next.config.js      # Nextra configuration
+    └── package.json        # Nextra dependencies
 ```
 
 ## 🎨 DESIGN SYSTEM RULES
@@ -108,6 +122,8 @@ aspose-slides-25.6-nodejs/
 - **Services (`services/`)**: ONLY business logic
 - **Adapters (`adapters/`)**: ONLY external service integration
 - **Pages (`pages/`)**: ONLY route components with minimal logic
+- **Monitoring (`monitoring/`)**: ONLY tests and observability tools
+- **Docs (`docs/`)**: ONLY documentation with Nextra
 
 ### COMPONENT STRUCTURE - MANDATORY
 ```tsx
@@ -257,14 +273,40 @@ app.get('/endpoint', handleAsyncErrors(async (req, res) => {
 - ALWAYS log errors with `logger.error()`
 - ALWAYS return structured API responses
 - ALWAYS use local Aspose.Slides library at `lib/aspose.slides.js`
+- NO tests in server folder - tests ONLY in monitoring
 
 ### FRONTEND REQUIREMENTS  
 - ALWAYS use Vite + React + TypeScript
 - ALWAYS use Tailwind CSS with design system tokens
 - ALWAYS use React Query for server state
 - ALWAYS use shadcn/ui components
+- NO tests in client folder - tests ONLY in monitoring
+
+### TESTING REQUIREMENTS
+- ALL tests MUST be in `monitoring/` folder
+- Unit/Integration tests in `monitoring/jest/`
+- E2E tests in `monitoring/playwright/`
+- Performance monitoring in `monitoring/grafana/`
+- Log aggregation in `monitoring/loki/`
+- Metrics collection in `monitoring/prometheus/`
+
+### DOCUMENTATION REQUIREMENTS
+- ALL documentation MUST be in `docs/` folder
+- Use Nextra for documentation visualization
+- Main README.md stays in root directory
+- Technical docs, guides, and references in `docs/pages/`
+
+### DEPLOYMENT REQUIREMENTS
+- ONLY ONE deployment script: `deploy-hostinger.sh`
+- Target: Hostinger VPS / lunaslides.com
+- All other deployment scripts must be removed
+- Use Docker for containerization
 
 ## 📚 KEY FILES TO REFERENCE
+
+### Environment Configuration
+- `.env` - Global environment variables (NEVER MODIFY)
+- `.env.example` - Template for environment setup
 
 ### Aspose.Slides Integration
 - `lib/aspose.slides.js` - LOCAL library (ALWAYS use this)
@@ -295,6 +337,10 @@ const testPresentation = { title: "Test", slides: [...] };
 
 // Placeholder content
 const placeholderText = "Lorem ipsum dolor sit amet...";
+
+// Tests outside monitoring folder
+// client/src/__tests__/component.test.tsx
+// server/tests/api.test.ts
 ```
 
 ### ✅ ALWAYS DO THIS:
@@ -309,9 +355,30 @@ const realFormatting = shape.getTextFrame().getParagraphs().get_Item(0).getPorti
 
 // Real data storage
 await firestore.collection('presentations').doc(id).set(realPresentationData);
+
+// Tests in correct location
+// monitoring/jest/unit/component.test.tsx
+// monitoring/playwright/e2e/api.test.ts
 ```
 
 ## 🎨 QUICK REFERENCE
+
+### Correct Project Structure
+```
+✅ CORRECT:
+- .env (global variables)
+- README.md (in root)
+- deploy-hostinger.sh (single deploy script)
+- docs/ (all documentation with Nextra)
+- monitoring/ (all tests and observability)
+
+❌ WRONG:
+- Multiple .env files
+- Multiple deploy scripts
+- Tests in client/ or server/
+- Documentation scattered in root
+- Mock data anywhere
+```
 
 ### Correct Library Usage
 ```javascript
@@ -344,16 +411,18 @@ Remember: This is a professional application that processes REAL PowerPoint file
 
 **NEVER, EVER, UNDER ANY CIRCUMSTANCES:**
 - Create mock data
-- Use test files
-- Generate placeholder content
+- Create tests outside monitoring folder
+- Create multiple deployment scripts
+- Scatter documentation in root
 - Use cloud APIs instead of local library
 - Limit slide processing
 - Create demo presentations
 
 **ALWAYS, WITHOUT EXCEPTION:**
 - Use real files
-- Process all slides
-- Extract real content
+- Keep tests in monitoring folder only
+- Use single deploy-hostinger.sh script
+- Keep docs in docs/ folder with Nextra
 - Use local Aspose.Slides library
 - Handle large presentations properly
 - Store real data in Firebase 

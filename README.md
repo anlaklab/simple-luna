@@ -1,7 +1,5 @@
 # 🌙 Luna - AI-Powered PowerPoint Processing Platform
 
-Versión 0.01
-
 Luna is a professional PowerPoint processing platform with AI capabilities that converts PPTX files to Universal JSON schema and provides advanced analysis through a React frontend and Node.js backend.
 
 ## ✨ Features
@@ -14,6 +12,7 @@ Luna is a professional PowerPoint processing platform with AI capabilities that 
 - 🎨 **Modern UI**: React frontend with shadcn/ui design system
 - 🔧 **Clean Architecture**: Modular, scalable backend design
 - 🐳 **Docker Support**: Node.js 18 environment for Aspose.Slides compatibility
+- 📊 **Monitoring**: Production-ready monitoring with Grafana, Prometheus, and Loki
 
 ## 🚫 NO MOCK DATA POLICY
 
@@ -24,7 +23,28 @@ Luna is a professional PowerPoint processing platform with AI capabilities that 
 - ✅ **Local Aspose.Slides library** (NO cloud APIs)
 - ❌ **NO mock data, test files, or placeholder content**
 
-## 🚀 Quick Start with Docker (Recommended)
+## � Project Structure
+
+```
+luna/
+├── .env                    # Global environment variables
+├── .env.example            # Environment template
+├── README.md               # This file
+├── deploy-hostinger.sh     # Deployment script for Hostinger/LunaSlides
+├── docker-compose.yml      # Docker configuration
+├── client/                 # React frontend
+├── server/                 # Node.js backend
+├── lib/                    # Aspose.Slides local library
+├── monitoring/             # Tests and monitoring tools
+│   ├── jest/               # Unit/integration tests
+│   ├── playwright/         # E2E tests
+│   ├── grafana/            # Dashboards
+│   ├── loki/               # Log aggregation
+│   └── prometheus/         # Metrics
+└── docs/                   # Documentation with Nextra
+```
+
+## �🚀 Quick Start with Docker (Recommended)
 
 ### Prerequisites
 
@@ -34,11 +54,11 @@ Luna is a professional PowerPoint processing platform with AI capabilities that 
 ### 1. Clone and Setup
 
 ```bash
-git clone <repository-url>
-cd aspose-slides-25.6-nodejs
+git clone https://github.com/lunaslides/luna.git
+cd luna
 
 # Copy environment configuration
-cp .env.example .env
+cp env.example .env
 # Edit .env with your Firebase and OpenAI credentials
 ```
 
@@ -46,10 +66,10 @@ cp .env.example .env
 
 ```bash
 # Start Luna with Docker (Node.js 18 + Aspose.Slides)
-./docker-start.sh
+docker-compose up -d
 
 # Or rebuild from scratch
-./docker-start.sh --rebuild
+docker-compose up -d --build
 ```
 
 ### 3. Access Luna
@@ -94,7 +114,7 @@ npm run dev
 
 ```bash
 # Start services
-./docker-start.sh
+docker-compose up -d
 
 # View logs
 docker-compose logs -f
@@ -352,7 +372,7 @@ POST /api/v1/sessions
 
 ```bash
 # Start development environment
-./docker-start.sh
+docker-compose up -d
 
 # Enable hot reload (uncomment in docker-compose.yml)
 # volumes:
