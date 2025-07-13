@@ -1,0 +1,52 @@
+{
+  "name": "aspose.slides.via.java",
+  "version": "25.6.0",
+  "description": "A powerful library for manipulating and converting PowerPoint (PPT, PPTX, PPS, POT, PPSX, PPTM, PPSM, POTX, POTM), ODP, ODS, CSV, TXT, PNG, EMF, JPG, JSON and HTML files.",
+  "main": "index.js",
+  "types": "lib/aspose.slides.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aspose-slides/Aspose.Slides-for-NODEJS-via-Java.git"
+  },
+  "homepage": "https://products.aspose.com/slides/nodejs-java/",
+  "keywords": [
+    "PowerPoint",
+    "PPT",
+    "PPTX",
+    "PPS",
+    "POT",
+    "PPSX",
+    "PPTM",
+    "PPSM",
+    "POTX",
+    "POTM",
+    "ODP",
+    "ODS",
+    "TXT",
+    "XLS",
+    "XLSX",
+    "CSV",
+    "to",
+    "PDF",
+    "JPG",
+    "PNG",
+    "HTML",
+    "Markdown",
+    "XPS",
+    "MHTML",
+    "SVG",
+    "JSON",
+    "XML"
+  ],
+  "author": "Aspose",
+  "license": "End User License Agreement.html",
+  "dependencies": {
+    "java": "0.14.0"
+  },
+  "directories": {
+    "lib": "lib"
+  }
+}

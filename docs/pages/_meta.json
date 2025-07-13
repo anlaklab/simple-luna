@@ -1,0 +1,30 @@
+{
+  "index": "Introduction",
+  "architecture": "Architecture",
+  "api": "API Reference",
+  "deployment": "Deployment",
+  "development": "Development",
+  "-- Guides": {
+    "type": "separator",
+    "title": "Guides"
+  },
+  "CLAUDE": "Claude Integration",
+  "DOCKER-SETUP": "Docker Setup",
+  "DOCKER-DYNAMIC-EXTENSIONS": "Docker Extensions",
+  "LOGGING-PLG-STACK": "Logging Stack",
+  "-- Deployment Guides": {
+    "type": "separator",
+    "title": "Deployment Guides"
+  },
+  "DEPLOYMENT-VPS": "VPS Deployment",
+  "DEPLOYMENT-DIGITALOCEAN": "DigitalOcean Deployment",
+  "PRODUCTION_DEPLOYMENT_GUIDE": "Production Guide",
+  "DEPLOYMENT_COMPLETE": "Deployment Complete",
+  "-- Status": {
+    "type": "separator",
+    "title": "Status Reports"
+  },
+  "DEPLOY-STATUS": "Deploy Status",
+  "DEPLOYMENT-SUMMARY": "Deployment Summary",
+  "FRONTEND-COMPLETION-SUMMARY": "Frontend Summary"
+}
