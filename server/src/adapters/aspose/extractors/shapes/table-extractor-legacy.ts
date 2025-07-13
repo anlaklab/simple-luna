@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Table Extractor - Specialized Shape Extractor for Table Objects
  * 

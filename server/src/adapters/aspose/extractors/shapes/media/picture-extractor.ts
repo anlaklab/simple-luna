@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Picture Extractor - Specialized Component for Picture/Image Processing
  * 

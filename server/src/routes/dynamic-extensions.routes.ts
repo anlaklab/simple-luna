@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Dynamic Extensions Routes
  * 

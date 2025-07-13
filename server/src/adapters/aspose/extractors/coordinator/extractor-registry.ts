@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Extractor Registry - Manages shape extractor registration and lookup
  * 

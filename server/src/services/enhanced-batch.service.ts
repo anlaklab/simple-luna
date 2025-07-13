@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Enhanced Batch Service - High-performance batch processing with concurrency control
  * 
@@ -622,7 +623,7 @@ export class EnhancedBatchService extends EventEmitter {
     
     // Calculate throughput
     if (job.startTime) {
-      const elapsedSeconds = (Date.now() - job.startTime.getTime()) / 1000;
+      const elapsedSeconds = async (Date.now() - job.startTime.getTime()) / 1000;
       job.progress.tasksPerSecond = elapsedSeconds > 0 ? processed / elapsedSeconds : 0;
       job.metrics.throughput = job.progress.tasksPerSecond;
       
@@ -704,7 +705,7 @@ export class EnhancedBatchService extends EventEmitter {
 
   private async waitForJobResume(jobId: string): Promise<void> {
     return new Promise((resolve) => {
-      const checkStatus = () => {
+      const checkStatus = async () => {
         const job = this.jobs.get(jobId);
         if (job && job.status === 'running') {
           resolve();

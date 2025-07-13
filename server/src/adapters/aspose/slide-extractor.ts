@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Slide Extractor - Handles slide-level extraction for Aspose.Slides
  */

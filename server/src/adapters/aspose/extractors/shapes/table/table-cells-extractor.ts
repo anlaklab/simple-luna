@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Table Cells Extractor - Specialized Component for Table Cell Processing
  * 

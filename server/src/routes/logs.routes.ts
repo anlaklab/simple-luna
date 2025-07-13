@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Logs Routes - Handle frontend logs and forward to PLG stack
  * 

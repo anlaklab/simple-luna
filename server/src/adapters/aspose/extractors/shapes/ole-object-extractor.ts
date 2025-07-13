@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * OLE Object Extractor - Specialized for OLE Objects
  * 

@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Audio Asset Extractor - Real Aspose.Slides Implementation
  * 

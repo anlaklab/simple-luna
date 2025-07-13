@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Effect Extractor - Handles shadow, glow, reflection, 3D effects
  */

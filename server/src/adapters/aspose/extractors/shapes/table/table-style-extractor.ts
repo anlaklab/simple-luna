@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Table Style Extractor - Specialized Component for Table Styling
  * 

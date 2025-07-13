@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Helper Utilities - Common functions for the Luna server
  * 
@@ -32,7 +33,7 @@ export interface ProcessedFile extends FileInfo {
 /**
  * Process uploaded file and extract metadata
  */
-export function processUploadedFile(file: any): ProcessedFile {
+export function processUploadedFile async (file: any): ProcessedFile {
   const ext = path.extname(file.originalname).toLowerCase();
   const mimeType = file.mimetype || mimeTypes.lookup(ext) || 'application/octet-stream';
   
@@ -52,7 +53,7 @@ export function processUploadedFile(file: any): ProcessedFile {
 /**
  * Validate file type against allowed types
  */
-export function validateFileType(file: FileInfo, allowedTypes: string[]): boolean {
+export function validateFileType async (file: FileInfo, allowedTypes: string[]): boolean {
   const extension = file.ext.toLowerCase();
   const mimeType = file.mimeType.toLowerCase();
   
@@ -67,14 +68,14 @@ export function validateFileType(file: FileInfo, allowedTypes: string[]): boolea
 /**
  * Validate file size
  */
-export function validateFileSize(file: FileInfo, maxSizeBytes: number): boolean {
+export function validateFileSize async (file: FileInfo, maxSizeBytes: number): boolean {
   return file.size <= maxSizeBytes;
 }
 
 /**
  * Create temporary file from buffer
  */
-export async function createTempFile(
+export async function createTempFile async (
   buffer: Buffer,
   filename: string,
   tempDir: string = './temp'
@@ -90,7 +91,7 @@ export async function createTempFile(
 /**
  * Clean up temporary files
  */
-export async function cleanupTempFiles(filePaths: string[]): Promise<void> {
+export async function cleanupTempFiles async (filePaths: string[]): Promise<void> {
   const cleanupPromises = filePaths.map(async (filePath) => {
     try {
       await fs.unlink(filePath);
@@ -105,7 +106,7 @@ export async function cleanupTempFiles(filePaths: string[]): Promise<void> {
 /**
  * Ensure directory exists
  */
-export async function ensureDirectoryExists(dirPath: string): Promise<void> {
+export async function ensureDirectoryExists async (dirPath: string): Promise<void> {
   try {
     await fs.mkdir(dirPath, { recursive: true });
   } catch (error: any) {
@@ -122,7 +123,7 @@ export async function ensureDirectoryExists(dirPath: string): Promise<void> {
 /**
  * Generate a safe filename from string
  */
-export function sanitizeFilename(filename: string): string {
+export function sanitizeFilename async (filename: string): string {
   return filename
     .replace(/[^a-z0-9\-_.]/gi, '_')
     .replace(/_{2,}/g, '_')
@@ -133,7 +134,7 @@ export function sanitizeFilename(filename: string): string {
 /**
  * Truncate text to specified length
  */
-export function truncateText(text: string, maxLength: number, suffix: string = '...'): string {
+export function truncateText async (text: string, maxLength: number, suffix: string = '...'): string {
   if (text.length <= maxLength) {
     return text;
   }
@@ -144,7 +145,7 @@ export function truncateText(text: string, maxLength: number, suffix: string = '
 /**
  * Extract text content from presentation schema
  */
-export function extractTextFromPresentation(presentation: any): string {
+export function extractTextFromPresentation async (presentation: any): string {
   const textParts: string[] = [];
   
   if (presentation.slides) {
@@ -169,14 +170,14 @@ export function extractTextFromPresentation(presentation: any): string {
 /**
  * Count words in text
  */
-export function countWords(text: string): number {
+export function countWords async (text: string): number {
   return text.trim().split(/\s+/).filter(word => word.length > 0).length;
 }
 
 /**
  * Count characters in text (excluding whitespace)
  */
-export function countCharacters(text: string, includeSpaces: boolean = true): number {
+export function countCharacters async (text: string, includeSpaces: boolean = true): number {
   return includeSpaces ? text.length : text.replace(/\s/g, '').length;
 }
 
@@ -187,7 +188,7 @@ export function countCharacters(text: string, includeSpaces: boolean = true): nu
 /**
  * Validate email format
  */
-export function isValidEmail(email: string): boolean {
+export function isValidEmail async (email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 }
@@ -195,7 +196,7 @@ export function isValidEmail(email: string): boolean {
 /**
  * Validate URL format
  */
-export function isValidUrl(url: string): boolean {
+export function isValidUrl async (url: string): boolean {
   try {
     new URL(url);
     return true;
@@ -207,7 +208,7 @@ export function isValidUrl(url: string): boolean {
 /**
  * Validate hex color format
  */
-export function isValidHexColor(color: string): boolean {
+export function isValidHexColor async (color: string): boolean {
   const hexColorRegex = /^#[0-9A-Fa-f]{6}$/;
   return hexColorRegex.test(color);
 }
@@ -215,7 +216,7 @@ export function isValidHexColor(color: string): boolean {
 /**
  * Validate language code (2-letter ISO 639-1)
  */
-export function isValidLanguageCode(code: string): boolean {
+export function isValidLanguageCode async (code: string): boolean {
   const languageCodeRegex = /^[a-z]{2}$/;
   return languageCodeRegex.test(code);
 }
@@ -227,7 +228,7 @@ export function isValidLanguageCode(code: string): boolean {
 /**
  * Convert bytes to human readable format
  */
-export function formatBytes(bytes: number, decimals: number = 2): string {
+export function formatBytes async (bytes: number, decimals: number = 2): string {
   if (bytes === 0) return '0 Bytes';
 
   const k = 1024;
@@ -242,7 +243,7 @@ export function formatBytes(bytes: number, decimals: number = 2): string {
 /**
  * Convert milliseconds to human readable duration
  */
-export function formatDuration(milliseconds: number): string {
+export function formatDuration async (milliseconds: number): string {
   const seconds = Math.floor(milliseconds / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
@@ -316,7 +317,7 @@ export function deepMerge<T extends Record<string, any>>(target: T, ...sources: 
   return deepMerge(target, ...sources);
 }
 
-function isObject(item: any): boolean {
+function isObject async (item: any): boolean {
   return item && typeof item === 'object' && !Array.isArray(item);
 }
 
@@ -327,7 +328,7 @@ function isObject(item: any): boolean {
 /**
  * Sleep for specified milliseconds
  */
-export function sleep(ms: number): Promise<void> {
+export function sleep async (ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
@@ -394,7 +395,7 @@ export async function limitConcurrency<T>(
 /**
  * Generate cryptographically secure random string
  */
-export function generateSecureToken(length: number = 32): string {
+export function generateSecureToken async (length: number = 32): string {
   const crypto = require('crypto');
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
@@ -412,7 +413,7 @@ export function generateSecureToken(length: number = 32): string {
 /**
  * Hash string using simple algorithm (for non-security purposes)
  */
-export function simpleHash(str: string): string {
+export function simpleHash async (str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
@@ -429,7 +430,7 @@ export function simpleHash(str: string): string {
 /**
  * Get environment variable with default value
  */
-export function getEnvVar(name: string, defaultValue?: string): string {
+export function getEnvVar async (name: string, defaultValue?: string): string {
   const value = process.env[name];
   if (value === undefined) {
     if (defaultValue !== undefined) {
@@ -443,7 +444,7 @@ export function getEnvVar(name: string, defaultValue?: string): string {
 /**
  * Get environment variable as number
  */
-export function getEnvVarAsNumber(name: string, defaultValue?: number): number {
+export function getEnvVarAsNumber async (name: string, defaultValue?: number): number {
   const value = process.env[name];
   if (value === undefined) {
     if (defaultValue !== undefined) {
@@ -463,7 +464,7 @@ export function getEnvVarAsNumber(name: string, defaultValue?: number): number {
 /**
  * Get environment variable as boolean
  */
-export function getEnvVarAsBoolean(name: string, defaultValue?: boolean): boolean {
+export function getEnvVarAsBoolean async (name: string, defaultValue?: boolean): boolean {
   const value = process.env[name];
   if (value === undefined) {
     if (defaultValue !== undefined) {
@@ -478,20 +479,20 @@ export function getEnvVarAsBoolean(name: string, defaultValue?: boolean): boolea
 /**
  * Check if running in development mode
  */
-export function isDevelopment(): boolean {
+export function isDevelopment async (): boolean {
   return process.env.NODE_ENV === 'development';
 }
 
 /**
  * Check if running in production mode
  */
-export function isProduction(): boolean {
+export function isProduction async (): boolean {
   return process.env.NODE_ENV === 'production';
 }
 
 /**
  * Check if running in test mode
  */
-export function isTest(): boolean {
+export function isTest async (): boolean {
   return process.env.NODE_ENV === 'test';
 } 

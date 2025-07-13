@@ -1,3 +1,4 @@
+import { z } from "zod";
 // 🔧 Presentation Service - Simplified for deployment compatibility
 // Core presentation management service
 

@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Health Check Service - Comprehensive dependency verification
  * 
@@ -415,7 +416,7 @@ export class HealthCheckService {
       const memoryUsage = process.memoryUsage();
       const totalMemoryMB = Math.round(memoryUsage.heapTotal / 1024 / 1024);
       const usedMemoryMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
-      const memoryUsagePercent = (usedMemoryMB / totalMemoryMB) * 100;
+      const memoryUsagePercent = async (usedMemoryMB / totalMemoryMB) * 100;
       
       const responseTime = Date.now() - startTime;
       

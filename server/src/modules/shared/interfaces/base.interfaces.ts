@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Base Interfaces - CrewAI/LangChain Style Architecture
  * 

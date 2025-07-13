@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Media Extractor - Specialized Shape Extractor for Media Objects
  * 

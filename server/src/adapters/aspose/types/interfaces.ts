@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Aspose Adapter Service Interfaces
  * 

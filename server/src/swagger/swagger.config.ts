@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Swagger/OpenAPI Configuration - Dynamic Auto-Discovery
  * 
@@ -19,7 +20,7 @@ import { glob } from 'glob';
  * Dynamically discover all TypeScript files with potential Swagger documentation
  * Uses glob patterns to find all .ts files in relevant directories
  */
-function resolveSourcePaths(): string[] {
+function resolveSourcePaths async (): string[] {
   // In production, we need to check both .ts and .js files
   const isProduction = process.env.NODE_ENV === 'production';
   const fileExtensions = isProduction ? ['.js', '.ts'] : ['.ts'];
@@ -95,7 +96,7 @@ function resolveSourcePaths(): string[] {
 /**
  * Check if swagger-jsdoc can process the discovered files
  */
-function validateSwaggerSources(apiPaths: string[]): string[] {
+function validateSwaggerSources async (apiPaths: string[]): string[] {
   const validPaths: string[] = [];
   
   for (const apiPath of apiPaths) {
@@ -840,7 +841,7 @@ To add or modify endpoint documentation, update the @swagger comments in the res
 // DYNAMIC SERVER URL GENERATION (Enhanced)
 // =============================================================================
 
-export function generateSwaggerSpec(req?: Request): object {
+export function generateSwaggerSpec async (req?: Request): object {
   console.log('🔄 Swagger: Generating dynamic API specification...');
   
   try {

@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Conversion Service - Main business logic for file conversions
  * 

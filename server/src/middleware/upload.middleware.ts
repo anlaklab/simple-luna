@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Upload Middleware - Advanced file upload handling with tier-based limits
  * 
@@ -37,7 +38,7 @@ interface RequestWithTier extends Request {
 /**
  * Creates a multer upload middleware with tier-based validation
  */
-export function createUploadMiddleware(options: UploadOptions = {}) {
+export function createUploadMiddleware async (options: UploadOptions = {}) {
   const {
     maxFileSize = parseInt(process.env.MAX_FILE_SIZE || '52428800'), // 50MB default
     allowedMimeTypes = [
@@ -305,7 +306,7 @@ export const validateUploadWithTiers = async (
 /**
  * Enhanced multer error handler
  */
-export const handleUploadError = (
+export const handleUploadError = async (
   error: any,
   req: Request,
   res: Response,
@@ -387,7 +388,7 @@ export const handleUploadError = (
 /**
  * Format bytes to human readable string
  */
-function formatBytes(bytes: number): string {
+function formatBytes async (bytes: number): string {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];

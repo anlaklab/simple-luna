@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Asset Metadata Service - Comprehensive Metadata Generation
  * 

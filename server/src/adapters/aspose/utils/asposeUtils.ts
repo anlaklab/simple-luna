@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Aspose Utilities
  * 
@@ -13,7 +14,7 @@ import { ValidationError, FileStats } from '../types/interfaces';
 // FILE VALIDATION UTILITIES
 // =============================================================================
 
-export async function validateFile(filePath: string, maxSize?: number): Promise<boolean> {
+export async function validateFile async (filePath: string, maxSize?: number): Promise<boolean> {
   try {
     const stats = await fs.stat(filePath);
     
@@ -35,7 +36,7 @@ export async function validateFile(filePath: string, maxSize?: number): Promise<
   }
 }
 
-export async function getFileStats(filePath: string): Promise<FileStats> {
+export async function getFileStats async (filePath: string): Promise<FileStats> {
   try {
     const stats = await fs.stat(filePath);
     const ext = path.extname(filePath).toLowerCase();
@@ -58,7 +59,7 @@ export async function getFileStats(filePath: string): Promise<FileStats> {
   }
 }
 
-export function getFileSize(filePath: string): number {
+export function getFileSize async (filePath: string): number {
   try {
     const stats = require('fs').statSync(filePath);
     return stats.size;
@@ -71,7 +72,7 @@ export function getFileSize(filePath: string): number {
 // COLOR UTILITIES
 // =============================================================================
 
-export function colorToHex(color: any): string {
+export function colorToHex async (color: any): string {
   try {
     if (!color) return '#000000';
     
@@ -107,7 +108,7 @@ export function colorToHex(color: any): string {
   }
 }
 
-export function formatColor(color: any): string {
+export function formatColor async (color: any): string {
   return colorToHex(color);
 }
 
@@ -115,7 +116,7 @@ export function formatColor(color: any): string {
 // SHAPE TYPE MAPPING
 // =============================================================================
 
-export function mapShapeType(asposeShapeType: any): string {
+export function mapShapeType async (asposeShapeType: any): string {
   try {
     if (!asposeShapeType) return 'Unknown';
     
@@ -151,7 +152,7 @@ export function mapShapeType(asposeShapeType: any): string {
 // TEXT UTILITIES
 // =============================================================================
 
-export function sanitizeText(text: string): string {
+export function sanitizeText async (text: string): string {
   if (!text) return '';
   
   return text
@@ -161,7 +162,7 @@ export function sanitizeText(text: string): string {
     .trim();
 }
 
-export function extractPlainText(textFrame: any): string {
+export function extractPlainText async (textFrame: any): string {
   try {
     if (!textFrame) return '';
     
@@ -180,7 +181,7 @@ export function extractPlainText(textFrame: any): string {
 // GEOMETRY UTILITIES
 // =============================================================================
 
-export function extractGeometry(shape: any): any {
+export function extractGeometry async (shape: any): any {
   try {
     const frame = shape.getFrame();
     return {
@@ -199,7 +200,7 @@ export function extractGeometry(shape: any): any {
 // TEMP FILE UTILITIES
 // =============================================================================
 
-export async function createTempFile(content: Buffer | string, extension: string, tempDir: string): Promise<string> {
+export async function createTempFile async (content: Buffer | string, extension: string, tempDir: string): Promise<string> {
   try {
     await fs.mkdir(tempDir, { recursive: true });
     
@@ -214,7 +215,7 @@ export async function createTempFile(content: Buffer | string, extension: string
   }
 }
 
-export async function cleanupTempFile(filePath: string): Promise<void> {
+export async function cleanupTempFile async (filePath: string): Promise<void> {
   try {
     await fs.unlink(filePath);
     logger.debug('Temp file cleaned up', { filePath });
@@ -223,7 +224,7 @@ export async function cleanupTempFile(filePath: string): Promise<void> {
   }
 }
 
-export async function ensureDirectoryExists(dirPath: string): Promise<void> {
+export async function ensureDirectoryExists async (dirPath: string): Promise<void> {
   try {
     await fs.mkdir(dirPath, { recursive: true });
   } catch (error) {
@@ -236,7 +237,7 @@ export async function ensureDirectoryExists(dirPath: string): Promise<void> {
 // RESOURCE MANAGEMENT
 // =============================================================================
 
-export function safeDispose(resource: any): void {
+export function safeDispose async (resource: any): void {
   try {
     if (resource && typeof resource.dispose === 'function') {
       resource.dispose();
@@ -259,7 +260,7 @@ export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<
 // FORMAT EXTRACTION HELPERS
 // =============================================================================
 
-export function extractFillFormat(fillFormat: any): any {
+export function extractFillFormat async (fillFormat: any): any {
   try {
     if (!fillFormat) return null;
     
@@ -287,7 +288,7 @@ export function extractFillFormat(fillFormat: any): any {
   }
 }
 
-export function extractLineFormat(lineFormat: any): any {
+export function extractLineFormat async (lineFormat: any): any {
   try {
     if (!lineFormat) return null;
     
@@ -329,7 +330,7 @@ export async function measureTimeAsync<T>(fn: () => Promise<T>): Promise<{ resul
   return { result, timeMs };
 }
 
-export function formatFileSize(bytes: number): string {
+export function formatFileSize async (bytes: number): string {
   if (bytes === 0) return '0 Bytes';
   
   const k = 1024;
@@ -343,7 +344,7 @@ export function formatFileSize(bytes: number): string {
 // VALIDATION HELPERS
 // =============================================================================
 
-export function isValidPath(filePath: string): boolean {
+export function isValidPath async (filePath: string): boolean {
   try {
     return path.isAbsolute(filePath) || path.normalize(filePath) === filePath;
   } catch {
@@ -351,12 +352,12 @@ export function isValidPath(filePath: string): boolean {
   }
 }
 
-export function isValidExtension(filePath: string, allowedExtensions: string[]): boolean {
+export function isValidExtension async (filePath: string, allowedExtensions: string[]): boolean {
   const ext = path.extname(filePath).toLowerCase();
   return allowedExtensions.includes(ext);
 }
 
-export function sanitizeFileName(fileName: string): string {
+export function sanitizeFileName async (fileName: string): string {
   return fileName
     .replace(/[^a-zA-Z0-9._-]/g, '_')
     .replace(/_{2,}/g, '_')

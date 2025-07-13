@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Batch Service
  * 
@@ -898,7 +899,7 @@ export class BatchService {
     const recommendations: string[] = [];
 
     if (operation.metadata.failedItems > 0) {
-      const failureRate = (operation.metadata.failedItems / operation.metadata.totalItems) * 100;
+      const failureRate = async (operation.metadata.failedItems / operation.metadata.totalItems) * 100;
       
       if (failureRate > 20) {
         recommendations.push('High failure rate detected. Consider reviewing item validation before batch processing.');

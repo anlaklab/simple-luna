@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Shared Adapters - Centralized External Service Integration
  * 

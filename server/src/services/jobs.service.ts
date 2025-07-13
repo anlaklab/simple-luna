@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Jobs Service - Job tracking and management with Firestore
  * 

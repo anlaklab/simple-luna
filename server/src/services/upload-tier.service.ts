@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Upload Tier Service
  * 
@@ -416,7 +417,7 @@ export class UploadTierService {
 
       // Check various limits
       const exceedsFileSize = fileSize > limits.maxFileSize;
-      const exceedsStorageLimit = (tierInfo.usage.storageUsed + fileSize) > limits.maxTotalStoragePerUser;
+      const exceedsStorageLimit = async (tierInfo.usage.storageUsed + fileSize) > limits.maxTotalStoragePerUser;
       const exceedsDailyLimit = tierInfo.usage.uploadsToday >= limits.dailyUploadLimit;
       const exceedsMonthlyLimit = tierInfo.usage.uploadsThisMonth >= limits.monthlyUploadLimit;
       

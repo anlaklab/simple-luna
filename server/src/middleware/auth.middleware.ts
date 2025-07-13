@@ -1,10 +1,11 @@
+import { z } from "zod";
 // 🔒 Authentication Middleware
 // Simplified auth for development
 
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
 
-export const authenticate = (req: Request, res: Response, next: NextFunction) => {
+export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   // For development, skip authentication
   // TODO: Implement real JWT/Firebase Auth
   logger.debug('Authentication middleware - development mode (skipping)');
@@ -14,7 +15,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
 // Alias for compatibility with routes
 export const auth = authenticate;
 
-export const authorize = (roles: string[]) => {
+export const authorize = async (roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     // For development, skip authorization
     // TODO: Implement role-based authorization

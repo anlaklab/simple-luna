@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Extraction Interfaces - TypeScript Definitions for Phase 6 Componentization
  * 

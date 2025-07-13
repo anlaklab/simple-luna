@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * AsposeAdapter (Refactored) - Lightweight Facade
  * 

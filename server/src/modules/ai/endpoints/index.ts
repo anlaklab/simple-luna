@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * AI Module Endpoints - Consolidated Exports
  * 

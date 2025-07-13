@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * ChartExtension - Dynamic Extension for Chart Processing
  * 

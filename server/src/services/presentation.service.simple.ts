@@ -1,3 +1,4 @@
+import { z } from "zod";
 // 🔧 Presentation Service - Simplified for Deployment
 // Basic presentation management with Aspose.Slides integration
 

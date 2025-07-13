@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * ThumbnailService - Slide Thumbnail Generation
  */

@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Conversation Routes - AI chat endpoints for presentations
  */
@@ -537,7 +538,7 @@ router.post('/conversation', upload.single('file'), handleAsyncErrors(async (req
 /**
  * Generate presentation context for AI conversation
  */
-function generatePresentationContext(presentation: any): string {
+function generatePresentationContext async (presentation: any): string {
   const slides = presentation.slides || [];
   const metadata = presentation.metadata || {};
   
@@ -568,7 +569,7 @@ function generatePresentationContext(presentation: any): string {
 /**
  * Build system prompt based on conversation mode
  */
-function buildConversationSystemPrompt(mode: string, presentationContext: string, context: any): string {
+function buildConversationSystemPrompt async (mode: string, presentationContext: string, context: any): string {
   let systemPrompt = '';
   
   switch (mode) {
@@ -600,7 +601,7 @@ function buildConversationSystemPrompt(mode: string, presentationContext: string
 /**
  * Build user prompt with conversation history
  */
-function buildUserPrompt(message: string, conversationHistory: any[], mode: string): string {
+function buildUserPrompt async (message: string, conversationHistory: any[], mode: string): string {
   let prompt = '';
   
   if (conversationHistory.length > 0) {

@@ -2,36 +2,21 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/src', '<rootDir>/tests'],
-  testMatch: [
-    '**/tests/**/*.test.ts',
-    '**/tests/**/*.spec.ts',
-    '**/__tests__/**/*.test.ts',
-    '**/__tests__/**/*.spec.ts'
-  ],
+  testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
-      tsconfig: 'tsconfig.json'
-    }],
+    '^.+\\.ts$': 'ts-jest',
   },
   collectCoverageFrom: [
-    'src/**/*.{ts,tsx}',
+    'src/**/*.ts',
     '!src/**/*.d.ts',
-    '!src/index.ts',
-    '!src/types/**',
-    '!src/swagger/**',
+    '!src/**/*.test.ts',
+    '!src/**/*.spec.ts',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
-  testTimeout: 30000,
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
-  verbose: true,
-  clearMocks: true,
-  restoreMocks: true,
-  // Ignore Aspose.Slides library in tests (mock it instead)
-  modulePathIgnorePatterns: [
-    '<rootDir>/lib/aspose.slides.js'
-  ],
-}; 
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
+  testTimeout: 30000,
+};

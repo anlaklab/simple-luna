@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * SlideService - Individual Slide Operations
  * 

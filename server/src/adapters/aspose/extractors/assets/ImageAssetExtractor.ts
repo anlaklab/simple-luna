@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Image Asset Extractor - Real Aspose.Slides Implementation
  * 

@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * @fileoverview Granular Control Controller - Individual Slide & Shape Operations
  * 

@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Metrics Routes - Prometheus metrics endpoint
  * 
@@ -100,11 +101,11 @@ setInterval(() => {
 }, 10000);
 
 // Middleware to track HTTP requests
-export const metricsMiddleware = (req: any, res: any, next: any) => {
+export const metricsMiddleware = async (req: any, res: any, next: any) => {
   const start = Date.now();
   
   res.on('finish', () => {
-    const duration = (Date.now() - start) / 1000;
+    const duration = async (Date.now() - start) / 1000;
     const route = req.route?.path || req.path;
     const method = req.method;
     const statusCode = res.statusCode.toString();
@@ -117,17 +118,17 @@ export const metricsMiddleware = (req: any, res: any, next: any) => {
 };
 
 // Functions to update custom metrics
-export const updateAsposeMetrics = (operation: string, status: string, duration: number) => {
+export const updateAsposeMetrics = async (operation: string, status: string, duration: number) => {
   asposeProcessingTotal.inc({ operation, status });
   asposeProcessingDuration.observe({ operation, status }, duration);
 };
 
-export const updateFirebaseMetrics = (operation: string, status: string, duration: number) => {
+export const updateFirebaseMetrics = async (operation: string, status: string, duration: number) => {
   firebaseOperationTotal.inc({ operation, status });
   firebaseOperationDuration.observe({ operation, status }, duration);
 };
 
-export const updateOpenAIMetrics = (operation: string, model: string, status: string, duration: number, tokens?: { prompt: number; completion: number }) => {
+export const updateOpenAIMetrics = async (operation: string, model: string, status: string, duration: number, tokens?: { prompt: number; completion: number }) => {
   openaiRequestTotal.inc({ operation, model, status });
   openaiRequestDuration.observe({ operation, model, status }, duration);
   
@@ -137,11 +138,11 @@ export const updateOpenAIMetrics = (operation: string, model: string, status: st
   }
 };
 
-export const updateJobsInQueue = (type: string, count: number) => {
+export const updateJobsInQueue = async (type: string, count: number) => {
   jobsInQueue.set({ type }, count);
 };
 
-export const updateActiveConnections = (count: number) => {
+export const updateActiveConnections = async (count: number) => {
   activeConnections.set(count);
 };
 
@@ -180,7 +181,7 @@ router.get('/', handleAsyncErrors(async (req, res) => {
  */
 router.get('/health', handleAsyncErrors(async (req, res) => {
   try {
-    const metricsCount = (await register.metrics()).split('\n').length;
+    const metricsCount = async (await register.metrics()).split('\n').length;
     
     res.json({
       success: true,

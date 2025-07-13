@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Luna Server - Main Express Application
  * 
@@ -295,7 +296,7 @@ app.use(errorHandler);
 /**
  * Verifies that all required directories exist and are accessible
  */
-function verifySystemDirectories(): { success: boolean; errors: string[] } {
+function verifySystemDirectories async (): { success: boolean; errors: string[] } {
   const errors: string[] = [];
   
   const requiredDirs = [
@@ -340,7 +341,7 @@ function verifySystemDirectories(): { success: boolean; errors: string[] } {
 /**
  * Verifies critical dependencies and configurations
  */
-function verifySystemDependencies(): { success: boolean; errors: string[]; warnings: string[] } {
+function verifySystemDependencies async (): { success: boolean; errors: string[]; warnings: string[] } {
   const errors: string[] = [];
   const warnings: string[] = [];
 
