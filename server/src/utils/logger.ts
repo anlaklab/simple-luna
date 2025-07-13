@@ -50,7 +50,7 @@ class Logger {
           ...(correlationId && { correlationId }),
           ...(traceId && { traceId }),
           ...(stack && { stack }),
-          ...meta,
+          ...(meta && typeof meta === 'object' ? meta : {}),
         };
         return JSON.stringify(logObject);
       })
@@ -289,19 +289,25 @@ class Logger {
   child(defaultContext: LogContext): Logger {
     const childLogger = new Logger();
     
-    // Override methods to include default context
-    const originalMethods = ['debug', 'info', 'warn', 'error', 'http', 'security', 'performance', 'business', 'aspose', 'firebase', 'openai'] as const;
+    // Override basic methods to include default context
+    const basicMethods = ['debug', 'info', 'warn'] as const;
     
-    originalMethods.forEach(method => {
+    basicMethods.forEach(method => {
       const original = childLogger[method].bind(childLogger);
-      childLogger[method] = (message: string, context?: LogContext | Error) => {
-        if (context instanceof Error) {
-          original(message, context);
-        } else {
-          original(message, { ...defaultContext, ...context });
-        }
+      childLogger[method] = (message: string, context?: LogContext) => {
+        original(message, { ...defaultContext, ...context });
       };
     });
+
+    // Override error method with special handling
+    const originalError = childLogger.error.bind(childLogger);
+    childLogger.error = (message: string, context?: LogContext | Error) => {
+      if (context instanceof Error) {
+        originalError(message, context);
+      } else {
+        originalError(message, { ...defaultContext, ...context });
+      }
+    };
 
     return childLogger;
   }

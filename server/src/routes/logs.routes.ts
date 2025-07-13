@@ -26,11 +26,11 @@ const validateLogEntry = [
  * POST /api/v1/logs
  * Receive frontend logs and forward to PLG stack
  */
-router.post('/', validateLogEntry, handleAsyncErrors(async (req, res) => {
+router.post('/', validateLogEntry, handleAsyncErrors(async (req, res, next) => {
   // Check validation results
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: {
         type: 'validation_error',
@@ -39,6 +39,7 @@ router.post('/', validateLogEntry, handleAsyncErrors(async (req, res) => {
         details: errors.array(),
       },
     });
+    return;
   }
 
   const { logs, source, sessionId } = req.body;
@@ -130,7 +131,7 @@ router.post('/', validateLogEntry, handleAsyncErrors(async (req, res) => {
  * GET /api/v1/logs/status
  * Get logging system status
  */
-router.get('/status', handleAsyncErrors(async (req, res) => {
+router.get('/status', handleAsyncErrors(async (req, res, next) => {
   try {
     const lokiStatus = logger.isLokiTransportEnabled();
     const logLevel = process.env.LOG_LEVEL || 'info';
@@ -164,7 +165,7 @@ router.get('/status', handleAsyncErrors(async (req, res) => {
  * POST /api/v1/logs/flush
  * Manually flush logs (for testing/debugging)
  */
-router.post('/flush', handleAsyncErrors(async (req, res) => {
+router.post('/flush', handleAsyncErrors(async (req, res, next) => {
   try {
     await logger.flush();
     
