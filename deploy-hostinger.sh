@@ -51,162 +51,166 @@ create_backup() {
     
     mkdir -p "$BACKUP_PATH"
     
+    # Backup current deployment
     if [ -d "$PROJECT_DIR" ]; then
-        # Backup existing project
-        cp -r "$PROJECT_DIR/.env" "$BACKUP_PATH/" 2>/dev/null || true
-        cp -r "$PROJECT_DIR/Aspose.Slides.Product.Family.lic" "$BACKUP_PATH/" 2>/dev/null || true
-        
-        # Backup Docker volumes
-        docker run --rm -v luna_uploads:/data -v "$BACKUP_PATH":/backup alpine tar czf /backup/uploads.tar.gz -C /data . 2>/dev/null || true
-        docker run --rm -v luna_logs:/data -v "$BACKUP_PATH":/backup alpine tar czf /backup/logs.tar.gz -C /data . 2>/dev/null || true
-        
+        cp -r "$PROJECT_DIR" "$BACKUP_PATH/"
         log_success "Backup created at $BACKUP_PATH"
+    else
+        log_info "No existing deployment to backup"
     fi
 }
 
-# Check prerequisites
-check_prerequisites() {
-    log_info "Checking prerequisites..."
-    
-    # Check Docker
-    if ! command -v docker &> /dev/null; then
-        log_error "Docker is not installed. Please install Docker first."
-    fi
-    
-    # Check Docker Compose
-    if ! command -v docker-compose &> /dev/null; then
-        log_error "Docker Compose is not installed. Please install Docker Compose first."
-    fi
-    
-    # Check Java
-    if ! command -v java &> /dev/null; then
-        log_warning "Java is not installed. Installing OpenJDK 11..."
-        sudo apt update
-        sudo apt install -y openjdk-11-jdk
-    fi
-    
-    # Check Git
-    if ! command -v git &> /dev/null; then
-        log_error "Git is not installed. Please install Git first."
-    fi
-    
-    log_success "All prerequisites satisfied"
-}
-
-# Setup project directory
-setup_project() {
-    log_info "Setting up project directory..."
+# Update code from repository
+update_code() {
+    log_info "Updating code from repository..."
     
     # Clone or pull latest code
     if [ ! -d "$PROJECT_DIR" ]; then
         log_info "Cloning repository..."
-        git clone https://github.com/your-repo/lunaslides.git "$PROJECT_DIR"
+        git clone https://github.com/lunaslides/luna.git "$PROJECT_DIR"
     else
-        log_info "Updating repository..."
+        log_info "Pulling latest changes..."
         cd "$PROJECT_DIR"
         git fetch origin
         git reset --hard origin/main
     fi
     
-    cd "$PROJECT_DIR"
-    
-    # Create required directories
-    mkdir -p temp/{uploads,aspose,conversions}
-    mkdir -p logs
-    mkdir -p ssl
-    mkdir -p monitoring/grafana/provisioning/{dashboards,datasources}
-    mkdir -p monitoring/grafana/dashboards
-    
-    log_success "Project directory setup complete"
+    log_success "Code updated successfully"
 }
 
-# Configure environment
-configure_environment() {
-    log_info "Configuring environment..."
+# Setup environment
+setup_environment() {
+    log_info "Setting up environment..."
     
     cd "$PROJECT_DIR"
     
-    # Check if .env exists
+    # Check for .env file
     if [ ! -f .env ]; then
         if [ -f env.example ]; then
             cp env.example .env
-            log_warning ".env file created from env.example. Please edit it with your values!"
-            echo ""
-            echo "Please edit the following required values in .env:"
-            echo "  - FIREBASE_PROJECT_ID"
-            echo "  - FIREBASE_PRIVATE_KEY"
-            echo "  - FIREBASE_CLIENT_EMAIL"
-            echo "  - FIREBASE_STORAGE_BUCKET"
-            echo "  - OPENAI_API_KEY"
-            echo "  - JWT_SECRET"
-            echo "  - GRAFANA_PASSWORD"
-            echo ""
-            read -p "Press Enter after editing .env file..."
+            log_warning ".env file created from env.example. Please configure it properly!"
+            log_error "Edit .env file with your configuration before continuing"
         else
             log_error "No env.example file found!"
         fi
-    else
-        log_success ".env file already exists"
     fi
     
-    # Check Aspose license
-    if [ ! -f "Aspose.Slides.Product.Family.lic" ]; then
-        log_error "Aspose.Slides license file not found! Please copy it to $PROJECT_DIR/"
+    # Ensure required directories exist
+    mkdir -p logs
+    mkdir -p temp/uploads
+    mkdir -p temp/aspose
+    mkdir -p temp/processed
+    
+    # Set proper permissions
+    chmod -R 755 logs temp
+    
+    log_success "Environment setup complete"
+}
+
+# Ensure Docker is installed
+ensure_docker() {
+    log_info "Checking Docker installation..."
+    
+    if ! command -v docker &> /dev/null; then
+        log_error "Docker is not installed! Please install Docker first."
+    fi
+    
+    if ! command -v docker-compose &> /dev/null; then
+        log_error "Docker Compose is not installed! Please install Docker Compose first."
+    fi
+    
+    # Check if user is in docker group
+    if ! groups | grep -q docker; then
+        log_error "User $USER is not in docker group! Run: sudo usermod -aG docker $USER"
+    fi
+    
+    log_success "Docker is properly installed"
+}
+
+# Configure firewall
+configure_firewall() {
+    log_info "Configuring firewall..."
+    
+    # Check if ufw is installed
+    if command -v ufw &> /dev/null; then
+        # Allow SSH
+        sudo ufw allow 22/tcp
+        
+        # Allow HTTP and HTTPS
+        sudo ufw allow 80/tcp
+        sudo ufw allow 443/tcp
+        
+        # Allow monitoring ports (internal only)
+        sudo ufw allow from 172.16.0.0/12 to any port 3100 # Loki
+        sudo ufw allow from 172.16.0.0/12 to any port 9090 # Prometheus
+        sudo ufw allow from 172.16.0.0/12 to any port 3000 # Grafana
+        
+        # Enable firewall
+        sudo ufw --force enable
+        
+        log_success "Firewall configured"
     else
-        log_success "Aspose.Slides license file found"
+        log_warning "UFW not found, skipping firewall configuration"
     fi
 }
 
-# Run TypeScript fixes
-fix_typescript() {
-    log_info "Fixing TypeScript errors..."
+# Setup Nginx configuration
+setup_nginx() {
+    log_info "Setting up Nginx configuration..."
     
     cd "$PROJECT_DIR"
     
-    if [ -f "fix-typescript-errors.sh" ]; then
-        chmod +x fix-typescript-errors.sh
-        ./fix-typescript-errors.sh
-        log_success "TypeScript fixes applied"
-    else
-        log_warning "TypeScript fix script not found, skipping..."
+    # Create SSL directories
+    mkdir -p nginx/ssl
+    mkdir -p certbot/conf
+    mkdir -p certbot/www
+    
+    # Create dhparam if not exists
+    if [ ! -f nginx/ssl/dhparam.pem ]; then
+        log_info "Generating dhparam.pem (this may take a while)..."
+        openssl dhparam -out nginx/ssl/dhparam.pem 2048
     fi
+    
+    log_success "Nginx configuration ready"
 }
 
-# Setup monitoring
+# Setup monitoring stack
 setup_monitoring() {
-    log_info "Setting up monitoring configuration..."
+    log_info "Setting up monitoring stack..."
     
     cd "$PROJECT_DIR"
     
-    # Check if monitoring configs exist
-    if [ ! -f "monitoring/prometheus.yml" ]; then
-        log_warning "Monitoring configurations not found. Creating from script..."
-        if [ -f "fix-typescript-errors.sh" ]; then
-            # The script will create monitoring configs
-            ./fix-typescript-errors.sh
-        fi
-    fi
+    # Create monitoring directories
+    mkdir -p monitoring/prometheus/data
+    mkdir -p monitoring/grafana/data
+    mkdir -p monitoring/loki/data
     
-    log_success "Monitoring configuration complete"
+    # Set proper permissions for Grafana
+    sudo chown -R 472:472 monitoring/grafana/data
+    
+    # Set proper permissions for Prometheus
+    sudo chown -R 65534:65534 monitoring/prometheus/data
+    
+    # Set proper permissions for Loki
+    sudo chown -R 10001:10001 monitoring/loki/data
+    
+    log_success "Monitoring stack configured"
 }
 
 # Setup SSL certificates
 setup_ssl() {
     log_info "Checking SSL certificates..."
     
-    cd "$PROJECT_DIR"
-    
-    # Check if certificates already exist
     if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
         log_success "SSL certificates already exist"
     else
         log_info "SSL certificates not found. Setting up Let's Encrypt..."
         
         # Stop services if running
-        docker-compose -f docker-compose.hostinger.yml down 2>/dev/null || true
+        docker-compose down 2>/dev/null || true
         
         # Generate certificates
-        docker-compose -f docker-compose.hostinger.yml run --rm certbot certonly \
+        docker-compose run --rm certbot certonly \
             --webroot \
             --webroot-path=/var/www/certbot \
             --email admin@$DOMAIN \
@@ -230,7 +234,7 @@ build_images() {
     cd "$PROJECT_DIR"
     
     # Build all images
-    docker-compose -f docker-compose.hostinger.yml build --no-cache
+    docker-compose build --no-cache
     
     if [ $? -eq 0 ]; then
         log_success "Docker images built successfully"
@@ -246,117 +250,97 @@ deploy_services() {
     cd "$PROJECT_DIR"
     
     # Stop existing services
-    docker-compose -f docker-compose.hostinger.yml down
+    docker-compose down
     
     # Start services
-    docker-compose -f docker-compose.hostinger.yml up -d
+    docker-compose up -d
     
     if [ $? -eq 0 ]; then
         log_success "Services deployed successfully"
     else
         log_error "Failed to deploy services"
     fi
-    
-    # Wait for services to be ready
-    log_info "Waiting for services to be ready..."
-    sleep 30
 }
 
-# Verify deployment
-verify_deployment() {
-    log_info "Verifying deployment..."
+# Health check
+health_check() {
+    log_info "Performing health check..."
     
-    # Check container status
-    log_info "Checking container status..."
-    docker-compose -f docker-compose.hostinger.yml ps
+    cd "$PROJECT_DIR"
+    
+    # Wait for services to start
+    sleep 10
+    
+    # Check if containers are running
+    docker-compose ps
     
     # Check API health
-    log_info "Checking API health..."
-    curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/v1/health || log_warning "API health check failed"
-    
-    # Check frontend
-    log_info "Checking frontend..."
-    curl -s -o /dev/null -w "%{http_code}" http://localhost || log_warning "Frontend check failed"
+    if curl -f http://localhost:3000/api/v1/health > /dev/null 2>&1; then
+        log_success "API is healthy"
+    else
+        log_warning "API health check failed"
+    fi
     
     # Check Nginx
-    log_info "Checking Nginx..."
-    docker-compose -f docker-compose.hostinger.yml exec luna-nginx nginx -t || log_warning "Nginx config test failed"
+    docker-compose exec luna-nginx nginx -t || log_warning "Nginx config test failed"
     
-    log_success "Deployment verification complete"
+    log_info "Deployment complete!"
 }
 
-# Setup cron jobs
-setup_cron() {
-    log_info "Setting up cron jobs..."
-    
-    # SSL renewal
-    (crontab -l 2>/dev/null | grep -v "renew-certs.sh"; echo "0 0 * * 0 $PROJECT_DIR/renew-certs.sh >> $HOME/cert-renewal.log 2>&1") | crontab -
-    
-    # Backup
-    (crontab -l 2>/dev/null | grep -v "backup.sh"; echo "0 2 * * * $PROJECT_DIR/backup.sh >> $HOME/backup.log 2>&1") | crontab -
-    
-    # Cleanup
-    (crontab -l 2>/dev/null | grep -v "cleanup-temp"; echo "0 3 * * * find $PROJECT_DIR/temp -type f -mtime +7 -delete >> $HOME/cleanup.log 2>&1") | crontab -
-    
-    log_success "Cron jobs configured"
-}
-
-# Print summary
-print_summary() {
-    echo ""
-    echo "======================================"
-    echo -e "${GREEN}🎉 Deployment Complete!${NC}"
-    echo "======================================"
-    echo ""
-    echo "🌐 URLs:"
-    echo "   - Frontend: https://$DOMAIN"
-    echo "   - API: https://$DOMAIN/api/v1"
-    echo "   - API Docs: https://$DOMAIN/api/docs"
-    echo "   - Grafana: https://$DOMAIN:3001"
-    echo "   - Prometheus: http://$(hostname -I | awk '{print $1}'):9090"
-    echo ""
-    echo "📊 Monitoring:"
-    echo "   - Grafana user: admin"
-    echo "   - Grafana password: (check .env file)"
-    echo ""
-    echo "📁 Logs:"
-    echo "   - View logs: docker-compose -f docker-compose.hostinger.yml logs -f"
-    echo "   - API logs: docker-compose -f docker-compose.hostinger.yml logs -f luna-server"
-    echo ""
-    echo "🔧 Maintenance:"
-    echo "   - Update: git pull && docker-compose -f docker-compose.hostinger.yml up -d --build"
-    echo "   - Restart: docker-compose -f docker-compose.hostinger.yml restart"
-    echo "   - Stop: docker-compose -f docker-compose.hostinger.yml down"
-    echo ""
-    echo "⚠️  Next Steps:"
-    echo "   1. Configure your domain DNS to point to this server"
-    echo "   2. Import Grafana dashboards (IDs: 1860, 893, 11133)"
-    echo "   3. Set up monitoring alerts in Grafana"
-    echo "   4. Test file upload functionality"
-    echo "   5. Configure firewall rules if needed"
-    echo ""
-}
-
-# Main execution
+# Main deployment function
 main() {
-    echo "🚀 LunaSlides.com Deployment Script"
-    echo "===================================="
-    echo ""
+    echo -e "${BLUE}=== LunaSlides.com Deployment Script ===${NC}"
+    echo
     
-    # Run deployment steps
+    # Check prerequisites
     check_user
-    check_prerequisites
+    ensure_docker
+    
+    # Create backup
     create_backup
-    setup_project
-    configure_environment
-    fix_typescript
+    
+    # Update and setup
+    update_code
+    setup_environment
+    configure_firewall
+    setup_nginx
     setup_monitoring
-    setup_ssl
+    
+    # Deploy
     build_images
+    setup_ssl
     deploy_services
-    verify_deployment
-    setup_cron
-    print_summary
+    
+    # Verify
+    health_check
+    
+    echo
+    echo -e "${GREEN}=== Deployment Successful! ===${NC}"
+    echo
+    echo "🚀 LunaSlides.com is now running!"
+    echo
+    echo "📝 Next steps:"
+    echo "   - Check the site: https://$DOMAIN"
+    echo "   - Monitor status: https://$DOMAIN/monitoring"
+    echo "   - View logs: docker-compose logs -f"
+    echo "   - API logs: docker-compose logs -f luna-server"
+    echo
+    echo "🔧 Maintenance commands:"
+    echo "   - Update: git pull && docker-compose up -d --build"
+    echo "   - Restart: docker-compose restart"
+    echo "   - Stop: docker-compose down"
+    echo
+    echo "📊 Monitoring:"
+    echo "   - Grafana: http://localhost:3000 (via SSH tunnel)"
+    echo "   - Prometheus: http://localhost:9090 (via SSH tunnel)"
+    echo "   - Loki: http://localhost:3100 (via SSH tunnel)"
+    echo
+    echo "🔐 SSL Certificate renewal:"
+    echo "   - Certificates will auto-renew via cron job"
+    echo "   - Manual renewal: docker-compose run --rm certbot renew"
+    echo
+    
+    log_success "Deployment complete! 🎉"
 }
 
 # Run main function
